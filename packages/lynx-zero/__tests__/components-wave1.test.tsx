@@ -84,6 +84,53 @@ describe('Button', () => {
     });
 });
 
+describe('Button loading (#1143)', () => {
+    it('stamps the loading state, renders the spinner part first, and blocks the press', async () => {
+        let presses = 0;
+        const loading = signal({ on: true });
+        const Probe = component(() => () => (
+            <Button.Root color="secondary" loading={loading.on} onPress={() => presses++}>
+                <text>Save</text>
+            </Button.Root>
+        ));
+        const { container } = render(<Probe />);
+        const root = container.children[0]!;
+        expect(String(root.props['data-state'])).toBe('loading');
+        expect(root._class).toContain('zx-s-loading');
+        // Loading is not disabled paint: no disabled flag, but the reader hears it inert.
+        expect(root._class).not.toContain('zx-f-disabled');
+        expect(root.props['accessibility-status']).toBe('disabled');
+        const spinner = root.children[0]!;
+        expect(spinner.props['data-part']).toBe('spinner');
+        expect(spinner._class).toContain('zx-button__spinner');
+        // The spinner stamps the carrier's axes (the flat-compound rule).
+        expect(spinner._class).toContain('zx-a-color-secondary');
+        conforms(container as never, 'button');
+
+        await act(() => fireEvent.tap(root as never));
+        await act(() => fireEvent.touchStart(root as never));
+        expect(presses).toBe(0);
+        expect(root._class).not.toContain('zx-f-pressed');
+        await act(() => fireEvent.touchEnd(root as never));
+
+        await act(() => { loading.on = false; });
+        expect(root.props['data-state']).toBeUndefined();
+        expect(root.children.some((c) => c.props['data-part'] === 'spinner')).toBe(false);
+        await act(() => fireEvent.tap(root as never));
+        expect(presses).toBe(1);
+        conforms(container as never, 'button');
+    });
+
+    it('pressFeel={false} still drives the pressed flag', async () => {
+        const { container } = render(<Button.Root pressFeel={false}><text>Plain</text></Button.Root>);
+        const root = container.children[0]!;
+        await act(() => fireEvent.touchStart(root as never));
+        expect(root._class).toContain('zx-f-pressed');
+        await act(() => fireEvent.touchCancel(root as never));
+        expect(root._class).not.toContain('zx-f-pressed');
+    });
+});
+
 describe('Switch', () => {
     it('toggles through tap, renders control/thumb states, conforms', async () => {
         const changes: boolean[] = [];

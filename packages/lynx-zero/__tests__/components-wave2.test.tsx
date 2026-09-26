@@ -9,9 +9,9 @@ import { act, fireEvent, render } from '@sigx/lynx-testing';
 import type { TestNode } from '@sigx/lynx-testing';
 import { anatomies } from '@sigx/zero/anatomy';
 import {
-    Dialog, OverlayHost, Popover, Toast, clearDismissLayers, createToaster, dismissTopLayer,
+    Dialog, OverlayHost, Popover, Toast, clearDismissLayers, createToaster, dismissTopLayer, partBag,
 } from '../src/index';
-import { expectAnatomy, expectClassGrammar } from '../src/testing/index';
+import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
 
 afterEach(() => clearDismissLayers());
 
@@ -168,25 +168,53 @@ describe('Popover', () => {
     });
 });
 
+const settle = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
 describe('Toast', () => {
-    it('expiry is the store\'s job — tested headlessly under fake timers', () => {
+    it('presence and expiry are the store\'s job — tested headlessly under fake timers', () => {
         // Fake timers + the renderer's act() starve each other, so the
         // TIMED half never mixes with rendering: the store alone owns it.
         vi.useFakeTimers();
         try {
-            const toaster = createToaster();
+            const toaster = createToaster({ exitDuration: 200 });
             toaster.show({ title: 'Saved', duration: 4000 });
             toaster.show({ title: 'Sticky', duration: 0 });
             expect(toaster.toasts().map((t) => t.title)).toEqual(['Saved', 'Sticky']);
-            vi.advanceTimersByTime(4000);
+            // Created closed, open one frame later — the entry transition.
+            expect(toaster.toasts().map((t) => t.open)).toEqual([false, false]);
+            vi.advanceTimersByTime(16);
+            expect(toaster.toasts().map((t) => t.open)).toEqual([true, true]);
+            // Expiry flips to closed and keeps the node for the exit...
+            vi.advanceTimersByTime(4000 - 16);
+            expect(toaster.toasts().map((t) => [t.title, t.open])).toEqual([['Saved', false], ['Sticky', true]]);
+            // ...a second dismiss during the exit is a no-op...
+            toaster.dismiss(toaster.toasts()[0]!.id);
+            vi.advanceTimersByTime(200);
+            // ...then removes it.
             expect(toaster.toasts().map((t) => t.title)).toEqual(['Sticky']);
+            toaster.remove(toaster.toasts()[0]!.id);
+            expect(toaster.toasts()).toEqual([]);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('a toast dismissed before it opens never opens', () => {
+        vi.useFakeTimers();
+        try {
+            const toaster = createToaster({ exitDuration: 0 });
+            const id = toaster.show({ title: 'Gone', duration: 0 });
+            const kept = toaster.show({ title: 'Kept', duration: 0 });
+            toaster.dismiss(id);
+            vi.advanceTimersByTime(16);
+            expect(toaster.toasts().map((t) => [t.id, t.open])).toEqual([[kept, true]]);
         } finally {
             vi.useRealTimers();
         }
     });
 
     it('renders through the viewport, stamps placement, dismisses via close', async () => {
-        const toaster = createToaster();
+        const toaster = createToaster({ exitDuration: 0 });
         const { container } = render(
             <OverlayHost>
                 <Toast.Viewport placement="top-end" toaster={toaster} />
@@ -196,17 +224,103 @@ describe('Toast', () => {
         expect(byPart(container, 'toast', 'viewport')).toBeNull();
 
         await act(() => { toaster.show({ title: 'Saved', description: 'All good', duration: 0 }); });
-        await act(() => {});
+        await act(() => settle(40));
         const viewport = byPart(container, 'toast', 'viewport')!;
         expect(viewport).not.toBeNull();
         expect(String(viewport.props['data-placement'])).toBe('top-end');
+        // The skin's web centering (left:50% + translateX(-50%)) must not
+        // survive under the full-width strip — it shifted the viewport left.
+        expect(viewport._style['transform']).toBe('none');
+        expect(viewport._style['display']).toBe('flex');
         expect(container.textContent()).toContain('Saved');
+        const root = byPart(container, 'toast', 'root')!;
+        expect(String(root.props['data-state'])).toBe('open');
+        expect(String(root.props['data-placement'])).toBe('top-end');
         expectAnatomy(container as never, anatomies.toast);
         expectClassGrammar(container as never, anatomies.toast);
 
         const close = byPart(container, 'toast', 'close')!;
+        expect(close.props['accessibility-label']).toBe('Dismiss');
         await act(() => fireEvent.tap(close as never));
         await act(() => {});
         expect(byPart(container, 'toast', 'viewport')).toBeNull();
+    });
+
+    it('the stock composition carries color, size and an action', async () => {
+        const toaster = createToaster({ exitDuration: 0 });
+        let acted = 0;
+        const { container } = render(
+            <OverlayHost>
+                <Toast.Viewport toaster={toaster} size="lg" />
+            </OverlayHost>,
+        );
+        await act(() => {
+            toaster.show({ title: 'Deleted', color: 'error', action: { label: 'Undo', onPress: () => acted++ }, duration: 0 });
+        });
+        await act(() => settle(40));
+        const root = byPart(container, 'toast', 'root')!;
+        expect(root._class).toContain('zx-a-color-error');
+        expect(root._class).toContain('zx-a-size-lg');
+        // Default placement is bottom.
+        expect(String(byPart(container, 'toast', 'viewport')!.props['data-placement'])).toBe('bottom');
+        const action = byPart(container, 'toast', 'action')!;
+        expect(action._class).toContain('zx-a-color-error');
+        expect(container.textContent()).toContain('Undo');
+        await act(() => fireEvent.touchStart(action as never));
+        expect(action._class).toContain('zx-f-pressed');
+        await act(() => fireEvent.touchEnd(action as never));
+        await act(() => fireEvent.tap(action as never));
+        expect(acted).toBe(1);
+        expectAnatomy(container as never, anatomies.toast);
+        expectClassGrammar(container as never, anatomies.toast);
+    });
+
+    it('an enclosing ForceStates reaches the portaled cards', async () => {
+        const toaster = createToaster();
+        const { container } = render(
+            <OverlayHost>
+                <ForceStates flags={{ pressed: true }} parts={['close']}>
+                    <Toast.Viewport toaster={toaster} />
+                </ForceStates>
+            </OverlayHost>,
+        );
+        await act(() => { toaster.show({ title: 'Held', duration: 0 }); });
+        await act(() => settle(40));
+        expect(byPart(container, 'toast', 'close')!._class).toContain('zx-f-pressed');
+        expect(byPart(container, 'toast', 'root')!._class).not.toContain('zx-f-pressed');
+    });
+
+    it('the parts compose in place, outside any viewport', async () => {
+        let dismissed = 0;
+        // A static viewport part keeps the anatomy's part tree (root inside
+        // viewport) — the state-matrix gallery draws its cells the same way.
+        const { container } = render(
+            <view {...partBag(anatomies.toast, 'viewport', {})}>
+                <ForceStates flags={{ 'focus-visible': true }} parts={['action']}>
+                    <Toast.Root color="info" size="sm" onDismiss={() => dismissed++}>
+                        <Toast.Title>In place</Toast.Title>
+                        <Toast.Description>No store, no portal.</Toast.Description>
+                        <Toast.Action disabled label="Retry"><text>Retry</text></Toast.Action>
+                        <Toast.Close label="Close it"><text>x</text></Toast.Close>
+                    </Toast.Root>
+                </ForceStates>
+            </view>,
+        );
+        const root = byPart(container, 'toast', 'root')!;
+        expect(String(root.props['data-state'])).toBe('open');
+        expect(root.props['data-placement']).toBeUndefined();
+        expect(byPart(container, 'toast', 'title')!._class).toContain('zx-a-color-info');
+        const action = byPart(container, 'toast', 'action')!;
+        expect(action._class).toContain('zx-f-disabled');
+        expect(action._class).toContain('zx-f-focus-visible');
+        expect(action.props['accessibility-status']).toBe('disabled');
+        await act(() => fireEvent.touchStart(action as never));
+        expect(action._class).not.toContain('zx-f-pressed');
+        expectAnatomy(container as never, anatomies.toast);
+        expectClassGrammar(container as never, anatomies.toast);
+        const close = byPart(container, 'toast', 'close')!;
+        expect(close.props['accessibility-label']).toBe('Close it');
+        await act(() => fireEvent.tap(close as never));
+        expect(dismissed).toBe(1);
     });
 });

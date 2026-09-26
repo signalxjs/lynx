@@ -41,8 +41,11 @@ export {
 } from '@sigx/zero/behaviors/core';
 
 // Lynx implementations.
-export type { LynxPressFeedback, LynxPressFeedbackOptions } from './press.js';
-export { createPressFeedback } from './press.js';
+export type {
+    LynxMainThreadPressHandlers, LynxPressFeedback, LynxPressFeedbackOptions, LynxPressFeel, LynxPressHandlers,
+    LynxTier1PressHandlers, MainThreadTouch,
+} from './press.js';
+export { PRESSED_OPACITY, PRESSED_SCALE, createPressFeedback } from './press.js';
 export type { LynxDismissLayer } from './dismiss.js';
 export { clearDismissLayers, dismissTopLayer, openLayerCount, registerDismissLayer } from './dismiss.js';
 export type { AnchorPositionOptions, LynxAnchorPosition, LynxPlacement, ResolvedPosition } from './position.js';

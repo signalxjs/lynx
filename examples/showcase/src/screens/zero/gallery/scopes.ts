@@ -66,7 +66,9 @@ export const GALLERY_SCOPES = {
     button: {
         title: 'Button',
         axes: { color: COLORS, size: SIZES, variant: ['solid', 'outline', 'soft', 'ghost', 'dash', 'link'] },
-        states: PRESSABLE,
+        // Five states wrap to two lines per row — paged so each fits a screen.
+        states: [...PRESSABLE, { id: 'loading', label: 'loading', props: { loading: true } }],
+        rowsPerPage: 4,
     },
     switch: {
         title: 'Switch',
@@ -189,11 +191,22 @@ export const GALLERY_SCOPES = {
         cellWidth: 150,
         rowsPerPage: 4,
     },
+    // Cells are toasts composed in place (Toast.Root + parts, no store, no
+    // portal) so ForceStates reaches the action and close; `open` / `bottom`
+    // are live viewports in the overlay outlet (placement + stacking).
     toast: {
         title: 'Toast',
-        axes: {},
-        states: [],
-        extras: ['open'],
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            { id: 'close-pressed', label: 'close pressed', flags: { pressed: true }, parts: ['close'] },
+            { id: 'action-pressed', label: 'action pressed', flags: { pressed: true }, parts: ['action'] },
+            FOCUS,
+            { id: 'action-disabled', label: 'action disabled', props: { actionDisabled: true } },
+        ],
+        extras: ['open', 'bottom'],
+        cellWidth: 156,
+        rowsPerPage: 2,
     },
 } as const satisfies Record<string, GalleryScope>;
 

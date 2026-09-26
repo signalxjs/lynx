@@ -92,3 +92,8 @@ export { resolveBoxStyle, resolveSpacing } from './shared/styles.js';
 export type { Responsive } from './shared/responsive.js';
 export { resolveResponsive } from './shared/responsive.js';
 export type { TabsIndicatorProps, TabsListProps } from './components/tabs/Tabs.js';
+
+// ── Toast composition parts (#1143) ──────────────────────────────────────
+export type {
+    ToastActionData, ToastActionProps, ToastCloseProps, ToastRootProps, ToasterOptions,
+} from './components/toast/Toast.js';

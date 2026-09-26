@@ -55,9 +55,9 @@ export type ForceStatesProps =
  * `data-*` attribute, so a forced tree still passes `expectAnatomy` and
  * `expectClassGrammar`. A nearer `ForceStates` replaces an outer one.
  *
- * Reaches every part that stamps its carrier's axes (all pilot components);
- * a toast renders into the overlay outlet outside the provider tree and is
- * not forced.
+ * Reaches every part that stamps its carrier's axes (all pilot components),
+ * including a toast viewport's cards: the viewport carries the forcing
+ * across its portal into the overlay outlet.
  *
  * ```tsx
  * <ForceStates flags={{ pressed: true }}>

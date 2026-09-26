@@ -18,26 +18,53 @@ import {
     useOverlayPortal,
 } from '../src/index';
 import type { ElementLayout } from '@sigx/lynx';
+import type { LynxPressFeedback, LynxTier1PressHandlers } from '../src/index';
+
+/** The tier-1 family — what the unit renderer gets (no worklet transform). */
+const tier1 = (press: LynxPressFeedback): LynxTier1PressHandlers => {
+    if (press.mainThread) throw new Error('expected the tier-1 fallback under unit tests');
+    return press.handlers;
+};
 
 describe('createPressFeedback', () => {
     it('touch lifecycle drives the pressed flag; disabled suppresses it', () => {
         const press = createPressFeedback();
         expect(press.pressed()).toBe(false);
-        press.handlers.bindtouchstart();
+        tier1(press).bindtouchstart();
         expect(press.pressed()).toBe(true);
-        press.handlers.bindtouchend();
+        tier1(press).bindtouchend();
         expect(press.pressed()).toBe(false);
-        press.handlers.bindtouchstart();
-        press.handlers.bindtouchcancel();
+        tier1(press).bindtouchstart();
+        tier1(press).bindtouchcancel();
         expect(press.pressed()).toBe(false);
 
         let disabled = true;
         const gated = createPressFeedback({ isDisabled: () => disabled });
-        gated.handlers.bindtouchstart();
+        tier1(gated).bindtouchstart();
         expect(gated.pressed()).toBe(false);
         disabled = false;
-        gated.handlers.bindtouchstart();
+        tier1(gated).bindtouchstart();
         expect(gated.pressed()).toBe(true);
+    });
+
+    it('a part that turns disabled mid-press drops the flag at once (tier 1 too)', () => {
+        const state = signal({ disabled: false });
+        for (const feel of [true, false] as const) {
+            state.disabled = false;
+            const press = createPressFeedback({ isDisabled: () => state.disabled, feel });
+            tier1(press).bindtouchstart();
+            expect(press.pressed()).toBe(true);
+            state.disabled = true;
+            expect(press.pressed()).toBe(false);
+        }
+    });
+
+    it('falls back to tier 1 (background touch handlers) where the worklet transform did not run', () => {
+        // The unit renderer never runs the SWC worklet transform, so the
+        // main-thread feel cannot wire — the flag must still work alone.
+        const press = createPressFeedback();
+        expect(press.mainThread).toBe(false);
+        expect(Object.keys(press.handlers).sort()).toEqual(['bindtouchcancel', 'bindtouchend', 'bindtouchstart']);
     });
 });
 

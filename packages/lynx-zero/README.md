@@ -143,6 +143,33 @@ The platform spellings to know:
   (`computeOutletPosition`), so a transform shared by the anchor and the
   outlet — a screen sliding in on a navigation push — cancels out. A popup
   opened at mount (`defaultOpen`) lands where its anchor settles.
+- **Press feedback has two tiers.** Every pressable part (Button, a Tabs
+  tab, an Accordion trigger, the Popover/Dialog triggers and closes, the
+  Select trigger and items, the Toast action and close) is wired through
+  `createPressFeedback`. Tier 1 is the `pressed` flag (`zx-f-pressed`),
+  which the skin styles. Tier 2, on by default, runs on the main thread:
+  touch-down scales the touched element to `PRESSED_SCALE` (0.97) in the
+  same frame, with no thread crossing, then hands the flag to the
+  background thread. Neither tier fires while the part is disabled. Opt out
+  per Button with `pressFeel={false}`, or per custom part with
+  `createPressFeedback({ feel: false })`. `feel: { scale, opacity }` tunes
+  it; opacity is off by default, because the release has to write an
+  explicit `opacity: 1`, which would then hide a skin's disabled fade.
+  Tier 2 needs `@sigx/lynx-plugin`'s worklet transform. Without it (unit
+  tests), the handlers fall back to tier 1 alone.
+- **Button** takes `loading`: it blocks the press like `disabled`, stamps
+  the `loading` state (no disabled fade) and renders the anatomy's
+  `spinner` part before the label.
+- **Toast** follows zero's presence model. A toast is created `closed`,
+  flips to `open` a frame later so the skin's entry transition plays, and
+  `dismiss(id)` flips it back and removes it after the exit
+  (`createToaster({ exitDuration })`, 200 ms by default; `remove(id)`
+  skips the exit). A toast can carry `color` and an `action`
+  (`{ label, onPress }`), and `Toast.Viewport` takes `size`. The parts
+  compose like zero's (`Toast.Root` / `Title` / `Description` / `Action` /
+  `Close`). The viewport renders that stock composition, and the parts also
+  render in place outside any viewport (they conform inside a viewport
+  part, as the gallery draws them).
 - **Select is items-driven** over zero's collection core (`items` +
   `itemKey` / `itemLabel` / `itemValue` / `itemGroup`, an `item` slot per
   row; the model is `T | null`, or `V | null` under `itemValue`). The open
@@ -191,9 +218,10 @@ The platform spellings to know:
   `ForceStates` replaces an outer one — including one nested inside a
   carrier, which keeps that carrier's axes. It rides the axis push-down
   context (`provideVariantAxes` now returns the reader it provides, forced
-  flags included), so it reaches every pilot component except Toast, whose
-  cards mount in the overlay outlet outside the provider tree. The
-  showcase's state-matrix gallery (`/zero-gallery`) is built on it.
+  flags included), so it reaches every pilot component. That includes
+  Toast: its viewport carries the forcing across the portal to the cards
+  in the overlay outlet. The showcase's state-matrix gallery
+  (`/zero-gallery`) is built on it.
 
 ## What comes next
 

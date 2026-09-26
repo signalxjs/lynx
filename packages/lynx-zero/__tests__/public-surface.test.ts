@@ -93,6 +93,8 @@ describe('public runtime exports', () => {
                 'createId',
                 'createListController',
                 'createPressFeedback',
+                'PRESSED_OPACITY',
+                'PRESSED_SCALE',
                 'defaultItemKey',
                 'defaultItemLabel',
                 'dismissTopLayer',
