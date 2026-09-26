@@ -69,23 +69,8 @@ export type { StepsProps, StepProps, StepColor } from './feedback/Steps.js';
 // Navigation
 export { Tabs } from './navigation/Tabs.js';
 export type { TabsProps, TabProps } from './navigation/Tabs.js';
-export { NavTabBar } from './navigation/NavTabBar.js';
-export type {
-    NavTabBarProps,
-    NavTabBarPosition,
-    NavTabBarBackground,
-    NavTabRenderContext,
-} from './navigation/NavTabBar.js';
-export { NavHeader } from './navigation/NavHeader.js';
-export type {
-    NavHeaderProps,
-    NavHeaderBackground,
-} from './navigation/NavHeader.js';
-export { NavDrawer } from './navigation/NavDrawer.js';
-export type {
-    NavDrawerProps,
-    NavDrawerSide,
-} from './navigation/NavDrawer.js';
+// NavTabBar / NavHeader / NavDrawer need the optional `@sigx/lynx-navigation`
+// peer, so they live on the `@sigx/lynx-daisyui/navigation` subpath.
 // SwiperIndicator is design-system-neutral — it now lives in @sigx/lynx-zero-legacy
 // (#317) and daisy re-exports it so the public API is unchanged.
 export { SwiperIndicator } from '@sigx/lynx-zero-legacy';
@@ -141,15 +126,7 @@ export type { TextProps, TextSize, TextWeight, TextColor, TextAutoSize, TextAuto
 export { Heading } from './typography/Heading.js';
 export type { HeadingProps, HeadingLevel } from './typography/Heading.js';
 
-// Markdown — daisyUI rendering + editor theming for `@sigx/lynx-markdown`
-// (optional peer).
-export { markdownComponents } from './markdown/components.js';
-export { useMarkdownEditorTheme } from './markdown/editorTheme.js';
-export type { MarkdownEditorThemeColors } from './markdown/editorTheme.js';
-export { EditorToolbar, daisyToolbarItem } from './markdown/toolbar.js';
-export type { EditorToolbarProps } from './markdown/toolbar.js';
-
-// Emoji — daisyUI skin + themed sheet for `@sigx/lynx-emoji` (optional peer).
-export { emojiClasses, emojiClassesBottomTabs } from './emoji/components.js';
-export { EmojiPickerSheet } from './emoji/EmojiPickerSheet.js';
-export type { EmojiPickerSheetProps } from './emoji/EmojiPickerSheet.js';
+// Markdown and emoji skins need the optional `@sigx/lynx-markdown` /
+// `@sigx/lynx-emoji` (+ `@sigx/lynx-sheet`) peers, so they live on the
+// `@sigx/lynx-daisyui/markdown` and `@sigx/lynx-daisyui/emoji` subpaths. The
+// root entrypoint imports hard dependencies only (#1136).

@@ -1,5 +1,6 @@
 import { component } from '@sigx/lynx';
-import { Button, Col, NavDrawer, Text } from '@sigx/lynx-daisyui';
+import { Button, Col, Text } from '@sigx/lynx-daisyui';
+import { NavDrawer } from '@sigx/lynx-daisyui/navigation';
 import { useDrawer } from '@sigx/lynx-navigation';
 import type { DaisyComponentDemo } from '../registry.js';
 

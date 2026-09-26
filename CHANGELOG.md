@@ -11,7 +11,17 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
+- **`@sigx/lynx-daisyui`: navigation, markdown and emoji skins move to subpaths** ([#1136](https://github.com/signalxjs/lynx/issues/1136)). **Breaking.** The root barrel re-exported components that statically import the package's *optional* peers (`@sigx/lynx-navigation`, `-markdown`, `-emoji`, `-sheet`). An app that installed only `@sigx/lynx-daisyui`, as the README says, failed to bundle with `Module not found`. That included every app from `npm create @sigx -- --kind lynx --styling daisyui`. Import them from their subpaths instead, the same pattern as `@sigx/lynx-heroui/navigation`:
+  - `NavTabBar`, `NavHeader`, `NavDrawer` (+ prop types) → `@sigx/lynx-daisyui/navigation`
+  - `markdownComponents`, `useMarkdownEditorTheme`, `EditorToolbar`, `daisyToolbarItem` (+ types) → `@sigx/lynx-daisyui/markdown`
+  - `emojiClasses`, `emojiClassesBottomTabs`, `EmojiPickerSheet` (+ props) → `@sigx/lynx-daisyui/emoji`
+- **`@sigx/lynx-navigation`: `@sigx/lynx-linking` is a required peer.** It was marked optional, but the root entry imports it unconditionally (URL parsing, `useHardwareBack`, `useLinkingNav`), so it was never optional in practice.
+- **New guard:** `scripts/__tests__/optional-peers.test.mjs` fails when any package's root entry statically reaches an optional peer. Peer-dependent code goes on a subpath the app opts into.
 - **`@sigx/lynx-zero/testing`: `expectAnatomy` checks a stamped axis against its nearest provider.** A named-axis attribute is accepted only on the carrier or on a part that declares it carries that axis (zero's rule). A value pushed down below a re-carrying part must now match that part, not the carrier. Before, it was compared with the carrier and failed.
+
+### Fixed
+
+- **`@sigx/lynx-daisyui`: `Card.Actions`, `Modal.Actions`, `Tabs` and `Steps` lay out in a row again** ([#1136](https://github.com/signalxjs/lynx/issues/1136)). Their rules (`.card-actions`, `.modal-action`, `.tabs`, `.steps`) set `flex-direction: row` without `display: flex`. Lynx views use linear layout by default, so the children stacked vertically on device. The same bug hit `Rating` in #508. A new guard, `scripts/__tests__/css-flex-display.test.mjs`, fails on any package stylesheet rule that sets `flex-direction: row` without `display: flex` (on the rule itself or on the base class it modifies).
 
 ## [0.31.0] - 2026-09-22
 

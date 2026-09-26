@@ -34,6 +34,15 @@
       "@sigx/lynx-daisyui": [
         "./packages/lynx-daisyui/src/index.ts"
       ],
+      "@sigx/lynx-daisyui/navigation": [
+        "./packages/lynx-daisyui/src/navigation.ts"
+      ],
+      "@sigx/lynx-daisyui/markdown": [
+        "./packages/lynx-daisyui/src/markdown.ts"
+      ],
+      "@sigx/lynx-daisyui/emoji": [
+        "./packages/lynx-daisyui/src/emoji.ts"
+      ],
       "@sigx/lynx-dev-client": [
         "./packages/lynx-dev-client/src/index.ts"
       ],

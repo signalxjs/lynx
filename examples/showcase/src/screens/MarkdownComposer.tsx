@@ -1,13 +1,7 @@
 import { component, signal, pushOp, scheduleFlush, OP } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
-import {
-    Button,
-    Col,
-    EditorToolbar,
-    Row,
-    markdownComponents,
-    useMarkdownEditorTheme,
-} from '@sigx/lynx-daisyui';
+import { Button, Col, Row } from '@sigx/lynx-daisyui';
+import { EditorToolbar, markdownComponents, useMarkdownEditorTheme } from '@sigx/lynx-daisyui/markdown';
 import { KeyboardAvoidingView, KeyboardStickyView } from '@sigx/lynx-keyboard';
 import {
     createMentionPlugin,

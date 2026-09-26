@@ -1,6 +1,7 @@
 /* Tabs — .tabs, .tab, .tab-active */
 
 .tabs {
+  display: flex;
   flex-direction: row;
   border-bottom-width: 1px;
   border-bottom-color: var(--color-base-300);

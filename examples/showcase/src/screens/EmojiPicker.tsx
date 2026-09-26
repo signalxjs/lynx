@@ -1,6 +1,7 @@
 import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
-import { Button, Card, Col, EmojiPickerSheet, emojiClasses, Heading, Row, Text } from '@sigx/lynx-daisyui';
+import { Button, Card, Col, Heading, Row, Text } from '@sigx/lynx-daisyui';
+import { EmojiPickerSheet, emojiClasses } from '@sigx/lynx-daisyui/emoji';
 import { EmojiPicker, EmojiProvider, enData, type EmojiPickEvent } from '@sigx/lynx-emoji';
 
 /**

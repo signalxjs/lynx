@@ -1,6 +1,7 @@
 import { component } from '@sigx/lynx';
 import { AppearanceProvider } from '@sigx/lynx-appearance';
-import { NavHeader, StatusBarSync, ThemeProvider } from '@sigx/lynx-daisyui';
+import { StatusBarSync, ThemeProvider } from '@sigx/lynx-daisyui';
+import { NavHeader } from '@sigx/lynx-daisyui/navigation';
 import { NavigationRoot, Stack } from '@sigx/lynx-navigation';
 import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 import { routes } from './routes.js';
