@@ -21,6 +21,7 @@
  * not `undefined`, wherever a recipe wires the axis.
  */
 import type { Anatomy } from '@sigx/zero/contract/core';
+import type { ForcedFlags } from './axes-context.js';
 import {
     axisClass,
     dataAttr,
@@ -66,6 +67,11 @@ export interface PartBagOptions {
     placement?: string;
     /** Consumer classes, appended last so they can override by order. */
     class?: string;
+    /**
+     * Display-forced flags (from `partAxes`, set by `ForceStates`): applied
+     * over `flags` for the flags this part's anatomy declares.
+     */
+    forced?: ForcedFlags;
 }
 
 /**
@@ -91,9 +97,11 @@ export function partBag(anatomy: Anatomy, part: string, options: PartBagOptions 
             .filter(([, value]) => value !== undefined),
     );
 
+    const flags = withForcedFlags(options.flags, options.forced, part, spec.flags);
+
     const classes: string[] = [partClass(anatomy.scope, part)];
     if (options.state) classes.push(stateClass(options.state));
-    for (const [flag, on] of Object.entries(options.flags ?? {})) {
+    for (const [flag, on] of Object.entries(flags ?? {})) {
         if (on) classes.push(flagClass(flag));
     }
     for (const [axis, value] of Object.entries({ color, size, variant, ...customAxes })) {
@@ -115,9 +123,31 @@ export function partBag(anatomy: Anatomy, part: string, options: PartBagOptions 
     if (options.state) bag['data-state'] = options.state;
     if (options.orientation) bag['data-orientation'] = options.orientation;
     if (options.placement) bag['data-placement'] = options.placement;
-    for (const [flag, on] of Object.entries(options.flags ?? {})) {
+    for (const [flag, on] of Object.entries(flags ?? {})) {
         const value = dataAttr(on);
         if (value !== undefined) bag[`data-${flag}`] = value;
     }
     return bag;
+}
+
+/**
+ * Lay display-forced flags over the live ones — only flags the part's
+ * anatomy declares (and only on the named parts, when narrowed), so a
+ * forced set stays inside the contract and the anatomy oracle still passes.
+ */
+function withForcedFlags(
+    flags: PartBagOptions['flags'],
+    forced: ForcedFlags | undefined,
+    part: string,
+    declared: readonly string[] | undefined,
+): PartBagOptions['flags'] {
+    if (!forced || !declared || declared.length === 0) return flags;
+    if (forced.parts && !forced.parts.includes(part)) return flags;
+    let out: Record<string, boolean | undefined> | null = null;
+    for (const [flag, on] of Object.entries(forced.flags)) {
+        if (!declared.includes(flag)) continue;
+        out ??= { ...flags };
+        out[flag] = on;
+    }
+    return out ?? flags;
 }

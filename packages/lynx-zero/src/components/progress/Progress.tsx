@@ -64,8 +64,7 @@ const ProgressRoot = component<ProgressRootProps>(({ props, slots }) => {
         if (value === null) return 30;
         return Math.min(100, Math.max(0, (value / max()) * 100));
     };
-    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size, variant: props.variant });
-    provideVariantAxes(axes);
+    const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size, variant: props.variant }));
     defineProvide(useProgressContext, () => ({ state, percent }));
 
     return () => (

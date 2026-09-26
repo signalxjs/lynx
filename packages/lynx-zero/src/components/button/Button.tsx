@@ -35,10 +35,9 @@ const ButtonRoot = component<ButtonRootProps>(({ props, slots, emit }) => {
     const field = useFieldContext();
     const disabled = () => !!props.disabled || field.disabled();
     const press = createPressFeedback({ isDisabled: disabled });
-    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, {
+    const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, {
         color: props.color, size: props.size, variant: props.variant, mods: props.mods,
-    });
-    provideVariantAxes(axes);
+    }));
 
     return () => (
         <view

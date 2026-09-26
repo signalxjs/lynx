@@ -110,7 +110,8 @@ The platform spellings to know:
   so nested overlays close innermost-first.
 - **Select is items-driven** over zero's collection core (`items` +
   `itemKey` / `itemLabel` / `itemValue` / `itemGroup`, an `item` slot per
-  row; the model is `T | null`, or `V | null` under `itemValue`); Slider is touch-driven tier 1 — the value
+  row; the model is `T | null`, or `V | null` under `itemValue`;
+  `defaultOpen` seeds the popup open); Slider is touch-driven tier 1 — the value
   paints as inline track percentages, the lynx counterpart of the web's
   runtime `--slider-percent`.
 - **`@sigx/lynx-zero/testing`** holds components to the same contract as
@@ -119,6 +120,32 @@ The platform spellings to know:
   checked against its nearest provider — the carrier, or a nearer part that
   declares it `carries` the axis) and
   `expectClassGrammar` (the classes recomputed from the data attributes).
+- **Forcing interaction states for display.** `ForceStates` (also from
+  `@sigx/lynx-zero/testing`) forces presence-only flags onto every zero
+  part below it, so a held press or a focus ring can be rendered — and
+  screenshotted — without input:
+
+  ```tsx
+  import { ForceStates } from '@sigx/lynx-zero/testing';
+
+  <ForceStates flags={{ pressed: true }}>
+      <Button color="primary"><text>Held</text></Button>
+  </ForceStates>
+  <ForceStates flags={{ 'focus-visible': true }} parts={['control']}>
+      <Switch defaultChecked />
+  </ForceStates>
+  ```
+
+  A flag lands only on parts whose anatomy declares it (`pressed` on a
+  switch's `control`, not its root), as both the `zx-f-*` class and the
+  `data-*` attribute, so a forced tree still passes both oracles. `parts`
+  narrows it further, `false` forces a flag off, and a nearer
+  `ForceStates` replaces an outer one — including one nested inside a
+  carrier, which keeps that carrier's axes. It rides the axis push-down
+  context (`provideVariantAxes` now returns the reader it provides, forced
+  flags included), so it reaches every pilot component except Toast, whose
+  cards mount in the overlay outlet outside the provider tree. The
+  showcase's state-matrix gallery (`/zero-gallery`) is built on it.
 
 ## What comes next
 

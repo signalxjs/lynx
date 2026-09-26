@@ -88,6 +88,8 @@ export type SelectRootProps<T = unknown, M = unknown> =
      */
     & Define.Prop<'defaultValue', unknown, false>
     & Define.Event<'valueChange', M>
+    /** Start with the popup open (uncontrolled; a pick or light dismiss closes it). */
+    & Define.Prop<'defaultOpen', boolean, false>
     /** The items as data — the list IS data on this platform. */
     & Define.Prop<'items', ReadonlyArray<T>, true>
     /** String identity: the item's key (default: `value` / `id` / the primitive). */
@@ -133,12 +135,12 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
     );
     // Open state is component-internal: nothing outside a select ever drives
     // its popup, and light dismiss goes through the layer stack anyway.
-    const open = createControllableState<boolean>(() => undefined, false, () => {});
+    // `defaultOpen` only seeds it (a gallery renders the popup statically).
+    const open = createControllableState<boolean>(() => undefined, props.defaultOpen ?? false, () => {});
     const field = useFieldContext();
     const disabled = () => !!props.disabled || field.disabled();
     const invalid = () => !!props.invalid || field.invalid();
-    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size, variant: props.variant });
-    provideVariantAxes(axes);
+    const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size, variant: props.variant }));
     const press = createPressFeedback({ isDisabled: disabled });
     const position = createAnchorPosition({
         placement: props.placement ?? 'bottom-start',

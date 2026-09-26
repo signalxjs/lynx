@@ -84,8 +84,7 @@ const SliderRoot = component<SliderRootProps>(({ props, emit }) => {
     const field = useFieldContext();
     const disabled = () => !!props.disabled || field.disabled();
     const invalid = () => !!props.invalid || field.invalid();
-    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size });
-    provideVariantAxes(axes);
+    const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size }));
 
     const track = useElementLayout();
     const dragging = signal(false);

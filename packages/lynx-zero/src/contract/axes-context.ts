@@ -26,9 +26,54 @@ export interface VariantAxes {
     variant?: string;
     axes?: Record<string, string | undefined>;
     mods?: Record<string, boolean | undefined>;
+    /**
+     * Display-forced flags (`ForceStates` from `@sigx/lynx-zero/testing`).
+     * Rides the axis context so every part that stamps its carrier's axes
+     * picks them up with the same `partAxes` spread — no per-component code.
+     */
+    forced?: ForcedFlags;
+}
+
+/**
+ * Flags forced on for DISPLAY — the state-matrix gallery and screenshot
+ * QA, where a held press or a keyboard focus ring cannot be produced by a
+ * tap. `partBag` applies each flag only to the parts whose anatomy declares
+ * it (so `pressed` lands on a switch's control, not its root), optionally
+ * narrowed to the named `parts`. A forced value wins over the live one,
+ * `false` included.
+ */
+export interface ForcedFlags {
+    flags: Readonly<Record<string, boolean>>;
+    /** Limit the forcing to these part names (default: every part declaring the flag). */
+    parts?: readonly string[];
 }
 
 const useVariantAxesInjectable = defineInjectable<() => VariantAxes>(() => () => ({}));
+
+const useForcedFlagsInjectable = defineInjectable<() => ForcedFlags | undefined>(() => () => undefined);
+
+/**
+ * Force flags onto every zero part below (display only) — the runtime half
+ * of `ForceStates` (`@sigx/lynx-zero/testing`), kept off the root entry.
+ * Pass a READER so the forced set can change reactively. A nearer forcing
+ * replaces an outer one.
+ *
+ * Carriers below pick it up in `provideVariantAxes`; the axes context is
+ * re-provided here too, so a forcing NESTED inside a carrier (one tab of a
+ * tab list) reaches the parts below it with the carrier's axes intact.
+ *
+ * @internal
+ */
+export function provideForcedFlags(read: () => ForcedFlags | undefined): void {
+    const inherited = useVariantAxesInjectable();
+    defineProvide(useForcedFlagsInjectable, () => read);
+    const provided = (): VariantAxes => {
+        const f = read();
+        const a = inherited();
+        return f ? { ...a, forced: f } : a;
+    };
+    defineProvide(useVariantAxesInjectable, () => provided);
+}
 
 /** Read the nearest carrier's resolved axes (empty outside any carrier). */
 export function useVariantAxes(): () => VariantAxes {
@@ -38,9 +83,20 @@ export function useVariantAxes(): () => VariantAxes {
 /**
  * Provide this scope's resolved axes to every part below. Pass a READER so
  * prop changes stay reactive — the parts re-render with the carrier.
+ *
+ * Returns the reader AS PROVIDED — the carrier's axes plus any display-forced
+ * flags from an enclosing `ForceStates` — so the carrier stamps its own part
+ * from the same source its parts read: `const axes = provideVariantAxes(…)`.
  */
-export function provideVariantAxes(read: () => VariantAxes): void {
-    defineProvide(useVariantAxesInjectable, () => read);
+export function provideVariantAxes(read: () => VariantAxes): () => VariantAxes {
+    const forced = useForcedFlagsInjectable();
+    const provided = (): VariantAxes => {
+        const f = forced();
+        const a = read();
+        return f ? { ...a, forced: f } : a;
+    };
+    defineProvide(useVariantAxesInjectable, () => provided);
+    return provided;
 }
 
 /**
@@ -81,8 +137,7 @@ export function provideCarriedAxes(
         }
         return effective ?? base;
     };
-    provideVariantAxes(read);
-    return read;
+    return provideVariantAxes(read);
 }
 
 /**
@@ -90,9 +145,10 @@ export function provideCarriedAxes(
  * with the custom ones and carries the modifiers, so a part stamps
  * everything with one spread: `partBag(anatomy, 'tab', { …, ...partAxes(axes()) })`.
  */
-export function partAxes(a: VariantAxes): Pick<PartBagOptions, 'axes' | 'mods'> {
+export function partAxes(a: VariantAxes): Pick<PartBagOptions, 'axes' | 'mods' | 'forced'> {
     return {
         axes: { color: a.color, size: a.size, variant: a.variant, ...a.axes },
         mods: a.mods,
+        forced: a.forced,
     };
 }

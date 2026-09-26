@@ -58,8 +58,7 @@ export type TimelineRootProps =
 
 const TimelineRoot = component<TimelineRootProps>(({ props, slots }) => {
     const orientation = (): Orientation => props.orientation ?? 'vertical';
-    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size });
-    provideVariantAxes(axes);
+    const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size }));
     defineProvide(useTimelineContext, () => ({ orientation }));
     return () => (
         <view {...partBag(anatomy, 'root', { orientation: orientation(), ...partAxes(axes()), class: props.class })}>
