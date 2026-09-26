@@ -95,7 +95,7 @@
         "@sigx/lynx-markdown": "workspace:^",
         "@sigx/lynx-navigation": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
-        "tailwindcss": "^4.0.0",
+        "tailwindcss": "^4.3.3",
         "typescript": "^6.0.3",
         "@sigx/lynx-sheet": "workspace:^"
     },
