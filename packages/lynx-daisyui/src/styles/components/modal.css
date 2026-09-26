@@ -33,6 +33,7 @@
 }
 
 .modal-action {
+  display: flex;
   padding: var(--padding-box);
   padding-top: var(--padding-box-compact);
   flex-direction: row;

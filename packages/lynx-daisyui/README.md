@@ -47,8 +47,17 @@ import { daisyuiPreset } from '@sigx/lynx-daisyui/preset';
   <Radio.Item value="pro" label="Pro" onSelect={(v) => setPlan(v)} />
   ```
 - **Theme switching** with `<ThemeProvider>` / `useTheme()`, a headless `themeController` singleton, per-screen themes, and scoped sub-overrides. Content themes nest freely; OS chrome (status/nav bars) follows the global theme.
-- **Navigation chrome** that pairs with [`@sigx/lynx-navigation`](https://sigx.dev/lynx/modules/navigation/overview/) — `<NavTabBar />`, `<NavHeader />`, `<SwiperIndicator>` — all built on the navigation package's public hooks.
+- **Navigation chrome** that pairs with [`@sigx/lynx-navigation`](https://sigx.dev/lynx/modules/navigation/overview/): `<NavTabBar />`, `<NavHeader />`, `<NavDrawer />`, all built on the navigation package's public hooks. (`<Tabs>` and `<SwiperIndicator>` need no peer and stay on the root entry.)
 - **Markdown integration** bridges into [`@sigx/lynx-markdown`](https://sigx.dev/lynx/modules/markdown/overview/) for themed rendering, editing and toolbar.
+- **Emoji skin** for [`@sigx/lynx-emoji`](https://sigx.dev/lynx/modules/emoji/overview/): `emojiClasses` and a themed `<EmojiPickerSheet>` (which also needs `@sigx/lynx-sheet`).
+
+These three bridges need optional peers, so each lives on its own subpath. Install the peer, then import from the subpath. The root `@sigx/lynx-daisyui` entry never pulls them in:
+
+```ts
+import { NavHeader, NavTabBar, NavDrawer } from '@sigx/lynx-daisyui/navigation'; // + @sigx/lynx-navigation
+import { markdownComponents, EditorToolbar } from '@sigx/lynx-daisyui/markdown';  // + @sigx/lynx-markdown
+import { EmojiPickerSheet, emojiClasses } from '@sigx/lynx-daisyui/emoji';        // + @sigx/lynx-emoji, @sigx/lynx-sheet
+```
 
 Full theming model, component props, and the navigation/markdown bridges are documented on the docs site.
 

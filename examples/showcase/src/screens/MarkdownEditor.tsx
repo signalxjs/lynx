@@ -1,6 +1,8 @@
 import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
-import { Button, Card, Col, EmojiPickerSheet, Heading, Row, ScrollView, Text, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
+import { Button, Card, Col, Heading, Row, ScrollView, Text } from '@sigx/lynx-daisyui';
+import { useMarkdownEditorTheme } from '@sigx/lynx-daisyui/markdown';
+import { EmojiPickerSheet } from '@sigx/lynx-daisyui/emoji';
 import {
     createMentionPlugin,
     MarkdownView,

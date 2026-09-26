@@ -14,6 +14,21 @@
             "import": "./dist/index.js",
             "default": "./dist/index.js"
         },
+        "./navigation": {
+            "types": "./dist/navigation.d.ts",
+            "import": "./dist/navigation.js",
+            "default": "./dist/navigation.js"
+        },
+        "./markdown": {
+            "types": "./dist/markdown.d.ts",
+            "import": "./dist/markdown.js",
+            "default": "./dist/markdown.js"
+        },
+        "./emoji": {
+            "types": "./dist/emoji.d.ts",
+            "import": "./dist/emoji.js",
+            "default": "./dist/emoji.js"
+        },
         "./preset": {
             "types": "./dist/preset/index.d.ts",
             "import": "./dist/preset/index.js",

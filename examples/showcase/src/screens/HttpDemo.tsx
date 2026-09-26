@@ -1,6 +1,7 @@
 import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
-import { Button, Card, Col, Heading, Progress, ScrollView, Text, markdownComponents } from '@sigx/lynx-daisyui';
+import { Button, Card, Col, Heading, Progress, ScrollView, Text } from '@sigx/lynx-daisyui';
+import { markdownComponents } from '@sigx/lynx-daisyui/markdown';
 import { FilePicker } from '@sigx/lynx-file-picker';
 import { MarkdownView, createTextStream } from '@sigx/lynx-markdown';
 // On-device the global `fetch`/`FormData` need no import (@sigx/lynx

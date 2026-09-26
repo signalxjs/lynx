@@ -1,5 +1,6 @@
 import { component, signal } from '@sigx/lynx';
-import { Col, NavTabBar, Text } from '@sigx/lynx-daisyui';
+import { Col, Text } from '@sigx/lynx-daisyui';
+import { NavTabBar } from '@sigx/lynx-daisyui/navigation';
 import type { DaisyComponentDemo } from '../registry.js';
 
 /**

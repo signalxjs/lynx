@@ -1,6 +1,7 @@
 /* Steps — .steps, .step, .step-indicator */
 
 .steps {
+  display: flex;
   gap: 4px;
 }
 

@@ -24,8 +24,9 @@ Full guides, the complete API reference, presentation modes, nested stacks and l
 pnpm add @sigx/lynx-navigation
 ```
 
-Peer-deps: `@sigx/lynx`, `@sigx/lynx-motion`. Optional but recommended:
-[`@sigx/lynx-linking`](https://sigx.dev/lynx/modules/linking/overview/) for deep-link wiring,
+Peer-deps: `@sigx/lynx`, `@sigx/lynx-icons`, `@sigx/lynx-motion`, `@sigx/lynx-sheet`, and
+[`@sigx/lynx-linking`](https://sigx.dev/lynx/modules/linking/overview/) (URL parsing,
+hardware back and deep-link wiring). Recommended:
 [`@sigx/lynx-storage`](https://sigx.dev/lynx/modules/storage/overview/) for stack persistence.
 
 ## A taste

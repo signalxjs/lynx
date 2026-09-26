@@ -18,10 +18,9 @@ import {
     Col,
     Row,
     Text,
-    emojiClassesBottomTabs,
-    markdownComponents,
-    useMarkdownEditorTheme,
 } from '@sigx/lynx-daisyui';
+import { markdownComponents, useMarkdownEditorTheme } from '@sigx/lynx-daisyui/markdown';
+import { emojiClassesBottomTabs } from '@sigx/lynx-daisyui/emoji';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { Haptics } from '@sigx/lynx-haptics';
 import { useKeyboardLift, useKeyboardLiftSV } from '@sigx/lynx-keyboard';

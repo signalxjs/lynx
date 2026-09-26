@@ -35,11 +35,6 @@
         "@sigx/lynx-motion": "workspace:^",
         "@sigx/lynx-sheet": "workspace:^"
     },
-    "peerDependenciesMeta": {
-        "@sigx/lynx-linking": {
-            "optional": true
-        }
-    },
     "devDependencies": {
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-icons": "workspace:^",
