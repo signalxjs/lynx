@@ -39,7 +39,7 @@ mobile (Lynx)**.
 
 - Node 22+
 - For Android: Android Studio (it provides the Android SDK 34+, an emulator,
-  and a JDK). Android builds need **JDK 17–23**; if `JAVA_HOME` points at a
+  and a JDK). Android builds need **JDK 17–26**; if `JAVA_HOME` points at a
   newer or older JDK, sigx uses Android Studio's bundled JDK automatically.
 - For iOS: macOS, Xcode 15+, CocoaPods
 

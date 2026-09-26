@@ -4,7 +4,7 @@
  * never disagree.
  *
  * Gradle only runs on a bounded range of JDKs. A JDK that is too new doesn't
- * fail gracefully: Gradle 8.11 on JDK 25 dies before configuring anything,
+ * fail gracefully: e.g. Gradle 8.11 on JDK 25 died before configuring anything,
  * with nothing but the version string as its error ("What went wrong:
  * 25.0.2"). So we check the major version up front and, when JAVA_HOME / PATH
  * point at an unsupported JDK, fall back to Android Studio's bundled JBR —
@@ -22,13 +22,16 @@ import { join } from 'node:path';
  * A test asserts the two agree, so bumping the wrapper forces a look at
  * {@link SUPPORTED_JDK}.
  */
-export const GRADLE_WRAPPER_VERSION = '8.11.1';
+export const GRADLE_WRAPPER_VERSION = '9.8.0';
 
 /**
- * JDK majors the template's toolchain supports: AGP 8.7 needs ≥17, Gradle
- * 8.11 runs on ≤23 (https://docs.gradle.org/current/userguide/compatibility.html).
+ * JDK majors the template's toolchain supports: AGP 9.4 needs ≥17; Gradle
+ * 9.8 runs on 17–27 (https://docs.gradle.org/current/userguide/compatibility.html).
+ * The ceiling is the newest JDK the template has actually been built on
+ * (21, 25 and 26 verified in #1149) — raise it after a real build, not from
+ * the matrix alone.
  */
-export const SUPPORTED_JDK = { min: 17, max: 23 } as const;
+export const SUPPORTED_JDK = { min: 17, max: 26 } as const;
 
 export type JdkSource = 'JAVA_HOME' | 'PATH' | 'Android Studio';
 

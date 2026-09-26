@@ -28,7 +28,7 @@ import { isSigxLynxName, rewriteCompanionDeps } from '../src/util/sigx-packages.
 import { defaultAndroidSdkRoots } from '../src/util/android-sdk.js';
 import { checkNode, classifyJdk } from '../src/doctor.js';
 
-// The exact output from the user report (JDK 25 on JAVA_HOME, Gradle 8.11.1).
+// The exact output from the original report (JDK 25 on JAVA_HOME under the old Gradle 8.11.1 wrapper).
 const JDK25_GRADLE_OUTPUT = [
     'FAILURE: Build failed with an exception.',
     '',
@@ -72,16 +72,16 @@ describe('JDK discovery', () => {
 
     it('skips a JAVA_HOME JDK that Gradle cannot run and falls back to Android Studio', () => {
         const res = resolveJdk({
-            env: { JAVA_HOME: '/jdk25' },
+            env: { JAVA_HOME: '/jdk28' },
             platform: 'linux',
             exists: () => true,
             studioHomes: ['/studio/jbr'],
-            probe: probeFrom({ '/jdk25': 25, '/studio/jbr': 21 }),
+            probe: probeFrom({ '/jdk28': 28, '/studio/jbr': 21 }),
         });
         expect(res.chosen?.source).toBe('Android Studio');
         expect(res.chosen?.major).toBe(21);
-        expect(res.found.map((j) => j.major)).toEqual([25, 21]);
-        expect(describeJdkFallback(res)).toContain('JAVA_HOME is JDK 25');
+        expect(res.found.map((j) => j.major)).toEqual([28, 21]);
+        expect(describeJdkFallback(res)).toContain('JAVA_HOME is JDK 28');
     });
 
     it('prefers a supported JAVA_HOME and says nothing about it', () => {
@@ -109,15 +109,15 @@ describe('JDK discovery', () => {
 
     it('reports every JDK it found when none is supported', () => {
         const res = resolveJdk({
-            env: { JAVA_HOME: '/jdk25' },
+            env: { JAVA_HOME: '/jdk28' },
             platform: 'linux',
             exists: () => true,
             studioHomes: [],
-            probe: probeFrom({ '/jdk25': 25 }),
+            probe: probeFrom({ '/jdk28': 28 }),
         });
         expect(res.chosen).toBeNull();
         const msg = describeNoSupportedJdk(res, 'win32');
-        expect(msg).toContain('JDK 25');
+        expect(msg).toContain('JDK 28');
         expect(msg).toContain(`JDK ${SUPPORTED_JDK.min}–${SUPPORTED_JDK.max}`);
         expect(msg).toContain('Android Studio');
     });
@@ -327,11 +327,11 @@ describe('doctor classification', () => {
     it('JDK: ok / warn-with-fallback / error, mirroring the build', () => {
         const jdk = (source: 'JAVA_HOME' | 'PATH' | 'Android Studio', major: number) => ({ source, home: `/${source}`, version: `${major}.0.0`, major });
         const studio = jdk('Android Studio', 21);
-        const tooNew = jdk('JAVA_HOME', 25);
+        const tooNew = jdk('JAVA_HOME', 28);
         expect(classifyJdk({ chosen: studio, found: [studio] }).status).toBe('ok');
         const warn = classifyJdk({ chosen: studio, found: [tooNew, studio] });
         expect(warn.status).toBe('warn');
-        expect(warn.message).toContain('JDK 25');
+        expect(warn.message).toContain('JDK 28');
         expect(warn.message).toContain('JDK 21');
         const err = classifyJdk({ chosen: null, found: [tooNew] });
         expect(err.status).toBe('error');
