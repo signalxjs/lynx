@@ -1458,13 +1458,10 @@ export function refreshAndroidManagedFiles(cwd: string, config: ResolvedConfig):
         const srcPath = join(templateDir, rel);
         if (!existsSync(srcPath)) continue;
         const destPath = join(androidProjectRoot(cwd, config), rel);
-        const bytes = readFileSync(srcPath);
-        if (existsSync(destPath) && readFileSync(destPath).equals(bytes)) continue;
         mkdirSync(dirname(destPath), { recursive: true });
-        writeFileSync(destPath, bytes);
-        refreshed++;
+        if (copyFileIfChanged(srcPath, destPath)) refreshed++;
     }
-    if (refreshed > 0) log(`Android: refreshed ${refreshed} managed config files`);
+    if (refreshed > 0) log(`Android: refreshed ${refreshed} managed files (build config + Gradle wrapper)`);
 }
 
 /**
