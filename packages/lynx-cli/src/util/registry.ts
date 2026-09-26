@@ -54,3 +54,23 @@ export function fetchLatestVersion(pkg: string, options: RegistryOptions = {}): 
     cache.set(key, version);
     return version;
 }
+
+/**
+ * The `dependencies` map a published `pkg@version` declares. Used by
+ * `upgrade` to move the core packages (`@sigx/runtime-core`, …) in step with
+ * the lynx family. Throws if the registry is unreachable.
+ */
+export function fetchPublishedDependencies(
+    pkg: string,
+    version: string,
+    options: RegistryOptions & { field?: 'dependencies' | 'peerDependencies' } = {},
+): Record<string, string> {
+    const out = execSync(`npm view ${pkg}@${version} ${options.field ?? 'dependencies'} --json`, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf-8',
+        timeout: options.timeoutMs ?? 15_000,
+    }).trim();
+    if (!out) return {};
+    const parsed: unknown = JSON.parse(out);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, string>) : {};
+}

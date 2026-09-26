@@ -8,7 +8,7 @@
  * - Keyboard shortcuts (r = reload, q = quit, etc.)
  */
 
-import { spawn, execSync, type ChildProcess } from 'node:child_process';
+import { execSync, type ChildProcess } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { request as httpRequest } from 'node:http';
@@ -16,6 +16,8 @@ import { getAllLanIPs } from './network.js';
 import { generateQR } from '@sigx/terminal';
 import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, iosDerivedDataPath, adbReverse, adbReverseRemove, forceStopApp, getDeviceCpuAbi, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
+import { runGradleWithDx } from './android-run.js';
+import { spawnCommand } from './util/spawn-command.js';
 import { androidDirName, iosDirName } from './config/paths.js';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker.js';
@@ -524,13 +526,13 @@ function createDevActions(opts: DevControlOpts): DevActions {
                     if (hasCustomApp && !row.hasApp) {
                         hooks.onPhase('building', 'gradle installDebug');
                         const androidDir = join(opts.cwd, androidDirName(opts.variant));
-                        const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
-                        await runWithBuildFilter(
-                            join(androidDir, gradleCmd),
-                            ['installDebug'],
-                            { cwd: androidDir, shell: process.platform === 'win32' },
-                            { kind: 'gradle', verbose: opts.verbose ?? false, logger: opts.logger, sink },
-                        );
+                        await runGradleWithDx(['installDebug'], {
+                            cwd: androidDir,
+                            logger: { log: sink },
+                            applicationId: opts.appId,
+                            verbose: opts.verbose,
+                            sink,
+                        });
                         invalidateDeviceStatusCache();
                     }
 
@@ -655,20 +657,17 @@ function createDevActions(opts: DevControlOpts): DevActions {
                 void (async () => {
                     opts.onBuildState?.('gradle installDebug');
                     const androidDir = join(opts.cwd, androidDirName(opts.variant));
-                    const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
                     try {
-                        await runWithBuildFilter(
-                            join(androidDir, gradleCmd),
-                            ['installDebug'],
-                            {
-                                cwd: androidDir,
-                                shell: process.platform === 'win32',
-                            },
-                            { kind: 'gradle', verbose: opts.verbose ?? false, logger: opts.logger, sink: opts.buildSink },
-                        );
-                    } catch {
+                        await runGradleWithDx(['installDebug'], {
+                            cwd: androidDir,
+                            logger: opts.logger,
+                            applicationId: opts.appId,
+                            verbose: opts.verbose,
+                            sink: opts.buildSink,
+                        });
+                    } catch (err) {
                         opts.onBuildState?.(null);
-                        opts.logger.error('Android build failed');
+                        opts.logger.error(err instanceof Error ? err.message : 'Android build failed');
                         return;
                     }
                     opts.onBuildState?.(null);
@@ -1101,7 +1100,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     // on shutdown (npx spawns npm spawns node, and SIGTERM to the top doesn't
     // propagate reliably otherwise).
     //
-    // `shell: true` is avoided because the extra /bin/sh hop plus piped stdin
+    // A POSIX shell is avoided because the extra /bin/sh hop plus piped stdin
     // causes Rspack's file watcher to stop firing (it works when rspeedy is
     // run directly but silently drops changes under shell+pipe). `ignore` for
     // stdin also keeps rspeedy from treating us as interactive.
@@ -1111,10 +1110,9 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     // FSEvents stops drowning in native-build churn. If that still misses
     // events on an exotic layout, set `SIGX_LYNX_WATCH_POLL=250` to fall
     // back to polling at the plugin level.
-    const child = spawn('npx', args, {
+    const child = spawnCommand('npx', args, {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: process.platform === 'win32',
         detached: process.platform !== 'win32',
         env: {
             ...process.env,

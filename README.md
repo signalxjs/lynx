@@ -20,24 +20,27 @@ examples → **[sigx.dev/lynx](https://sigx.dev/lynx/)**
 ## Quick start
 
 ```bash
-npm create @sigx@latest my-app
-# pick: lynx (or lynx-tailwind)
+npm create @sigx@latest my-app -- --kind lynx --styling daisyui --install
 cd my-app
-pnpm install
-pnpm dev
+npx sigx doctor        # checks Node, JDK, Android SDK, emulators, package versions
+npx sigx run:android   # builds, installs and launches on an emulator/device (or run:ios on macOS)
 ```
 
-Then in another terminal:
-
-```bash
-pnpm run:android   # or run:ios
-```
+(Run `npm create @sigx@latest` without flags for the interactive wizard —
+choose **Customize → Native mobile (Lynx)**.) `run:android` starts an emulator
+for you when nothing is connected, then keeps the dev server running with live
+reload.
 
 ## Prerequisites
 
-- Node 22+, pnpm 10+
+- Node 22+
+- For Android: Android Studio (it provides the Android SDK 34+, an emulator,
+  and a JDK). Android builds need **JDK 17–23**; if `JAVA_HOME` points at a
+  newer or older JDK, sigx uses Android Studio's bundled JDK automatically.
 - For iOS: macOS, Xcode 15+, CocoaPods
-- For Android: Android Studio + SDK Platform 34+
+
+Something off? `npx sigx doctor` names each problem with a one-line fix, and
+`--verbose` on any build command shows the full native build output.
 
 ## Versioning
 

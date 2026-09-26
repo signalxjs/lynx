@@ -3,6 +3,11 @@
  * to a target version (default: registry `latest`), then run the project's
  * package manager to install.
  *
+ * The packages the lynx family builds on move with it: `@sigx/runtime-core`,
+ * `@sigx/reactivity` and the `@sigx/cli` host are set to the ranges the
+ * target release itself declares. Bumping lynx alone leaves an old core at
+ * the app root, which fails at startup with a bare module-link error.
+ *
  * Safety rails:
  *   - Refuses to run on a dirty git tree unless --force is passed, so a
  *     failed upgrade can be cleanly rolled back with `git checkout`.
@@ -12,20 +17,21 @@
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawnCommandSync } from './util/spawn-command.js';
 import { join } from 'node:path';
-import { fetchLatestVersion } from './util/registry.js';
+import { fetchLatestVersion, fetchPublishedDependencies } from './util/registry.js';
 import {
     detectPackageManager,
     installCommand,
-    resolveBinary,
     type PackageManager,
 } from './util/package-manager.js';
 import { isDirtyTree } from './util/git.js';
 import {
     findSigxDeps,
+    COMPANION_SOURCES,
     hasNativeModule,
     readPackageJson,
+    rewriteCompanionDeps,
     rewritePackageJson,
     type SigxDep,
 } from './util/sigx-packages.js';
@@ -87,22 +93,27 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeResult
 
     const pkgJsonPath = join(cwd, 'package.json');
     const source = readFileSync(pkgJsonPath, 'utf-8');
-    const { text, changes } = rewritePackageJson(source, deps, targetVersion, { exact });
+    const { text: lynxText, changes } = rewritePackageJson(source, deps, targetVersion, { exact });
+    const { text, changes: companionChanges } = rewriteCompanionDeps(lynxText, resolveCompanionRanges(targetVersion));
+    const total = changes.length + companionChanges.length;
 
-    if (changes.length === 0) {
+    if (total === 0) {
         console.log(`  ${GREEN}✓${RESET} All ${deps.length} sigx packages already at ${targetVersion}.\n`);
         return { written: false, targetVersion, changed: 0 };
     }
 
     printDiff(changes, exact);
+    for (const c of companionChanges) {
+        console.log(`    ${pad(c.name, 30)}${DIM}${c.from}${RESET}  →  ${c.to}  ${DIM}(required by ${targetVersion})${RESET}`);
+    }
 
     if (dryRun) {
         console.log(`\n  ${DIM}--dry-run: package.json not written, install skipped.${RESET}\n`);
-        return { written: false, targetVersion, changed: changes.length };
+        return { written: false, targetVersion, changed: total };
     }
 
     writeFileSync(pkgJsonPath, text);
-    console.log(`\n  ${GREEN}✓${RESET} Updated package.json (${changes.length} ${changes.length === 1 ? 'entry' : 'entries'})`);
+    console.log(`\n  ${GREEN}✓${RESET} Updated package.json (${total} ${total === 1 ? 'entry' : 'entries'})`);
 
     const pm = detectPackageManager(cwd);
     runInstall(cwd, pm);
@@ -115,7 +126,42 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeResult
         console.log('');
     }
 
-    return { written: true, targetVersion, changed: changes.length };
+    return { written: true, targetVersion, changed: total };
+}
+
+/**
+ * Ranges the target lynx release declares for its companions, e.g.
+ * `{ '@sigx/runtime-core': '^1.0.0', '@sigx/cli': '^0.12.0' }`. Best
+ * effort: if the registry lookup fails, companions are left as they are.
+ */
+function resolveCompanionRanges(targetVersion: string): Record<string, string> {
+    const ranges: Record<string, string> = {};
+    const byDeclarer = new Map<string, Record<string, string> | null>();
+    for (const { name, declaredBy } of COMPANION_SOURCES) {
+        if (!byDeclarer.has(declaredBy)) {
+            try {
+                byDeclarer.set(declaredBy, fetchPublishedDependencies(declaredBy, targetVersion));
+            } catch {
+                byDeclarer.set(declaredBy, null);
+                console.log(`  ${YELLOW}!${RESET} ${DIM}Could not read ${declaredBy}@${targetVersion} from the registry — leaving its companion packages unchanged.${RESET}`);
+            }
+        }
+        const range = byDeclarer.get(declaredBy)?.[name];
+        if (range) ranges[name] = range;
+    }
+    // The Lynx build toolchain (@lynx-js/rspeedy, template/css-extract
+    // plugins, …) must satisfy @sigx/lynx-plugin's peer ranges, or npm stops
+    // with ERESOLVE — and its suggested `--force` is how apps end up with
+    // mismatched peers. Older templates pinned these as open `>=0.1.0`.
+    try {
+        const peers = fetchPublishedDependencies('@sigx/lynx-plugin', targetVersion, { field: 'peerDependencies' });
+        for (const [name, range] of Object.entries(peers)) {
+            if (name.startsWith('@lynx-js/')) ranges[name] = range;
+        }
+    } catch {
+        console.log(`  ${YELLOW}!${RESET} ${DIM}Could not read @sigx/lynx-plugin@${targetVersion} peers — leaving @lynx-js/* build packages unchanged.${RESET}`);
+    }
+    return ranges;
 }
 
 function resolveTarget(target: string | undefined): string {
@@ -140,7 +186,7 @@ function printDiff(changes: Array<{ dep: SigxDep; newRange: string }>, exact: bo
 function runInstall(cwd: string, pm: PackageManager): void {
     const { cmd, args } = installCommand(pm);
     console.log(`\n  ${BOLD}→ ${cmd} ${args.join(' ')}${RESET}\n`);
-    const result = spawnSync(resolveBinary(pm), args, { cwd, stdio: 'inherit' });
+    const result = spawnCommandSync(pm, args, { cwd, stdio: 'inherit' });
     if (result.status !== 0) {
         console.log(`\n  ${RED}✗ Install failed (${pm} exited with code ${result.status}).${RESET}`);
         console.log(`  ${DIM}package.json was already updated — re-run \`${pm} install\` once the issue is resolved.${RESET}\n`);

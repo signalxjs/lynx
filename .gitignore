@@ -67,3 +67,6 @@ coverage/
 .temp/
 .tmp/
 .zero-qa/
+
+# Gradle caches from running gradle inside a native template (never template content)
+packages/lynx-cli/templates/**/.gradle/

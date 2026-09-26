@@ -71,7 +71,9 @@ catalog:
   # `args.entryNames is not iterable` — release builds were spared only because
   # the tap sits behind an HMR check. `autoInstallPeers` swallowed the
   # unsatisfiable peer instead of failing the install (#1015).
-  "@lynx-js/css-extract-webpack-plugin": ">=0.10.1"
+  # Caret, not `>=`: 0.11.0 peers tpwp `^0.16.0`, so an open floor let npm
+  # pair it with the 0.15.0 pin above and fail with ERESOLVE (#1147).
+  "@lynx-js/css-extract-webpack-plugin": ^0.10.1
   "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.2.3"
   "@lynx-js/webpack-dev-transport": ">=0.3.0"
   "@lynx-js/tailwind-preset": ^0.5.0

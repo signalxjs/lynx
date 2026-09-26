@@ -10,13 +10,12 @@
  * logic needed.
  */
 
-import { spawnSync } from 'node:child_process';
+import { spawnCommandSync } from './util/spawn-command.js';
 import { fetchLatestVersion } from './util/registry.js';
 import {
     addCommand as buildAddCmd,
     detectPackageManager,
     removeCommand as buildRemoveCmd,
-    resolveBinary,
     type PackageManager,
     type RunCommand,
 } from './util/package-manager.js';
@@ -160,7 +159,7 @@ function resolveTargetVersion(cwd: string): ResolvedTarget {
 
 function runPm(cwd: string, run: RunCommand, pm: PackageManager): void {
     console.log(`\n  ${BOLD}→ ${run.cmd} ${run.args.join(' ')}${RESET}\n`);
-    const result = spawnSync(resolveBinary(pm), run.args, { cwd, stdio: 'inherit' });
+    const result = spawnCommandSync(pm, run.args, { cwd, stdio: 'inherit' });
     if (result.status !== 0) {
         console.log(`\n  ${RED}✗ ${pm} exited with code ${result.status}.${RESET}\n`);
         process.exit(result.status ?? 1);

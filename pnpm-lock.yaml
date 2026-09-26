@@ -7,7 +7,7 @@ settings:
 catalogs:
   default:
     '@lynx-js/css-extract-webpack-plugin':
-      specifier: '>=0.10.1'
+      specifier: ^0.10.1
       version: 0.10.1
     '@lynx-js/react':
       specifier: ^0.123.0

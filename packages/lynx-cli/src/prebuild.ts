@@ -128,6 +128,9 @@ function copyTemplateDir(
     const entries = readdirSync(srcDir, { withFileTypes: true });
 
     for (const entry of entries) {
+        // A Gradle cache left behind by running gradle inside the template
+        // (IDE sync, local experiments) is machine state, not template.
+        if (entry.isDirectory() && entry.name === '.gradle') continue;
         const srcPath = join(srcDir, entry.name);
 
         // Resolve directory/file name substitutions
@@ -193,9 +196,12 @@ function deriveApplicationId(name: string): string {
 }
 
 /**
- * Resolve and sanitize the Android application ID from config.
+ * Resolve and sanitize the Android application ID from config — the id the
+ * app is actually installed under. Anything that looks the app up on a
+ * device (install checks, `am start`) must use this, not the raw config
+ * value: `com.example.my-app` installs as `com.example.myapp`.
  */
-function resolveApplicationId(config: ResolvedConfig): string {
+export function resolveApplicationId(config: ResolvedConfig): string {
     const raw = config.android.applicationId ?? deriveApplicationId(config.name);
     return sanitizePackageName(raw);
 }

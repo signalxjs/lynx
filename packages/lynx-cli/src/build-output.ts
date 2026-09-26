@@ -24,6 +24,7 @@
 
 import { spawn, type SpawnOptions, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { spawnCommand } from './util/spawn-command.js';
 import type { Logger } from '@sigx/cli/plugin';
 
 export type BuildKind = 'xcodebuild' | 'gradle';
@@ -102,7 +103,7 @@ function runVerbose(
 ): Promise<void> {
     // Verbose still needs onChunk to fire (signature-mismatch detection).
     if (opts.onChunk) {
-        const child = spawn(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
+        const child = spawnCommand(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
         // Sinks treat one call as one line — buffer arbitrary chunk
         // boundaries (onChunk listeners keep getting the raw chunks).
         let chunkBuf = '';
@@ -126,7 +127,7 @@ function runVerbose(
         return awaitExit(child).finally(() => { if (chunkBuf && opts.sink) opts.sink(chunkBuf); });
     }
     if (opts.sink) {
-        const piped = spawn(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
+        const piped = spawnCommand(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
         // Line-buffer: chunk boundaries are arbitrary, and sinks treat one
         // call as one line.
         let buf = '';
@@ -141,7 +142,7 @@ function runVerbose(
         piped.stderr?.on('data', feed);
         return awaitExit(piped).finally(() => { if (buf) opts.sink!(buf); });
     }
-    const child = spawn(cmd, args, { ...spawnOpts, stdio: 'inherit' });
+    const child = spawnCommand(cmd, args, { ...spawnOpts, stdio: 'inherit' });
     return awaitExit(child);
 }
 
@@ -155,7 +156,7 @@ function runWithStreamingFilter(
     spawnOpts: SpawnOptions,
     opts: RunWithBuildFilterOptions,
 ): Promise<void> {
-    const child = spawn(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
+    const child = spawnCommand(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
     const filter = opts.kind === 'xcodebuild' ? createXcodebuildFilter(sinkEmit(opts)) : createGradleFilter(sinkEmit(opts));
 
     const wire = (stream: NodeJS.ReadableStream | null, source: 'stdout' | 'stderr') => {
@@ -178,7 +179,7 @@ function runThroughXcbeautify(
     xcbeautifyPath: string,
     opts: RunWithBuildFilterOptions,
 ): Promise<void> {
-    const build = spawn(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
+    const build = spawnCommand(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
     const beautify = spawn(xcbeautifyPath, ['--renderer', 'terminal'], {
         stdio: ['pipe', 'inherit', 'inherit'],
     });
