@@ -8,6 +8,16 @@ struct {{appNamePascal}}App: App {
     var body: some Scene {
         WindowGroup {
             ContentView(devUrl: Self.getDevUrl())
+                // A SwiftUI scene app never receives `application(_:open:)`
+                // or a launch-options URL — the scene gets them instead, so
+                // deep links (cold AND warm) are forwarded to the same
+                // package hooks from here (@sigx/lynx-linking, #1141).
+                .onOpenURL { url in
+                    _ = GeneratedAppDelegateHooks.openURL(url, options: [:])
+                }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    GeneratedAppDelegateHooks.continueUserActivity(activity)
+                }
         }
     }
 
