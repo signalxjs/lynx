@@ -29,6 +29,19 @@ function arg(name, fallback) {
     return value === undefined || value.startsWith('--') ? true : value;
 }
 
+/** A numeric flag, or a usage error: never NaN, never out of range. */
+function numArg(name, fallback, { min = -Infinity, max = Infinity, integer = false } = {}) {
+    const raw = arg(name, undefined);
+    if (raw === undefined) return fallback;
+    const value = typeof raw === 'string' ? Number(raw) : Number.NaN;
+    if (!Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
+        throw new UsageError(`--${name} must be ${integer ? 'an integer' : 'a number'} ${max === Infinity ? `≥ ${min}` : `from ${min} to ${max}`}, got ${JSON.stringify(raw)}`);
+    }
+    return value;
+}
+
+class UsageError extends Error {}
+
 export function readOwner() {
     try {
         return JSON.parse(readFileSync(OWNER, 'utf8'));
@@ -77,7 +90,7 @@ function main() {
     const cmd = process.argv[2];
     const holder = String(arg('holder', process.env.SIGX_SIM_HOLDER ?? `${userInfo().username}@${process.cwd()}`));
     if (cmd === 'acquire') {
-        const res = acquire({ holder, force: !!arg('force', false), staleMin: Number(arg('stale-min', 120)) });
+        const res = acquire({ holder, force: !!arg('force', false), staleMin: numArg('stale-min', 120, { min: 0 }) });
         if (res.ok) {
             console.log(`sim lock ${res.reentrant ? 'already held' : 'acquired'} by "${holder}" (${LOCK_DIR})`);
             return 0;
@@ -109,5 +122,11 @@ function main() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-    process.exitCode = main();
+    try {
+        process.exitCode = main();
+    } catch (err) {
+        if (!(err instanceof UsageError)) throw err;
+        console.error(err.message);
+        process.exitCode = 2;
+    }
 }

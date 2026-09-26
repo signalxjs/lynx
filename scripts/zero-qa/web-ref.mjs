@@ -38,6 +38,19 @@ function arg(name, fallback) {
     return value === undefined || value.startsWith('--') ? true : value;
 }
 
+/** A numeric flag, or a usage error: never NaN, never out of range. */
+function numArg(name, fallback, { min = -Infinity, max = Infinity, integer = false } = {}) {
+    const raw = arg(name, undefined);
+    if (raw === undefined) return fallback;
+    const value = typeof raw === 'string' ? Number(raw) : Number.NaN;
+    if (!Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
+        throw new UsageError(`--${name} must be ${integer ? 'an integer' : 'a number'} ${max === Infinity ? `≥ ${min}` : `from ${min} to ${max}`}, got ${JSON.stringify(raw)}`);
+    }
+    return value;
+}
+
+class UsageError extends Error {}
+
 /** `<parent of the lynx repo dir>/zero/main` — the sigx checkout layout. */
 function defaultZero() {
     if (process.env.ZERO_REPO) return process.env.ZERO_REPO;
@@ -106,7 +119,7 @@ async function main() {
         return 1;
     }
 
-    const port = Number(arg('port', 5299));
+    const port = numArg('port', 5299, { min: 1, max: 65535, integer: true });
     const ds = String(arg('ds', 'daisyui'));
     const colorScheme = String(arg('color-scheme', 'light'));
     const base = `http://localhost:${port}`;
@@ -186,6 +199,6 @@ async function main() {
 try {
     process.exitCode = await main();
 } catch (err) {
-    console.error(`web-ref: ${err.message}`);
-    process.exitCode = 1;
+    console.error(err instanceof UsageError ? err.message : `web-ref: ${err.message}`);
+    process.exitCode = err instanceof UsageError ? 2 : 1;
 }

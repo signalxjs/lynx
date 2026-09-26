@@ -45,6 +45,19 @@ function arg(name, fallback) {
     return value === undefined || value.startsWith('--') ? true : value;
 }
 
+/** A numeric flag, or a usage error: never NaN, never out of range. */
+function numArg(name, fallback, { min = -Infinity, max = Infinity, integer = false } = {}) {
+    const raw = arg(name, undefined);
+    if (raw === undefined) return fallback;
+    const value = typeof raw === 'string' ? Number(raw) : Number.NaN;
+    if (!Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
+        throw new UsageError(`--${name} must be ${integer ? 'an integer' : 'a number'} ${max === Infinity ? `≥ ${min}` : `from ${min} to ${max}`}, got ${JSON.stringify(raw)}`);
+    }
+    return value;
+}
+
+class UsageError extends Error {}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function simctl(...args) {
@@ -191,6 +204,11 @@ async function main() {
         for (const s of section ? [section] : gallerySections(scope)) targets.push({ scope, section: s });
     }
 
+    // Parse every flag BEFORE taking the lock: a usage error must not strand it.
+    const theme = arg('theme');
+    const bands = numArg('bands', 3, { min: 1, max: 12, integer: true });
+    const timeoutMs = numArg('timeout', 30, { min: 1, max: 600 }) * 1000;
+
     const holder = String(arg('holder', process.env.SIGX_SIM_HOLDER ?? `${userInfo().username}@${process.cwd()}`));
     const owner = readOwner();
     let tookLock = false;
@@ -208,9 +226,6 @@ async function main() {
         return 1;
     }
 
-    const theme = arg('theme');
-    const bands = Number(arg('bands', 3));
-    const timeoutMs = Number(arg('timeout', 30)) * 1000;
     const runName = String(arg('run', stamp()));
     const runDir = join(REPO, '.zero-qa', runName);
     mkdirSync(runDir, { recursive: true });
@@ -279,4 +294,10 @@ async function main() {
     return 0;
 }
 
-process.exitCode = await main();
+try {
+    process.exitCode = await main();
+} catch (err) {
+    if (!(err instanceof UsageError)) throw err;
+    console.error(err.message);
+    process.exitCode = 2;
+}
