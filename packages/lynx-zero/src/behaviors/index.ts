@@ -46,4 +46,4 @@ export { createPressFeedback } from './press.js';
 export type { LynxDismissLayer } from './dismiss.js';
 export { clearDismissLayers, dismissTopLayer, openLayerCount, registerDismissLayer } from './dismiss.js';
 export type { AnchorPositionOptions, LynxAnchorPosition, LynxPlacement, ResolvedPosition } from './position.js';
-export { computeAnchorPosition, createAnchorPosition, provideOverlayOrigin, toOutletCoordinates } from './position.js';
+export { computeAnchorPosition, computeOutletPosition, createAnchorPosition, provideOverlayOrigin, toOutletCoordinates } from './position.js';

@@ -84,6 +84,7 @@ describe('public runtime exports', () => {
                 // ── behaviors (portable re-exports + lynx implementations) ──
                 'clearDismissLayers',
                 'computeAnchorPosition',
+                'computeOutletPosition',
                 'createAnchorPosition',
                 'provideOverlayOrigin',
                 'toOutletCoordinates',

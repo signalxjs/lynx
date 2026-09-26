@@ -165,19 +165,29 @@ const PopoverTitle = component<PartProps>(({ props, slots }) => {
     );
 }, { name: 'Popover.Title' });
 
-const PopoverClose = component<PartProps>(({ props, slots }) => {
+type CloseProps =
+    & Define.Prop<'disabled', boolean, false>
+    /** Accessible name (default "Close"). */
+    & Define.Prop<'label', string, false>
+    & Define.Prop<'class', string, false>
+    & Define.Slot<'default'>;
+
+const PopoverClose = component<CloseProps>(({ props, slots }) => {
     const popover = usePopoverContext();
     const axes = useVariantAxes();
-    const press = createPressFeedback();
+    const disabled = () => !!props.disabled;
+    const press = createPressFeedback({ isDisabled: disabled });
     return () => (
         <view
             {...partBag(anatomy, 'close', {
-                flags: { pressed: press.pressed() },
+                flags: { disabled: disabled(), pressed: press.pressed() },
                 ...partAxes(axes()),
                 class: props.class,
             })}
-            {...partA11y({ trait: 'button', label: 'Close' })}
-            bindtap={() => popover?.setOpen(false)}
+            {...partA11y({ trait: 'button', label: props.label ?? 'Close', disabled: disabled() })}
+            bindtap={() => {
+                if (!disabled()) popover?.setOpen(false);
+            }}
             {...press.handlers}
         >
             {slots.default?.()}

@@ -194,25 +194,47 @@ const DialogFooter = component<PartProps>(({ props, slots }) => {
     );
 }, { name: 'Dialog.Footer' });
 
-const DialogClose = component<PartProps>(({ props, slots }) => {
-    const dialog = useDialogContext();
-    const axes = useVariantAxes();
-    const press = createPressFeedback();
-    return () => (
-        <view
-            {...partBag(anatomy, 'close', {
-                flags: { pressed: press.pressed() },
-                ...partAxes(axes()),
-                class: props.class,
-            })}
-            {...partA11y({ trait: 'button', label: 'Close' })}
-            bindtap={() => dialog.setOpen(false)}
-            {...press.handlers}
-        >
-            {slots.default?.()}
-        </view>
-    );
-}, { name: 'Dialog.Close' });
+type ActionProps =
+    & Define.Prop<'disabled', boolean, false>
+    /** Accessible name (default "Close" / "Cancel"). */
+    & Define.Prop<'label', string, false>
+    & Define.Prop<'class', string, false>
+    & Define.Slot<'default'>;
+
+/** Close and Cancel share the behavior; the part (and its default name) differs. */
+function dialogAction(part: 'close' | 'cancel', fallbackLabel: string, name: string) {
+    return component<ActionProps>(({ props, slots }) => {
+        const dialog = useDialogContext();
+        const axes = useVariantAxes();
+        const disabled = () => !!props.disabled;
+        const press = createPressFeedback({ isDisabled: disabled });
+        return () => (
+            <view
+                {...partBag(anatomy, part, {
+                    flags: { disabled: disabled(), pressed: press.pressed() },
+                    ...partAxes(axes()),
+                    class: props.class,
+                })}
+                {...partA11y({ trait: 'button', label: props.label ?? fallbackLabel, disabled: disabled() })}
+                bindtap={() => {
+                    if (!disabled()) dialog.setOpen(false);
+                }}
+                {...press.handlers}
+            >
+                {slots.default?.()}
+            </view>
+        );
+    }, { name });
+}
+
+const DialogClose = dialogAction('close', 'Close', 'Dialog.Close');
+
+/**
+ * The least-destructive action of an alert-style dialog — behaviorally a
+ * close button, a distinct part so the skin can style it as the quiet member
+ * of the pair (zero's `cancel`).
+ */
+const DialogCancel = dialogAction('cancel', 'Cancel', 'Dialog.Cancel');
 
 export const Dialog = compound(DialogRoot, {
     Root: DialogRoot,
@@ -222,4 +244,5 @@ export const Dialog = compound(DialogRoot, {
     Description: DialogDescription,
     Footer: DialogFooter,
     Close: DialogClose,
+    Cancel: DialogCancel,
 });
