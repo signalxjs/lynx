@@ -55,33 +55,41 @@ export interface LynxPressFeel {
     opacity?: number;
 }
 
-/**
- * The spreadable touch handlers. Exactly one family is present: the
- * `main-thread-*` worklets (tier 2 on) or the background `bind*` handlers
- * (tier 2 off, or no worklet transform).
- */
-export interface LynxPressHandlers {
-    bindtouchstart?: () => void;
-    bindtouchend?: () => void;
-    bindtouchcancel?: () => void;
-    'main-thread-bindtouchstart'?: (event: MainThreadTouch) => void;
-    'main-thread-bindtouchend'?: (event: MainThreadTouch) => void;
-    'main-thread-bindtouchcancel'?: (event: MainThreadTouch) => void;
+/** Tier 1 only: background touch handlers driving the pressed flag. */
+export interface LynxTier1PressHandlers {
+    bindtouchstart: () => void;
+    bindtouchend: () => void;
+    bindtouchcancel: () => void;
 }
+
+/** Tier 2: main-thread worklets (they hand the flag to the background). */
+export interface LynxMainThreadPressHandlers {
+    'main-thread-bindtouchstart': (event: MainThreadTouch) => void;
+    'main-thread-bindtouchend': (event: MainThreadTouch) => void;
+    'main-thread-bindtouchcancel': (event: MainThreadTouch) => void;
+}
+
+/** The spreadable touch handlers: exactly one family, never both. */
+export type LynxPressHandlers = LynxTier1PressHandlers | LynxMainThreadPressHandlers;
 
 /** The slice of a main-thread touch event the worklets read. */
 export interface MainThreadTouch {
     currentTarget?: MainThread.Element | null;
 }
 
-export interface LynxPressFeedback {
+interface LynxPressFeedbackBase {
     /** True while a touch is physically down on the part. */
     pressed(): boolean;
-    /** Spread onto the gesture-owning element. */
-    handlers: LynxPressHandlers;
-    /** Whether the main-thread feel is wired (false under unit tests). */
-    readonly mainThread: boolean;
 }
+
+/**
+ * Discriminated on `mainThread`: `true` when the main-thread feel is wired
+ * (the worklet family), `false` for tier 1 alone — `feel: false`, or no
+ * worklet transform (unit tests).
+ */
+export type LynxPressFeedback =
+    | (LynxPressFeedbackBase & { readonly mainThread: false; handlers: LynxTier1PressHandlers })
+    | (LynxPressFeedbackBase & { readonly mainThread: true; handlers: LynxMainThreadPressHandlers });
 
 export interface LynxPressFeedbackOptions {
     /** Suppresses the pressed state (both tiers) while true. */
@@ -103,7 +111,7 @@ export function createPressFeedback(options: LynxPressFeedbackOptions = {}): Lyn
     const onUp = (): void => {
         pressed.value = false;
     };
-    const tier1: LynxPressHandlers = {
+    const tier1: LynxTier1PressHandlers = {
         bindtouchstart: onDown,
         bindtouchend: onUp,
         bindtouchcancel: onUp,

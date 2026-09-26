@@ -18,25 +18,32 @@ import {
     useOverlayPortal,
 } from '../src/index';
 import type { ElementLayout } from '@sigx/lynx';
+import type { LynxPressFeedback, LynxTier1PressHandlers } from '../src/index';
+
+/** The tier-1 family — what the unit renderer gets (no worklet transform). */
+const tier1 = (press: LynxPressFeedback): LynxTier1PressHandlers => {
+    if (press.mainThread) throw new Error('expected the tier-1 fallback under unit tests');
+    return press.handlers;
+};
 
 describe('createPressFeedback', () => {
     it('touch lifecycle drives the pressed flag; disabled suppresses it', () => {
         const press = createPressFeedback();
         expect(press.pressed()).toBe(false);
-        press.handlers.bindtouchstart!();
+        tier1(press).bindtouchstart();
         expect(press.pressed()).toBe(true);
-        press.handlers.bindtouchend!();
+        tier1(press).bindtouchend();
         expect(press.pressed()).toBe(false);
-        press.handlers.bindtouchstart!();
-        press.handlers.bindtouchcancel!();
+        tier1(press).bindtouchstart();
+        tier1(press).bindtouchcancel();
         expect(press.pressed()).toBe(false);
 
         let disabled = true;
         const gated = createPressFeedback({ isDisabled: () => disabled });
-        gated.handlers.bindtouchstart!();
+        tier1(gated).bindtouchstart();
         expect(gated.pressed()).toBe(false);
         disabled = false;
-        gated.handlers.bindtouchstart!();
+        tier1(gated).bindtouchstart();
         expect(gated.pressed()).toBe(true);
     });
 

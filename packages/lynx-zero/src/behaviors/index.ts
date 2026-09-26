@@ -42,7 +42,8 @@ export {
 
 // Lynx implementations.
 export type {
-    LynxPressFeedback, LynxPressFeedbackOptions, LynxPressFeel, LynxPressHandlers, MainThreadTouch,
+    LynxMainThreadPressHandlers, LynxPressFeedback, LynxPressFeedbackOptions, LynxPressFeel, LynxPressHandlers,
+    LynxTier1PressHandlers, MainThreadTouch,
 } from './press.js';
 export { PRESSED_OPACITY, PRESSED_SCALE, createPressFeedback } from './press.js';
 export type { LynxDismissLayer } from './dismiss.js';
