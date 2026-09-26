@@ -142,7 +142,9 @@ export const GALLERY_SCOPES = {
             { id: 'focus', label: 'focus', flags: { 'focus-visible': true } },
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
         ],
-        extras: ['open'],
+        // `open`: title, description, Cancel + Close. `open-states`: Cancel
+        // held (forced pressed), Close disabled.
+        extras: ['open', 'open-states'],
     },
     popover: {
         title: 'Popover',
@@ -153,7 +155,9 @@ export const GALLERY_SCOPES = {
             { id: 'focus', label: 'focus', flags: { 'focus-visible': true } },
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
         ],
-        extras: ['open'],
+        // `open`: two popovers anchored at mount (trigger in its open state).
+        // `open-states`: Close held (forced pressed) / Close disabled.
+        extras: ['open', 'open-states'],
     },
     select: {
         title: 'Select',
@@ -164,8 +168,13 @@ export const GALLERY_SCOPES = {
             { id: 'pressed', label: 'pressed', flags: { pressed: true } },
             { id: 'invalid', label: 'invalid', props: { invalid: true } },
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
+            { id: 'readonly', label: 'readonly', props: { value: 'apple', readonly: true } },
+            { id: 'clearable', label: 'clearable', props: { value: 'apple', clearable: true } },
         ],
-        extras: ['open'],
+        // `open`: grouped list anchored at mount, one item selected.
+        // `open-parts`: zero 0.6 parts — clear-trigger, group separators —
+        // with every item held (forced pressed).
+        extras: ['open', 'open-parts'],
         cellWidth: 150,
         rowsPerPage: 4,
     },

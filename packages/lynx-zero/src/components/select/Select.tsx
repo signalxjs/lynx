@@ -21,13 +21,25 @@
  * internal component that owns its own pressed signal.
  *
  * `hidden-input` is omitted: no forms on lynx, and the anatomy oracle walks
- * RENDERED parts, so omission is legal — same call as Switch.
+ * RENDERED parts, so omission is legal — same call as Switch. So are
+ * `spacer` and `group-heading`, which only zero's windowed (`virtual`) list
+ * renders.
+ *
+ * zero 0.6 parts (zero#321): `clear-trigger` (the `clearable` sugar — a
+ * sibling of the trigger inside the root, rendered only while something is
+ * selected and the select is editable) and `separator` (`groupSeparators`
+ * — a rule between runs of options). READONLY (the prop or the Field's):
+ * the trigger stays announced but does not open, and nothing changes the
+ * value. The glyphs zero's web parts render by default (`▾` in the
+ * indicator, `✓` in the item-indicator, `×` in the clear-trigger) render
+ * here as `<text>` children — lynx has no pseudo-elements for a skin to
+ * draw them with.
  */
 import type { Define, JSXElement } from '@sigx/lynx';
 import { component, compound, effect, onUnmounted } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import type { Collection } from '@sigx/zero/behaviors/core';
-import { createCollection, createControllableState, useFieldContext } from '@sigx/zero/behaviors/core';
+import { createCollection, createControllableState, namedModel, useFieldContext } from '@sigx/zero/behaviors/core';
 import type { FactoryBrands, JsxProps } from '@sigx/zero/contract/core';
 import { partBag } from '../../contract/part.js';
 import { partA11y } from '../../contract/a11y.js';
@@ -68,7 +80,7 @@ const SelectItem = component<SelectItemProps>(({ props }) => {
         >
             {props.content ? props.content() : <text>{props.label}</text>}
             {props.selected
-                ? <view {...partBag(anatomy, 'item-indicator', { flags: { selected: true }, ...partAxes(props.axes) })} />
+                ? <text {...partBag(anatomy, 'item-indicator', { flags: { selected: true }, ...partAxes(props.axes) })}>✓</text>
                 : null}
         </view>
     );
@@ -88,8 +100,11 @@ export type SelectRootProps<T = unknown, M = unknown> =
      */
     & Define.Prop<'defaultValue', unknown, false>
     & Define.Event<'valueChange', M>
+    /** The popup's open state, two-way (`model:open`). */
+    & Define.Model<'open', boolean>
     /** Start with the popup open (uncontrolled; a pick or light dismiss closes it). */
     & Define.Prop<'defaultOpen', boolean, false>
+    & Define.Event<'openChange', boolean>
     /** The items as data — the list IS data on this platform. */
     & Define.Prop<'items', ReadonlyArray<T>, true>
     /** String identity: the item's key (default: `value` / `id` / the primitive). */
@@ -104,8 +119,16 @@ export type SelectRootProps<T = unknown, M = unknown> =
     /** Shown in the value part while nothing is selected. */
     & Define.Prop<'placeholder', string, false>
     & Define.Prop<'disabled', boolean, false>
+    /** Announced, but does not open and nothing changes the value. The prop OR the Field's. */
+    & Define.Prop<'readonly', boolean, false>
     & Define.Prop<'invalid', boolean, false>
     & Define.Prop<'required', boolean, false>
+    /** Render a clear-trigger beside the trigger while something is selected. */
+    & Define.Prop<'clearable', boolean, false>
+    /** Accessible name of the clear-trigger (default "Clear selection"). */
+    & Define.Prop<'clearLabel', string, false>
+    /** Draw a `separator` rule between consecutive runs of options (groups). */
+    & Define.Prop<'groupSeparators', boolean, false>
     & Define.Prop<'placement', LynxPlacement, false>
     & Define.Prop<'offset', number, false>
     /** Accessible name for the trigger (the value text alone is ambiguous). */
@@ -133,15 +156,20 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
         props.defaultValue ?? null,
         (next) => emit('valueChange', next),
     );
-    // Open state is component-internal: nothing outside a select ever drives
-    // its popup, and light dismiss goes through the layer stack anyway.
-    // `defaultOpen` only seeds it (a gallery renders the popup statically).
-    const open = createControllableState<boolean>(() => undefined, props.defaultOpen ?? false, () => {});
+    // The open model (zero's `open` concept): controlled through `model:open`,
+    // or seeded by `defaultOpen` (a gallery renders the popup statically).
+    const open = createControllableState<boolean>(
+        () => namedModel<boolean>(props.open),
+        props.defaultOpen ?? false,
+        (next) => emit('openChange', next),
+    );
     const field = useFieldContext();
     const disabled = () => !!props.disabled || field.disabled();
+    const readonly = () => !!props.readonly || field.readonly();
     const invalid = () => !!props.invalid || field.invalid();
     const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size, variant: props.variant }));
-    const press = createPressFeedback({ isDisabled: disabled });
+    // A readonly trigger answers to nothing, so it does not light up either.
+    const press = createPressFeedback({ isDisabled: () => disabled() || readonly() });
     const position = createAnchorPosition({
         placement: props.placement ?? 'bottom-start',
         offset: props.offset,
@@ -153,9 +181,12 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
     const selected = (): unknown => (value.value == null ? undefined : collection.byValue(value.value));
     const triggerState = () => (open.value ? 'open' : 'closed');
     const pick = (item: unknown): void => {
+        // A readonly select's option is inert: it neither writes nor closes.
+        if (readonly()) return;
         value.value = collection.valueOf(item);
         open.value = false;
     };
+    const clearable = (): boolean => !!props.clearable && selected() !== undefined && !disabled() && !readonly();
     const itemRow = (item: unknown, key: string): JSXElement => (
         <SelectItem
             key={key}
@@ -194,7 +225,10 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                         bindlayoutchange={position.floatingLayoutChange}
                         catchtap={() => {}}
                     >
-                        {collection.segments().map((segment, index) =>
+                        {collection.segments().map((segment, index) => [
+                            props.groupSeparators && index > 0
+                                ? <view key={`s-${index}`} {...partBag(anatomy, 'separator', { ...partAxes(axes()) })} />
+                                : null,
                             segment.group !== undefined
                                 ? (
                                     <view key={`g-${segment.group}`} {...partBag(anatomy, 'group', { ...partAxes(axes()) })}>
@@ -204,7 +238,8 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                                         {segment.items.map((item) => itemRow(item, collection.keyOf(item)))}
                                     </view>
                                 )
-                                : segment.items.map((item) => itemRow(item, `u-${index}-${collection.keyOf(item)}`)))}
+                                : segment.items.map((item) => itemRow(item, `u-${index}-${collection.keyOf(item)}`)),
+                        ])}
                     </view>
                 </view>
             ));
@@ -219,7 +254,7 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
     return () => (
         <view
             {...partBag(anatomy, 'root', {
-                flags: { disabled: disabled(), invalid: invalid(), required: props.required },
+                flags: { disabled: disabled(), invalid: invalid(), required: props.required, readonly: readonly() },
                 ...partAxes(axes()),
                 class: props.class,
             })}
@@ -230,6 +265,7 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                     flags: {
                         disabled: disabled(),
                         invalid: invalid(),
+                        readonly: readonly(),
                         placeholder: selected() === undefined,
                         pressed: press.pressed(),
                     },
@@ -237,7 +273,7 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                 })}
                 {...partA11y({ trait: 'button', label: props.label, disabled: disabled() })}
                 bindtap={() => {
-                    if (!disabled()) open.value = !open.value;
+                    if (!disabled() && !readonly()) open.value = !open.value;
                 }}
                 main-thread:ref={position.anchorRef}
                 bindlayoutchange={position.anchorLayoutChange}
@@ -249,8 +285,24 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                         return current !== undefined ? collection.labelOf(current) : props.placeholder ?? '';
                     })()}
                 </text>
-                <view {...partBag(anatomy, 'indicator', { state: triggerState(), ...partAxes(axes()) })} />
+                <text {...partBag(anatomy, 'indicator', { state: triggerState(), ...partAxes(axes()) })}>▾</text>
             </view>
+            {clearable()
+                ? (
+                    <view
+                        // The anatomy gives this part no pressed flag (zero's
+                        // web part has none either) — its feedback is the
+                        // value leaving.
+                        {...partBag(anatomy, 'clear-trigger', { ...partAxes(axes()) })}
+                        {...partA11y({ trait: 'button', label: props.clearLabel ?? 'Clear selection' })}
+                        bindtap={() => {
+                            value.value = null;
+                        }}
+                    >
+                        <text>×</text>
+                    </view>
+                )
+                : null}
         </view>
     );
 }, { name: 'Select.Root' });

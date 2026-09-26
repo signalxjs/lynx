@@ -10,6 +10,7 @@ import {
     OverlayHost,
     clearDismissLayers,
     computeAnchorPosition,
+    computeOutletPosition,
     toOutletCoordinates,
     createPressFeedback,
     dismissTopLayer,
@@ -102,6 +103,52 @@ describe('computeAnchorPosition', () => {
     it('clamps the cross axis into the viewport', () => {
         const nearEdge: ElementLayout = { ...anchor, left: 2, right: 62 };
         expect(computeAnchorPosition(nearEdge, floating, viewport).left).toBe(8);
+    });
+});
+
+describe('computeOutletPosition', () => {
+    const floating = { width: 100, height: 50 };
+    const screen = { width: 400, height: 800 };
+    // The outlet sits below a 96dp header and fills the rest of the screen.
+    const outlet: ElementLayout = { top: 96, left: 0, right: 400, bottom: 800, width: 400, height: 704 };
+    const anchor: ElementLayout = { top: 196, left: 12, right: 112, bottom: 226, width: 100, height: 30 };
+    const shift = (r: ElementLayout, dx: number): ElementLayout => ({ ...r, left: r.left + dx, right: r.right + dx });
+
+    it('places in outlet coordinates', () => {
+        expect(computeOutletPosition(anchor, floating, outlet, screen, { placement: 'bottom-start' }))
+            .toEqual({ top: 226 + 4 - 96, left: 12, placement: 'bottom-start' });
+    });
+
+    it('is invariant under a translation shared by anchor and outlet (a push transition)', () => {
+        const settled = computeOutletPosition(anchor, floating, outlet, screen, { placement: 'bottom-start' });
+        // Measured mid slide-in: both rects a screen width to the right.
+        const sliding = computeOutletPosition(shift(anchor, 380), floating, shift(outlet, 380), screen, { placement: 'bottom-start' });
+        expect(sliding).toEqual(settled);
+    });
+
+    it('regression #1146: a stale origin from mid-transition is what put popups off-screen left', () => {
+        // The old viewport-space path with an origin measured mid slide-in and
+        // an anchor measured after the slide settled.
+        const staleOrigin = shift(outlet, 380);
+        const viewport = computeAnchorPosition(anchor, floating, screen, { placement: 'bottom-start' });
+        expect(toOutletCoordinates(viewport, staleOrigin).left).toBeLessThan(0);
+        // Measured together (both mid-slide), the outlet-space path is exact.
+        expect(computeOutletPosition(shift(anchor, 380), floating, staleOrigin, screen, { placement: 'bottom-start' }).left).toBe(12);
+    });
+
+    it('flips and clamps against the outlet box, not the screen', () => {
+        // 30dp above the outlet's bottom edge: no room below, room above.
+        const low: ElementLayout = { ...anchor, top: 740, bottom: 770 };
+        const p = computeOutletPosition(low, floating, outlet, screen, { placement: 'bottom' });
+        expect(p.placement).toBe('top');
+        expect(p.top).toBe(740 - 96 - 50 - 4);
+        const nearRight: ElementLayout = { ...anchor, left: 380, right: 400 };
+        expect(computeOutletPosition(nearRight, floating, outlet, screen, { placement: 'bottom-start' }).left).toBe(400 - 100 - 8);
+    });
+
+    it('falls back to the screen with an identity origin while the outlet is unmeasured', () => {
+        expect(computeOutletPosition(anchor, floating, null, screen, { placement: 'bottom-start' }))
+            .toEqual(computeAnchorPosition(anchor, floating, screen, { placement: 'bottom-start' }));
     });
 });
 

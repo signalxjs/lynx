@@ -162,10 +162,12 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     defineProvide(useOverlayRegistry, () => registry);
     // The host IS the outlet's coordinate space (`position: relative`), and
     // its origin sits below whatever chrome precedes it (a navigation
-    // header). Anchored popups position in viewport coordinates, so they
-    // subtract this measured origin (#1086) — see provideOverlayOrigin.
+    // header). Anchored popups measure in viewport coordinates, so they
+    // shift into this measured rect (#1086) — and re-measure it with their
+    // own rects (#1146): the host's layout events never fire for a
+    // transform, so a rect from mount is stale once a push transition ends.
     const origin = useViewportRect();
-    provideOverlayOrigin(() => origin.rect.value);
+    provideOverlayOrigin(() => origin.rect.value, origin.measure);
     // `display: flex` is load-bearing, not decoration: a lynx `<view>` defaults
     // to `display: linear`, which ignores its children's flex properties — the
     // app content below would size to itself and a `<ScrollView flex={1}>`

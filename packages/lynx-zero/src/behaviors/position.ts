@@ -18,6 +18,16 @@
  * of an OPEN popup is still out of scope: nothing re-fires while scrolling
  * (overlays that open from a scrolling anchor should close on scroll).
  *
+ * The math runs in OUTLET space, not viewport space (#1146): the anchor rect
+ * is shifted by the outlet's measured origin and flip/clamp reason against
+ * the outlet's own box. Both rects are viewport rects measured together, so
+ * any translation their common ancestors carry — a navigation screen sliding
+ * in, which moves anchor and outlet alike — cancels out. Viewport-space math
+ * did not survive that: an overlay opened at mount measured its origin once,
+ * mid slide-in (a screen width to the right), the anchor again after the
+ * slide settled, and the popup landed a screen width off to the LEFT. So
+ * every re-measure trigger measures the origin too.
+ *
  * Placement values are the zero contract's `PLACEMENT_VOCABULARY` subset the
  * popup's anatomy declares — the runtime stamps the RESOLVED side (after
  * flipping) through `partBag`, exactly like the web behavior does.
@@ -26,20 +36,30 @@ import { defineInjectable, defineProvide, useScreen, useViewportRect } from '@si
 import type { ElementLayout, LayoutChangeEvent, MainThread, MainThreadRef } from '@sigx/lynx';
 
 /**
- * The overlay outlet's own viewport origin. The placement math runs in
- * viewport space (that is what flip/clamp must reason about), but the
- * floating panel renders absolutely inside the OUTLET — a `position:
- * relative` host whose origin sits below whatever chrome precedes it (the
- * navigation header, ~96dp on the showcase). Rendering viewport numbers
- * there lands every popup exactly that far off (#1086). The host provides
- * its measured origin; `style()` subtracts it. Identity when nothing
- * provides (an outlet at the viewport origin).
+ * The overlay outlet's own viewport rect. The floating panel renders
+ * absolutely inside the OUTLET — a `position: relative` host whose origin
+ * sits below whatever chrome precedes it (the navigation header, ~96dp on
+ * the showcase, #1086) and moves with whatever transform its screen carries
+ * (a push transition). The host provides its measured rect plus a way to
+ * re-measure it; the placement converts the anchor into outlet space with
+ * it. Unknown when nothing provides (an outlet at the viewport origin, the
+ * screen as its box).
  */
-const useOverlayOriginInjectable = defineInjectable<() => ElementLayout | null>(() => () => null);
+interface OverlayOrigin {
+    rect(): ElementLayout | null;
+    measure(): void;
+}
 
-/** Provide the overlay outlet's measured viewport origin (OverlayHost wires this). */
-export function provideOverlayOrigin(read: () => ElementLayout | null): void {
-    defineProvide(useOverlayOriginInjectable, () => read);
+const useOverlayOriginInjectable = defineInjectable<OverlayOrigin>(() => ({ rect: () => null, measure: () => {} }));
+
+/**
+ * Provide the overlay outlet's measured viewport rect (OverlayHost wires
+ * this). `measure` re-measures it: anchored overlays call it alongside their
+ * own measurements, so the origin and the anchor always come from the same
+ * moment — a transform on a shared ancestor then cancels out.
+ */
+export function provideOverlayOrigin(read: () => ElementLayout | null, measure: () => void = () => {}): void {
+    defineProvide(useOverlayOriginInjectable, () => ({ rect: read, measure }));
 }
 
 /**
@@ -149,6 +169,35 @@ export function computeAnchorPosition(
         : { top: cross, left: main, placement };
 }
 
+/**
+ * The placement in OUTLET coordinates — what the floating panel's
+ * `top`/`left` take. With a measured outlet (`origin`, a viewport rect with
+ * a size) the anchor shifts into outlet space and flip/clamp reason against
+ * the outlet's box, so a translation shared by anchor and outlet (a screen
+ * mid push-transition) cancels out exactly. Without one it falls back to
+ * the screen as the box and the identity origin. Pure, over fake rects.
+ */
+export function computeOutletPosition(
+    anchor: ElementLayout,
+    floating: Size,
+    origin: ElementLayout | null,
+    screen: { width: number; height: number },
+    options: AnchorPositionOptions = {},
+): ResolvedPosition {
+    if (!origin || origin.width <= 0 || origin.height <= 0) {
+        return computeAnchorPosition(anchor, floating, screen, options);
+    }
+    const local: ElementLayout = {
+        top: anchor.top - origin.top,
+        left: anchor.left - origin.left,
+        right: anchor.right - origin.left,
+        bottom: anchor.bottom - origin.top,
+        width: anchor.width,
+        height: anchor.height,
+    };
+    return computeAnchorPosition(local, floating, { width: origin.width, height: origin.height }, options);
+}
+
 export interface LynxAnchorPosition {
     /** Bind on the ANCHOR element: `main-thread:ref={anchorRef}`. */
     anchorRef: MainThreadRef<MainThread.Element | null>;
@@ -161,7 +210,7 @@ export interface LynxAnchorPosition {
     anchorLayoutChange: (event: LayoutChangeEvent) => void;
     /** Wire on the FLOATING element (inside the overlay outlet). */
     floatingLayoutChange: (event: LayoutChangeEvent) => void;
-    /** The resolved position, or null until both nodes have measured. */
+    /** The resolved position in OUTLET coordinates, or null until both nodes have measured. */
     position(): ResolvedPosition | null;
     /** The absolute inline style for the floating element. */
     style(): Record<string, string | number>;
@@ -183,14 +232,15 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
     // Keyboard insets are out of scope here (an anchored popup over a
     // raised keyboard is its own problem).
     const screen = useScreen();
-    const overlayOrigin = useOverlayOriginInjectable();
+    const origin = useOverlayOriginInjectable();
 
+    /** The resolved placement, in OUTLET coordinates. */
     const position = (): ResolvedPosition | null => {
         const a = anchor.rect.value;
         const f = floating.rect.value;
         const v = screen.value;
         return a && f && v.width > 0
-            ? computeAnchorPosition(a, { width: f.width, height: f.height }, v, options)
+            ? computeOutletPosition(a, { width: f.width, height: f.height }, origin.rect(), v, options)
             : null;
     };
 
@@ -199,14 +249,19 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
         floatingRef: floating.ref,
         anchorLayoutChange: () => {
             anchor.measure();
+            origin.measure();
         },
         floatingLayoutChange: () => {
             // The floating panel measuring means the popup is opening (or its
-            // content changed): re-measure the anchor too, so the position is
-            // computed against where the anchor IS — a layout-time anchor
-            // rect goes stale the moment the page scrolls.
+            // content changed, or it just moved): re-measure the anchor AND
+            // the outlet, so all three rects come from the same moment — a
+            // layout-time anchor rect goes stale the moment the page scrolls,
+            // and an origin measured at mount is stale by a screen width if
+            // the screen was sliding in (#1146). A move this causes fires
+            // this handler again, so it settles on a consistent triple.
             anchor.measure();
             floating.measure();
+            origin.measure();
         },
         position,
         style: () => {
@@ -214,10 +269,7 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
             // Off-glass until measured: painting at 0,0 for one frame reads
             // as a flash in the corner; off-glass reads as "not open yet".
             if (!p) return { position: 'absolute', top: '-10000px', left: '-10000px' };
-            // The popup renders absolutely inside the outlet, whose own
-            // origin is not the viewport's.
-            const out = toOutletCoordinates(p, overlayOrigin());
-            return { position: 'absolute', top: `${out.top}px`, left: `${out.left}px` };
+            return { position: 'absolute', top: `${p.top}px`, left: `${p.left}px` };
         },
     };
 }

@@ -134,7 +134,23 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                         <Dialog.Title>Confirm</Dialog.Title>
                         <Dialog.Description>A modal dialog rendered open for the gallery.</Dialog.Description>
                         <Dialog.Footer>
+                            <Dialog.Cancel><text>Cancel</text></Dialog.Cancel>
                             <Dialog.Close><text>Close</text></Dialog.Close>
+                        </Dialog.Footer>
+                    </Dialog.Popup>
+                </Dialog.Root>
+            ),
+            'open-states': () => (
+                <Dialog.Root defaultOpen dismissible={false}>
+                    <Dialog.Trigger><text>Open dialog</text></Dialog.Trigger>
+                    <Dialog.Popup>
+                        <Dialog.Title>Action states</Dialog.Title>
+                        <Dialog.Description>Cancel held (pressed), Close disabled.</Dialog.Description>
+                        <Dialog.Footer>
+                            <ForceStates flags={{ pressed: true }}>
+                                <Dialog.Cancel><text>Cancel</text></Dialog.Cancel>
+                            </ForceStates>
+                            <Dialog.Close disabled><text>Close</text></Dialog.Close>
                         </Dialog.Footer>
                     </Dialog.Popup>
                 </Dialog.Root>
@@ -162,6 +178,21 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     ))}
                 </Col>
             ),
+            'open-states': () => (
+                <Col gap={150}>
+                    {(['pressed', 'disabled'] as const).map((state) => (
+                        <Popover.Root key={state} defaultOpen placement="bottom-start">
+                            <Popover.Trigger><text>{`Close ${state}`}</text></Popover.Trigger>
+                            <Popover.Popup>
+                                <Popover.Title>{`Close · ${state}`}</Popover.Title>
+                                {state === 'pressed'
+                                    ? <ForceStates flags={{ pressed: true }}><Popover.Close><text>×</text></Popover.Close></ForceStates>
+                                    : <Popover.Close disabled><text>×</text></Popover.Close>}
+                            </Popover.Popup>
+                        </Popover.Root>
+                    ))}
+                </Col>
+            ),
         },
     },
     select: {
@@ -175,6 +206,8 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                 size={c.size}
                 invalid={bool(c.props['invalid'])}
                 disabled={bool(c.props['disabled'])}
+                readonly={bool(c.props['readonly'])}
+                clearable={bool(c.props['clearable'])}
             />
         ),
         extras: {
@@ -188,6 +221,21 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     placeholder="Pick a fruit"
                     label="Fruit"
                 />
+            ),
+            'open-parts': () => (
+                <ForceStates flags={{ pressed: true }} parts={['item']}>
+                    <Select.Root
+                        defaultOpen
+                        clearable
+                        groupSeparators
+                        items={FRUIT}
+                        itemValue={(o) => o.value}
+                        itemGroup={(o) => o.group}
+                        defaultValue="banana"
+                        placeholder="Pick a fruit"
+                        label="Fruit"
+                    />
+                </ForceStates>
             ),
         },
     },

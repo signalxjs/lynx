@@ -107,11 +107,33 @@ The platform spellings to know:
   host + overlay outlet as the LAST child — stacking is document order).
   Dialog renders the anatomy's `::backdrop` pseudo part as a real view;
   light dismiss routes through the shared layer stack (`dismissTopLayer()`),
-  so nested overlays close innermost-first.
+  so nested overlays close innermost-first. `Dialog.Close` and
+  `Dialog.Cancel` (the alert-style least-destructive action — its own part,
+  styled as the quiet member of the pair) and `Popover.Close` take
+  `disabled` and an accessible `label`.
+- **Anchored popups position in the outlet's own space.** Popover and
+  Select measure the anchor, the popup and the outlet together
+  (`boundingClientRect`) and flip/clamp against the outlet's box
+  (`computeOutletPosition`), so a transform shared by the anchor and the
+  outlet — a screen sliding in on a navigation push — cancels out. A popup
+  opened at mount (`defaultOpen`) lands where its anchor settles.
 - **Select is items-driven** over zero's collection core (`items` +
   `itemKey` / `itemLabel` / `itemValue` / `itemGroup`, an `item` slot per
-  row; the model is `T | null`, or `V | null` under `itemValue`;
-  `defaultOpen` seeds the popup open); Slider is touch-driven tier 1 — the value
+  row; the model is `T | null`, or `V | null` under `itemValue`). The open
+  state is a model too (`model:open`, `onOpenChange`; `defaultOpen` seeds
+  it). zero 0.6's parts: `clearable` renders a `clear-trigger` beside the
+  trigger while something is selected (`clearLabel` names it), and
+  `groupSeparators` draws a `separator` between runs of options.
+  `readonly` (or the Field's) keeps the value and the popup shut. The
+  default glyphs zero's web parts render (`▾`, `✓`, `×`) render as `<text>`
+  here — lynx has no pseudo-elements.
+
+  ```tsx
+  <Select.Root items={fruits} itemValue={(f) => f.value} itemGroup={(f) => f.group}
+      clearable groupSeparators placeholder="Pick a fruit" onValueChange={setFruit} />
+  ```
+
+  Slider is touch-driven tier 1 — the value
   paints as inline track percentages, the lynx counterpart of the web's
   runtime `--slider-percent`.
 - **`@sigx/lynx-zero/testing`** holds components to the same contract as
