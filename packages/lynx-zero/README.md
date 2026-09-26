@@ -185,10 +185,33 @@ The platform spellings to know:
   <Select.Root items={fruits} itemValue={(f) => f.value} itemGroup={(f) => f.group}
       clearable groupSeparators placeholder="Pick a fruit" onValueChange={setFruit} />
   ```
+- **Slider is touch-driven tier 1.** The value paints as inline physical
+  track percentages (`left`/`width`, or `top`/`height` when vertical), the
+  lynx counterpart of the web's runtime `--slider-percent`. A touch maps
+  through the track's viewport rect (`boundingClientRect` against the
+  touch's `clientX`/`clientY`), so the value lands right on Android, where
+  the layout-event rect is not page-relative. It follows zero 0.6: a
+  `number[]` model renders one thumb per value (the nearest thumb drags,
+  thumbs never cross, `minStepsBetweenThumbs` keeps them apart);
+  `orientation="vertical"` runs bottom-to-top; `readonly` refuses every
+  touch; `valueCommit` fires once when a drag that moved the value ends.
+  Handlers are typed by the model's shape:
 
-  Slider is touch-driven tier 1 — the value
-  paints as inline track percentages, the lynx counterpart of the web's
-  runtime `--slider-percent`.
+  ```tsx
+  <Slider.Root defaultValue={40} marks={[0, 50, 100]} onValueChange={(v: number) => {}} />
+  <Slider.Root defaultValue={[20, 80]} onValueCommit={(v: number[]) => save(v)} />
+  <Slider.Root orientation="vertical" defaultValue={60} showValue />
+  ```
+- **Switch** takes `readonly` (the prop or the enclosing Field's): it is
+  still announced, but a tap never toggles it and it shows no press.
+- **Progress** follows zero 0.6's value model: `min`/`max`, where 100% of
+  the range is `complete` and a degenerate range with a value reads as
+  done. An indeterminate range gets no inline width, so the skin's rule
+  sizes and sweeps it. `Progress.ValueText` with no children shows the
+  formatted value, and the root's accessibility label announces the same
+  string. The formatted value is `getValueText(value, { min, max, percent })`
+  when you pass it, otherwise the whole percent (`Intl.NumberFormat` with
+  `locale`/`formatOptions` where the engine has `Intl`).
 - **`@sigx/lynx-zero/testing`** holds components to the same contract as
   the web: `expectAnatomy` (zero's oracle over the rendered tree; pass
   `{ portaled: ['popup'] }` for parts the outlet hosts; a stamped axis is

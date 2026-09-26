@@ -28,7 +28,7 @@ import {
 } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
-import { GALLERY_SCOPES, gallerySections, parseSection } from './scopes.js';
+import { GALLERY_SCOPES, SIZES, gallerySections, parseSection } from './scopes.js';
 
 /** What one matrix cell renders: the swept axis value plus the state's props. */
 export interface GalleryCell {
@@ -75,13 +75,52 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                 size={c.size}
                 defaultChecked={bool(c.props['checked'])}
                 disabled={bool(c.props['disabled'])}
+                readonly={bool(c.props['readonly'])}
+                invalid={bool(c.props['invalid'])}
             />
         ),
     },
     slider: {
         cell: (c) => (
-            <Slider.Root color={c.color} size={c.size} min={0} max={100} defaultValue={40} disabled={bool(c.props['disabled'])} />
+            <Slider.Root
+                color={c.color}
+                size={c.size}
+                min={0}
+                max={100}
+                defaultValue={bool(c.props['range']) ? [25, 70] : 40}
+                marks={bool(c.props['marks']) ? [0, 50, 100] : undefined}
+                disabled={bool(c.props['disabled'])}
+                readonly={bool(c.props['readonly'])}
+                invalid={bool(c.props['invalid'])}
+            />
         ),
+        extras: {
+            // Vertical rails side by side: the sizes, then the states.
+            vertical: () => (
+                <view style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '16px' }}>
+                    {SIZES.map((size) => (
+                        <view key={size} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <Slider.Root orientation="vertical" size={size} defaultValue={40} marks={[0, 50, 100]} />
+                            <text class="zg-head">{size}</text>
+                        </view>
+                    ))}
+                    <view style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        <Slider.Root orientation="vertical" color="secondary" defaultValue={[20, 80]} />
+                        <text class="zg-head">range</text>
+                    </view>
+                    <view style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        <ForceStates flags={{ pressed: true }}>
+                            <Slider.Root orientation="vertical" color="accent" defaultValue={60} />
+                        </ForceStates>
+                        <text class="zg-head">held</text>
+                    </view>
+                    <view style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        <Slider.Root orientation="vertical" defaultValue={60} disabled />
+                        <text class="zg-head">disabled</text>
+                    </view>
+                </view>
+            ),
+        },
     },
     progress: {
         cell: (c) => (
@@ -89,6 +128,32 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                 <Progress.Track><Progress.Range /></Progress.Track>
             </Progress.Root>
         ),
+        extras: {
+            // Label + formatted ValueText; `complete` keeps the colour axis.
+            text: () => (
+                <Col gap={12}>
+                    <Progress.Root value={62} label="Upload">
+                        <Progress.Label>Uploading</Progress.Label>
+                        <Progress.Track><Progress.Range /></Progress.Track>
+                        <Progress.ValueText />
+                    </Progress.Root>
+                    <Progress.Root value={3} max={8} color="accent" getValueText={(v, { max }) => `${v} of ${max} files`}>
+                        <Progress.Label>Files</Progress.Label>
+                        <Progress.Track><Progress.Range /></Progress.Track>
+                        <Progress.ValueText />
+                    </Progress.Root>
+                    <Progress.Root value={100} color="secondary">
+                        <Progress.Label>Complete · secondary</Progress.Label>
+                        <Progress.Track><Progress.Range /></Progress.Track>
+                        <Progress.ValueText />
+                    </Progress.Root>
+                    <Progress.Root value={null} color="info">
+                        <Progress.Label>Indeterminate</Progress.Label>
+                        <Progress.Track><Progress.Range /></Progress.Track>
+                    </Progress.Root>
+                </Col>
+            ),
+        },
     },
     tabs: {
         cell: (c) => (

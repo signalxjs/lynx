@@ -7,6 +7,10 @@
  * The root is the tap target (the web's `<label>` click-through, done
  * directly); control/thumb are paint. The `pressed` flag rides the control —
  * where the anatomy declares it, and where a skin tints the held track.
+ *
+ * `readonly` (the prop OR the enclosing Field's, zero 0.6) keeps the switch
+ * announced but refuses every tap, and — like a disabled one — shows no
+ * press: nothing will happen, so nothing should look like it is about to.
  */
 import type { Define } from '@sigx/lynx';
 import { component, compound } from '@sigx/lynx';
@@ -26,6 +30,8 @@ export type SwitchRootProps =
     & Define.Prop<'disabled', boolean, false>
     & Define.Prop<'invalid', boolean, false>
     & Define.Prop<'required', boolean, false>
+    /** Announced, never toggled by a tap. The prop OR the Field's. */
+    & Define.Prop<'readonly', boolean, false>
     & Define.Prop<'color', string, false>
     & Define.Prop<'size', string, false>
     & Define.Prop<'class', string, false>
@@ -44,7 +50,8 @@ const SwitchRoot = component<SwitchRootProps>(({ props, slots, emit }) => {
     const field = useFieldContext();
     const disabled = () => !!props.disabled || field.disabled();
     const invalid = () => !!props.invalid || field.invalid();
-    const press = createPressFeedback({ isDisabled: disabled });
+    const readonly = () => !!props.readonly || field.readonly();
+    const press = createPressFeedback({ isDisabled: () => disabled() || readonly() });
     const st = () => (state.value ? 'checked' : 'unchecked');
     const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size }));
 
@@ -52,19 +59,19 @@ const SwitchRoot = component<SwitchRootProps>(({ props, slots, emit }) => {
         <view
             {...partBag(anatomy, 'root', {
                 state: st(),
-                flags: { disabled: disabled(), invalid: invalid(), required: props.required },
+                flags: { disabled: disabled(), invalid: invalid(), required: props.required, readonly: readonly() },
                 ...partAxes(axes()),
                 class: props.class,
             })}
             {...partA11y({ trait: 'button', label: props.label, checked: state.value, disabled: disabled() })}
             bindtap={() => {
-                if (!disabled()) state.value = !state.value;
+                if (!disabled() && !readonly()) state.value = !state.value;
             }}
             {...press.handlers}
         >
             <view {...partBag(anatomy, 'control', {
                 state: st(),
-                flags: { disabled: disabled(), invalid: invalid(), pressed: press.pressed() },
+                flags: { disabled: disabled(), invalid: invalid(), readonly: readonly(), pressed: press.pressed() },
                 ...partAxes(axes()),
             })}
             >

@@ -46,10 +46,12 @@ describe('Progress', () => {
         conforms(complete as never, 'progress');
 
         // 0/0 and a non-finite max must never emit NaN% (Copilot's catch).
+        // Zero 0.6's rule: a degenerate range has nothing left to fill, so
+        // any present value reads as done (#1144).
         const zeroMax = render(
             <Progress.Root value={0} max={0}><Progress.Track><Progress.Range /></Progress.Track></Progress.Root>,
         ).container;
-        expect(zeroMax.children[0]!.children[0]!.children[0]!._style['width']).toBe('0%');
+        expect(zeroMax.children[0]!.children[0]!.children[0]!._style['width']).toBe('100%');
         const nanValue = render(<Progress.Root value={Number.NaN} />).container;
         expect(String(nanValue.children[0]!.props['data-state'])).toBe('indeterminate');
     });
