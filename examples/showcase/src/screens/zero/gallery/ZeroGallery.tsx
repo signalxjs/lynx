@@ -108,7 +108,9 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                                 <Tabs.Tab value="two"><text>{`Second · ${variant}`}</text></Tabs.Tab>
                                 <Tabs.Tab value="three"><text>Third</text></Tabs.Tab>
                             </Tabs.List>
-                            <Tabs.Panel value="two"><text>{`The ${variant} panel of the second tab.`}</text></Tabs.Panel>
+                            {(['one', 'two', 'three'] as const).map((value) => (
+                                <Tabs.Panel key={value} value={value}><text>{`The ${variant} panel of tab ${value}.`}</text></Tabs.Panel>
+                            ))}
                         </Tabs.Root>
                     ))}
                 </Col>
