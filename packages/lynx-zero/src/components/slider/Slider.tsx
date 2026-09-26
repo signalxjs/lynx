@@ -289,7 +289,13 @@ const SliderRoot = component<SliderRootProps>(({ props, emit }) => {
                         ...partAxes(axes()),
                         orientation: o,
                     })}
-                    {...partA11y({ trait: 'adjustable', label: props.label, disabled: disabled() })}
+                    {...partA11y({
+                        // A readonly rail is not adjustable: no trait that invites a swipe.
+                        trait: readonly() ? undefined : 'adjustable',
+                        label: props.label,
+                        disabled: disabled(),
+                        readonly: readonly(),
+                    })}
                     bindtouchstart={(event: SliderTouchEvent) => {
                         if (inert()) return;
                         // Catch a scroll since the last measurement for the

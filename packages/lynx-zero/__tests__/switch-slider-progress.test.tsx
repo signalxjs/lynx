@@ -56,6 +56,7 @@ describe('Switch — readonly (zero 0.6)', () => {
         await act(() => fireEvent.tap(root as never));
         expect(changes).toEqual([]);
         expect(byPart(container, 'switch', 'root').props['data-state']).toBe('checked');
+        expect(byPart(container, 'switch', 'root').props['accessibility-status']).toBe('checked, read only');
         conforms(container, 'switch');
     });
 
@@ -110,6 +111,9 @@ describe('Slider — zero 0.6 projection', () => {
         expect(changes).toEqual([]);
         expect(byPart(container, 'slider', 'thumb')._class).not.toContain('zx-f-pressed');
         expect(byPart(container, 'slider', 'thumb')._style['left']).toBe('40%');
+        // Announced as read only, and not offered as adjustable.
+        expect(control.props['accessibility-status']).toBe('read only');
+        expect(control.props['accessibility-trait']).toBeUndefined();
         conforms(container, 'slider');
     });
 

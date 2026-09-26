@@ -202,8 +202,10 @@ The platform spellings to know:
   <Slider.Root defaultValue={[20, 80]} onValueCommit={(v: number[]) => save(v)} />
   <Slider.Root orientation="vertical" defaultValue={60} showValue />
   ```
-- **Switch** takes `readonly` (the prop or the enclosing Field's): it is
-  still announced, but a tap never toggles it and it shows no press.
+- **Switch** takes `readonly` (the prop or the enclosing Field's): a tap
+  never toggles it and it shows no press. Readonly Switch and Slider are
+  still accessibility elements, with "read only" in their accessibility
+  status (a readonly slider drops the `adjustable` trait).
 - **Progress** follows zero 0.6's value model: `min`/`max`, where 100% of
   the range is `complete` and a degenerate range with a value reads as
   done. An indeterminate range gets no inline width, so the skin's rule

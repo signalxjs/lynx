@@ -28,6 +28,13 @@ export interface PartA11yOptions {
     /** A disclosure's state (an accordion trigger): `expanded` / `collapsed`. */
     expanded?: boolean;
     disabled?: boolean;
+    /**
+     * Announced but not changeable by the user (a readonly switch or
+     * slider): stated as "read only", so a reader does not offer an
+     * adjustment the control will refuse — without calling it disabled,
+     * which it is not (it stays focusable and its value stays meaningful).
+     */
+    readonly?: boolean;
 }
 
 /** The spreadable accessibility props for the gesture-owning node. */
@@ -42,6 +49,7 @@ export function partA11y(options: PartA11yOptions): Record<string, unknown> {
     if (options.selected) status.push('selected');
     if (options.expanded !== undefined) status.push(options.expanded ? 'expanded' : 'collapsed');
     if (options.disabled) status.push('disabled');
+    else if (options.readonly) status.push('read only');
     if (status.length > 0) props['accessibility-status'] = status.join(', ');
     return props;
 }

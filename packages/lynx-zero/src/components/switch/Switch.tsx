@@ -63,7 +63,7 @@ const SwitchRoot = component<SwitchRootProps>(({ props, slots, emit }) => {
                 ...partAxes(axes()),
                 class: props.class,
             })}
-            {...partA11y({ trait: 'button', label: props.label, checked: state.value, disabled: disabled() })}
+            {...partA11y({ trait: 'button', label: props.label, checked: state.value, disabled: disabled(), readonly: readonly() })}
             bindtap={() => {
                 if (!disabled() && !readonly()) state.value = !state.value;
             }}
