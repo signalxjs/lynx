@@ -1379,6 +1379,12 @@ function formatScaleLiteral(value: number): string {
  * projects with a refreshed `build.gradle.kts` referencing an alias their stale
  * catalog lacks → `Unresolved reference`. The catalog holds only framework
  * version pins (module deps inject into `build.gradle.kts` directly, not here).
+ *
+ * The root `build.gradle.kts` and the Gradle wrapper are managed for the same
+ * reason (#1149): the Android Gradle plugin, Kotlin and Gradle versions must
+ * move together. A refreshed AGP 9 app build next to a stale root build (still
+ * applying the old Kotlin plugin) or a stale Gradle 8 wrapper fails to
+ * configure, so an upgrade must carry all of them.
  */
 const MANAGED_ANDROID_FILES = [
     'app/src/main/AndroidManifest.xml',
@@ -1387,9 +1393,18 @@ const MANAGED_ANDROID_FILES = [
     'app/src/main/res/xml/network_security_config.xml',
     'app/src/debug/res/xml/network_security_config.xml',
     'app/build.gradle.kts',
+    'build.gradle.kts',
     'gradle/libs.versions.toml',
+    'gradle/wrapper/gradle-wrapper.properties',
+    'gradlew',
+    'gradlew.bat',
     'app/src/main/kotlin/__package__/MainActivity.kt',
     'app/src/main/kotlin/__package__/SigxProductionResources.kt',
+];
+
+/** Binary managed files, copied byte-for-byte (see {@link MANAGED_ANDROID_FILES}). */
+const MANAGED_ANDROID_BINARY_FILES = [
+    'gradle/wrapper/gradle-wrapper.jar',
 ];
 
 function androidTemplateVars(config: ResolvedConfig): Record<string, string> {
@@ -1438,6 +1453,16 @@ export function refreshAndroidManagedFiles(cwd: string, config: ResolvedConfig):
         );
         mkdirSync(dirname(destPath), { recursive: true });
         if (writeFileIfChanged(destPath, content)) refreshed++;
+    }
+    for (const rel of MANAGED_ANDROID_BINARY_FILES) {
+        const srcPath = join(templateDir, rel);
+        if (!existsSync(srcPath)) continue;
+        const destPath = join(androidProjectRoot(cwd, config), rel);
+        const bytes = readFileSync(srcPath);
+        if (existsSync(destPath) && readFileSync(destPath).equals(bytes)) continue;
+        mkdirSync(dirname(destPath), { recursive: true });
+        writeFileSync(destPath, bytes);
+        refreshed++;
     }
     if (refreshed > 0) log(`Android: refreshed ${refreshed} managed config files`);
 }

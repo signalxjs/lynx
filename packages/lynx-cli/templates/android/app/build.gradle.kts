@@ -1,13 +1,14 @@
 plugins {
+    // AGP 9 compiles Kotlin itself (built-in Kotlin) — no kotlin-android here.
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     // Lynx ships a Java annotation processor (lynx-processor) that generates
     // the `<Component>$$PropsSetter` classes backing @LynxProp on native UI
     // components (e.g. @sigx/lynx-maps, @sigx/lynx-webview). Without it Lynx
     // throws "PropsSetter not generated … add module lynxProcessor" at render
-    // time. kapt (not KSP) because the processor is an APT processor.
-    id("kotlin-kapt")
+    // time. kapt (not KSP) because the processor is an APT processor; with
+    // built-in Kotlin that's AGP's legacy-kapt plugin.
+    alias(libs.plugins.legacy.kapt)
     // {{GRADLE_PLUGINS}}
 }
 
@@ -79,13 +80,10 @@ android {
         }
     }
 
+    // Kotlin's jvmTarget follows targetCompatibility under built-in Kotlin.
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -124,6 +122,12 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     debugImplementation(libs.androidx.ui.tooling)
+    // AGP 9 rejects two libraries sharing a namespace, and vectordrawable
+    // 1.0.0 + vectordrawable-animated 1.0.0 (pulled in transitively, e.g. by
+    // Firebase on release builds) both declare `androidx.vectordrawable`.
+    // 1.2.0 gives each its own namespace.
+    implementation(libs.androidx.vectordrawable)
+    implementation(libs.androidx.vectordrawable.animated)
 
     // Lynx SDK
     implementation("org.lynxsdk.lynx:lynx:4.0.1")

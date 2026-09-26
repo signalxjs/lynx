@@ -127,8 +127,8 @@ It gives you a single toolchain — start a dev server with HMR and streamed dev
 
 - **Node 22+**
 - **Android:** Android Studio, which supplies the Android SDK, the emulator and
-  a JDK. Gradle needs **JDK 17–23**. When `JAVA_HOME` or `java` on `PATH` is
-  outside that range (for example JDK 25, or Java 8), sigx builds with
+  a JDK. Gradle needs **JDK 17–26** (tested up to JDK 26, including the JDK 25 LTS). When `JAVA_HOME` or `java` on `PATH` is
+  outside that range (for example Java 8), sigx builds with
   Android Studio's bundled JDK instead and says so in one line. The SDK is
   found without `ANDROID_HOME` if it's in Android Studio's default location.
 - **iOS:** macOS, Xcode 15+, CocoaPods
