@@ -66,3 +66,4 @@ coverage/
 .cache/
 .temp/
 .tmp/
+.zero-qa/

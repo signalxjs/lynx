@@ -16,6 +16,7 @@ import { OrientationDemo } from './screens/OrientationDemo.js';
 import { CSSEngineProbe } from './screens/CSSEngineProbe.js';
 import { ZeroPilot } from './screens/zero/ZeroPilot.js';
 import { ZeroParity } from './screens/zero/ZeroParity.js';
+import { ZeroGalleryIndex, ZeroGalleryScope, ZeroGallerySection } from './screens/zero/gallery/ZeroGallery.js';
 import { InlineSheetDemo } from './screens/InlineSheetDemo.js';
 import { SheetDemo } from './screens/SheetDemo.js';
 import { SheetScrollDemo } from './screens/SheetScrollDemo.js';
@@ -104,6 +105,21 @@ export const routes = defineRoutes({
     // The zero-contract pilot (#1029 B8) — the new stack end to end.
     zeroPilot: { component: ZeroPilot, path: '/zero-pilot' },
     zeroParity: { component: ZeroParity, path: '/zero-parity' },
+    // The zero state-matrix gallery (#1141): axis × forced state per scope,
+    // one screenshot per section — scripts/zero-qa deep-links straight in.
+    zeroGallery: { component: ZeroGalleryIndex, path: '/zero-gallery' },
+    zeroGalleryScope: {
+        component: ZeroGalleryScope,
+        params: z.object({ scope: z.string() }),
+        search: z.object({ theme: z.string().optional() }),
+        path: '/zero-gallery/:scope',
+    },
+    zeroGallerySection: {
+        component: ZeroGallerySection,
+        params: z.object({ scope: z.string(), section: z.string() }),
+        search: z.object({ theme: z.string().optional() }),
+        path: '/zero-gallery/:scope/:section',
+    },
     // Standalone @sigx/lynx-sheet BottomSheet on a plain card screen —
     // no route needed for the sheet itself.
     inlineSheetDemo: { component: InlineSheetDemo, path: '/inline-sheet' },
