@@ -13,7 +13,7 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
-- **`@sigx/lynx-zero-daisyui` builds from `@sigx/zero*` 0.6.0** (was 0.4.0) ([#1150](https://github.com/signalxjs/lynx/issues/1150)). The skin's press rules now reach lynx (signalxjs/zero#326): a held Button, Toggle, Pagination item, Steps item, Alert action, Combobox option or Number-input stepper paints `.zx-f-pressed` instead of nothing. This also brings in the zero 0.5/0.6 anatomy additions.
+- **`@sigx/lynx-zero-daisyui` builds from `@sigx/zero*` 0.6.0** (was 0.4.0) ([#1150](https://github.com/signalxjs/lynx/issues/1150)). The skin's press rules now reach lynx ([signalxjs/zero#326](https://github.com/signalxjs/zero/issues/326)): a held Button, Toggle, Pagination item, Steps item, Alert action, Combobox option or Number-input stepper paints `.zx-f-pressed` instead of nothing. This also brings in the zero 0.5/0.6 anatomy additions.
 
 - **`@sigx/lynx-zero`: `provideVariantAxes` returns the reader it provides.** The returned reader includes any flags forced by an enclosing `ForceStates`. Carriers now stamp their own part from it with `const axes = provideVariantAxes(…)`. `partAxes` also carries `forced`, and `partBag` takes a `forced` option.
 
