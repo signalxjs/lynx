@@ -197,7 +197,9 @@ async function main() {
     if (!owner) {
         const res = acquire({ holder });
         if (!res.ok) {
-            console.error(`sim lock is held by "${res.owner?.holder}" — not shooting (${LOCK_DIR})`);
+            console.error(res.owner
+                ? `sim lock is held by "${res.owner.holder}" since ${res.owner.since} — not shooting (${LOCK_DIR})`
+                : `sim lock directory exists with no owner record (a crashed acquire?) — not shooting. Inspect ${LOCK_DIR}, then \`sim-lock.mjs release --force\`.`);
             return 1;
         }
         tookLock = true;

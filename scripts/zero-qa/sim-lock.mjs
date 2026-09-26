@@ -40,7 +40,7 @@ export function readOwner() {
 function describe(owner) {
     if (!owner) return 'held (no owner record — a crashed acquire?)';
     const age = Math.round((Date.now() - Date.parse(owner.since)) / 60000);
-    return `held by "${owner.holder}" (pid ${owner.pid} on ${owner.host}) since ${owner.since} — ${age} min ago`;
+    return `held by "${owner.holder}" (pid ${owner.pid}, parent ${owner.ppid ?? '?'} on ${owner.host}) since ${owner.since} — ${age} min ago`;
 }
 
 function ageMinutes(owner) {
@@ -65,7 +65,10 @@ export function acquire({ holder, force = false, staleMin = 120 }) {
         rmSync(LOCK_DIR, { recursive: true, force: true });
         if (!tryMkdir()) return { ok: false, owner: readOwner() };
     }
-    const owner = { holder, pid: process.ppid, host: hostname(), since: new Date().toISOString() };
+    // `pid` is the process that took the lock; the CLI exits right after,
+    // so `ppid` (the shell or agent that ran it) is the one to look for
+    // when judging whether a lock is stale.
+    const owner = { holder, pid: process.pid, ppid: process.ppid, host: hostname(), since: new Date().toISOString() };
     writeFileSync(OWNER, JSON.stringify(owner, null, 2));
     return { ok: true, owner };
 }
