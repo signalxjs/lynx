@@ -147,6 +147,19 @@ describe('Slider — zero 0.6 projection', () => {
         expect(commits).toEqual([[20, 30]]);
     });
 
+    it('a touch payload with only the rail axis still drags; coincident thumbs open by direction', async () => {
+        const changes: unknown[] = [];
+        const { container } = render(
+            <Slider.Root defaultValue={[50, 50]} onValueChange={(v: number | number[]) => changes.push(v)} />,
+        );
+        await act(() => { fireLayout(byPart(container, 'slider', 'track'), { left: 0, top: 0, width: 100, height: 20 }); });
+        const control = byPart(container, 'slider', 'control');
+        // No y at all: a horizontal rail needs only x.
+        await act(() => fireEvent.touchStart(control as never, { touches: [{ pageX: 80, clientX: 80 } as never] }));
+        expect(changes).toEqual([[50, 80]]);
+        await act(() => fireEvent.touchEnd(control as never));
+    });
+
     it('valueCommit fires once per drag, only when the value moved, in the model shape', async () => {
         const commits: unknown[] = [];
         const { container } = render(

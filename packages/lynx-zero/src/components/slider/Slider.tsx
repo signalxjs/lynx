@@ -215,15 +215,24 @@ const SliderRoot = component<SliderRootProps>(({ props, emit }) => {
         const useLive = !!live && live.width > 0 && live.height > 0;
         const rect = useLive ? live : layout.layout.value;
         if (!rect) return null;
-        const x = useLive ? (t.clientX ?? t.pageX ?? t.x) : (t.pageX ?? t.x);
-        const y = useLive ? (t.clientY ?? t.pageY ?? t.y) : (t.pageY ?? t.y);
-        if (typeof x !== 'number' || typeof y !== 'number') return null;
-        const fraction = sliderFraction({ x, y }, rect, orientation());
+        // Only the rail's axis is required: a payload missing the other
+        // coordinate still drags.
+        const vertical = orientation() === 'vertical';
+        const coord = vertical
+            ? (useLive ? (t.clientY ?? t.pageY ?? t.y) : (t.pageY ?? t.y))
+            : (useLive ? (t.clientX ?? t.pageX ?? t.x) : (t.pageX ?? t.x));
+        if (typeof coord !== 'number') return null;
+        const fraction = sliderFraction(vertical ? { x: 0, y: coord } : { x: coord, y: 0 }, rect, orientation());
         if (fraction === null) return null;
         return min() + fraction * (max() - min());
     };
 
-    /** The thumb a touch at `value` grabs: the nearest; ties go its way. */
+    /**
+     * The thumb a touch at `value` grabs: the nearest. Coincident thumbs
+     * (a range collapsed to one value) split by direction — a touch above
+     * takes the later thumb, so the pair can open either way. An exact
+     * midpoint between two distinct thumbs takes the lower one.
+     */
     const nearest = (value: number): number => {
         const current = values();
         let best = 0;
