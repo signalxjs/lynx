@@ -60,8 +60,7 @@ const AccordionRoot = component<AccordionRootProps>(({ props, slots, emit }) => 
         props.defaultValue ?? [],
         (value) => emit('valueChange', value),
     );
-    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size });
-    provideVariantAxes(axes);
+    const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size }));
     const ctx: AccordionContext = {
         isOpen: (value) => state.value.includes(value),
         toggle: (value) => {

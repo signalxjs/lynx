@@ -17,6 +17,8 @@
  * rendered class list carries exactly that set (consumer extras allowed —
  * they are not in the `zx-` namespace).
  */
+import type { Define } from '@sigx/lynx';
+import { component } from '@sigx/lynx';
 import type { ElementLike, ExpectAnatomyOptions } from '@sigx/zero/testing';
 import { expectAnatomyElements } from '@sigx/zero/testing';
 import type { Anatomy } from '@sigx/zero/contract/core';
@@ -31,6 +33,43 @@ import {
     placementClass,
     stateClass,
 } from '@sigx/zero/contract/core';
+import type { ForcedFlags } from '../contract/axes-context.js';
+import { provideForcedFlags } from '../contract/axes-context.js';
+
+export type { ForcedFlags } from '../contract/axes-context.js';
+export { provideForcedFlags } from '../contract/axes-context.js';
+
+export type ForceStatesProps =
+    /** Flags to force (`{ pressed: true }`, `{ 'focus-visible': true }`, …). `false` forces a flag off. */
+    & Define.Prop<'flags', Readonly<Record<string, boolean>>, true>
+    /** Narrow the forcing to these part names (default: every part whose anatomy declares the flag). */
+    & Define.Prop<'parts', readonly string[], false>
+    & Define.Slot<'default'>;
+
+/**
+ * Force interaction flags onto every lynx-zero part below — for DISPLAY:
+ * the showcase state-matrix gallery and screenshot QA, where a held press
+ * or a keyboard focus ring cannot be produced without input. Each flag
+ * lands only on the parts whose anatomy declares it (a switch's `pressed`
+ * on its control, not its root), as both the `zx-f-*` class and the
+ * `data-*` attribute, so a forced tree still passes `expectAnatomy` and
+ * `expectClassGrammar`. A nearer `ForceStates` replaces an outer one.
+ *
+ * Reaches every part that stamps its carrier's axes (all pilot components);
+ * a toast renders into the overlay outlet outside the provider tree and is
+ * not forced.
+ *
+ * ```tsx
+ * <ForceStates flags={{ pressed: true }}>
+ *     <Button color="primary"><text>Held</text></Button>
+ * </ForceStates>
+ * ```
+ */
+export const ForceStates = component<ForceStatesProps>(({ props, slots }) => {
+    provideForcedFlags((): ForcedFlags => ({ flags: props.flags, parts: props.parts }));
+    return () => slots.default?.();
+}, { name: 'ForceStates' });
+
 /**
  * The rendered-node slice the oracles read — STRUCTURAL on purpose, so this
  * subpath carries no type dependency on `@sigx/lynx-testing`:

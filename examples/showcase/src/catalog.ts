@@ -94,6 +94,13 @@ export const catalog: Area[] = [
                 route: 'zeroParity',
             },
             {
+                id: 'zero-gallery',
+                title: 'Zero Gallery',
+                description: 'State matrix: every axis × forced state per lynx-zero scope, one screenshot per section',
+                icon: { set: 'lucide', name: 'grid-3x3' },
+                route: 'zeroGallery',
+            },
+            {
                 id: 'foundation',
                 title: 'Foundation (lynx-zero)',
                 description: 'The neutral layer under both design systems — contract, theme engine, layout primitives',

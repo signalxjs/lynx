@@ -273,6 +273,18 @@ describe('scaffoldIos', () => {
         expect(existsSync(join(testDir, 'ios', 'TestApp', 'App.swift'))).toBe(true);
     });
 
+    it('forwards scene-delivered deep links to the package hooks (#1141)', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        // A SwiftUI scene app gets URLs on the scene, never on the
+        // AppDelegate — without these, @sigx/lynx-linking sees no link at all.
+        const app = readFileSync(join(testDir, 'ios', 'TestApp', 'App.swift'), 'utf-8');
+        expect(app).toContain('.onOpenURL { url in');
+        expect(app).toContain('GeneratedAppDelegateHooks.openURL(url, options: [:])');
+        expect(app).toContain('.onContinueUserActivity(NSUserActivityTypeBrowsingWeb)');
+    });
+
     it('substitutes deployment target in Podfile', () => {
         const config = resolveConfig(TEST_CONFIG);
         scaffoldIos(testDir, config);

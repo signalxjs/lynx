@@ -46,8 +46,7 @@ const SwitchRoot = component<SwitchRootProps>(({ props, slots, emit }) => {
     const invalid = () => !!props.invalid || field.invalid();
     const press = createPressFeedback({ isDisabled: disabled });
     const st = () => (state.value ? 'checked' : 'unchecked');
-    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size });
-    provideVariantAxes(axes);
+    const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size }));
 
     return () => (
         <view

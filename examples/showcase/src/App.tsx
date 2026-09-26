@@ -2,7 +2,7 @@ import { component } from '@sigx/lynx';
 import { AppearanceProvider } from '@sigx/lynx-appearance';
 import { StatusBarSync, ThemeProvider } from '@sigx/lynx-daisyui';
 import { NavHeader } from '@sigx/lynx-daisyui/navigation';
-import { NavigationRoot, Stack } from '@sigx/lynx-navigation';
+import { NavigationRoot, Stack, useLinkingNav } from '@sigx/lynx-navigation';
 import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 import { routes } from './routes.js';
 // Side-effect import: registers demo runtime custom themes (acme-light/dark)
@@ -31,6 +31,15 @@ import './themes.js';
 // Modal routes (keyboard / markdownComposer) escalate to an overlay layer
 // above the Stack — the persistent bar stays with the underlying screen
 // and the sheets own their full surface (chat chrome, no header).
+// Deep links (`showcase://<route path>`, e.g. `showcase://zero-gallery/button`)
+// route straight to a screen — cold start replaces the catalog root, warm
+// URLs push. The zero QA tooling (scripts/zero-qa) cold-launches into the
+// state-matrix gallery this way, with no taps.
+const DeepLinks = component(() => {
+    useLinkingNav({ prefixes: ['showcase://'] });
+    return () => null;
+});
+
 const App = component(() => () => (
     <AppearanceProvider>
         <SafeAreaProvider>
@@ -38,6 +47,7 @@ const App = component(() => () => (
                 <StatusBarSync />
                 <SafeAreaView edges={['top', 'bottom', 'left', 'right']} class="bg-base-100">
                     <NavigationRoot routes={routes} initialRoute="root">
+                        <DeepLinks />
                         <Stack>
                             <NavHeader backIcon={{ set: 'lucide', name: 'chevron-left' }} />
                         </Stack>

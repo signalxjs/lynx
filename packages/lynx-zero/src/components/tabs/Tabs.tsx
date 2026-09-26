@@ -63,8 +63,7 @@ const TabsRoot = component<TabsRootProps>(({ props, slots, emit }) => {
         },
     );
     const orientation = (): Orientation => props.orientation ?? 'horizontal';
-    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size, variant: props.variant });
-    provideVariantAxes(axes);
+    const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size, variant: props.variant }));
     const ctx: TabsContext = {
         selected: () => state.value,
         select: (value) => {
