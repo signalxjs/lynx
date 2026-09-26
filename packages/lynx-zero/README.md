@@ -103,6 +103,32 @@ The platform spellings to know:
 - **Closed means unmounted.** Lynx has no `hidden` attribute and no
   attribute selectors, so inactive panels, closed popups and unchecked
   indicators leave the tree — absence is the lynx spelling of `hiddenIn`.
+- **Tabs draw their indicator themselves.** zero 0.6's `indicator` part
+  (a mark over the active tab) positions itself on this platform: it is an
+  absolute box over the active tab, measured from the tab's and the list's
+  rects (the web's `--tabs-indicator-*` properties are web-only), and the
+  skin only paints it. `Tabs.List` renders one on its own, because on lynx
+  it is where daisy's active underline lives (the web draws it with a
+  `::before`, which lynx drops). Place a `<Tabs.Indicator class="…" />` in
+  the list to style or order it; the list then skips its own. Inactive
+  panels unmount, so lynx always behaves as the web's `unmountOnExit`.
+  The web's `lazyMount`/`unmountOnExit` props are not taken.
+
+  ```tsx
+  <Tabs.Root defaultValue="inbox" variant="border" color="primary">
+      <Tabs.List>
+          <Tabs.Tab value="inbox"><text>Inbox</text></Tabs.Tab>
+          <Tabs.Tab value="sent"><text>Sent</text></Tabs.Tab>
+      </Tabs.List>
+      <Tabs.Panel value="inbox"><text>…</text></Tabs.Panel>
+      <Tabs.Panel value="sent"><text>…</text></Tabs.Panel>
+  </Tabs.Root>
+  ```
+- **Accordion** takes zero 0.6's `orientation` (`vertical` by default,
+  stamped on the root and every trigger) and a root-level `disabled`. A
+  trigger announces `expanded`/`collapsed` in its accessibility status. The
+  web's `loop` and `regions` are keyboard and landmark semantics with no
+  lynx surface, so they are not taken.
 - **Overlays portal to the outlet.** Wrap the app once in `ZeroRoot` (theme
   host + overlay outlet as the LAST child — stacking is document order).
   Dialog renders the anatomy's `::backdrop` pseudo part as a real view;
