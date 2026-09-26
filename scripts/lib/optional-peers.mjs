@@ -11,13 +11,25 @@
  * the root genuinely needs is not optional.
  *
  * The walk follows static `import` / `export … from` of relative modules from
- * the source file behind the `"."` export. `import type` / `export type` are
- * erased and skipped; dynamic `import()` is a runtime choice and skipped.
+ * the source file behind the `"."` export. Type-only imports are erased and
+ * skipped: `import type` / `export type`, and a brace list whose every
+ * specifier is `type`-qualified (`import { type A } from …` — elided because
+ * the repo does not set `verbatimModuleSyntax`). Dynamic `import()` is a
+ * runtime choice and skipped.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
-const STATIC_IMPORT = /^\s*(?:import|export)\s+(?!type\b)(?:[^'"]*?\sfrom\s+)?['"]([^'"]+)['"]/gm;
+const STATIC_IMPORT = /^\s*(?:import|export)\s+(?!type\b)(?:([^'"]*?)\sfrom\s+)?['"]([^'"]+)['"]/gm;
+
+/** `{ type A, type B as C }` — every specifier type-only, so TS erases the statement. */
+function allTypeSpecifiers(clause) {
+    const braces = clause?.trim().match(/^\{([\s\S]*)\}$/);
+    if (!braces) return false;
+    const specifiers = braces[1].split(',').map((s) => s.trim()).filter(Boolean);
+    return specifiers.length > 0 && specifiers.every((s) => /^type\s/.test(s));
+}
+
 const SOURCE_EXTS = ['.ts', '.tsx', '/index.ts', '/index.tsx'];
 
 /** `./dist/foo.js` → the `src/foo.ts(x)` behind it, or null. */
@@ -53,7 +65,8 @@ export function rootOptionalPeerImports(pkgDir, pkg) {
         const file = stack.pop();
         if (seen.has(file)) continue;
         seen.add(file);
-        for (const [, specifier] of readFileSync(file, 'utf8').matchAll(STATIC_IMPORT)) {
+        for (const [, clause, specifier] of readFileSync(file, 'utf8').matchAll(STATIC_IMPORT)) {
+            if (allTypeSpecifiers(clause)) continue;
             if (specifier.startsWith('.')) {
                 const base = resolve(dirname(file), specifier.replace(/\.js$/, ''));
                 const next = SOURCE_EXTS.map((e) => base + e).find(existsSync);

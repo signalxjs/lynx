@@ -38,6 +38,14 @@ describe('rootOptionalPeerImports', () => {
         });
         expect(rootOptionalPeerImports(dir, pkg)).toEqual([]);
     });
+
+    it('skips an all-`type` brace list but not a mixed one', () => {
+        const dir = fixture({
+            'src/index.ts': "import { type T, type U as V } from 'opt';\nexport { type W } from 'opt/sub';\nexport { mixed } from './m.js';\n",
+            'src/m.ts': "import { type T, useIt } from 'opt';\nexport const mixed = useIt;\n",
+        });
+        expect(rootOptionalPeerImports(dir, pkg)).toEqual([{ peer: 'opt', specifier: 'opt', file: 'src/m.ts' }]);
+    });
 });
 
 // #1136: an app that installs only the package (as every README says) must be
