@@ -25,6 +25,8 @@ export interface PartA11yOptions {
      */
     checked?: boolean;
     selected?: boolean;
+    /** A disclosure's state (an accordion trigger): `expanded` / `collapsed`. */
+    expanded?: boolean;
     disabled?: boolean;
 }
 
@@ -38,6 +40,7 @@ export function partA11y(options: PartA11yOptions): Record<string, unknown> {
     const status: string[] = [];
     if (options.checked !== undefined) status.push(options.checked ? 'checked' : 'unchecked');
     if (options.selected) status.push('selected');
+    if (options.expanded !== undefined) status.push(options.expanded ? 'expanded' : 'collapsed');
     if (options.disabled) status.push('disabled');
     if (status.length > 0) props['accessibility-status'] = status.join(', ');
     return props;

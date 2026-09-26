@@ -107,7 +107,12 @@ export const GALLERY_SCOPES = {
             { id: 'pressed', label: 'pressed', flags: { pressed: true } },
             { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true } },
             { id: 'disabled', label: 'disabled (2nd)', props: { disabled: true } },
+            // The indicator (zero#324) follows the active tab: off the first slot.
+            { id: 'second', label: 'active 2nd', props: { value: 'b' } },
         ],
+        // Three tabs, the middle one active, per variant: the indicator's
+        // measured geometry away from the list's origin.
+        extras: ['indicator'],
         cellWidth: 150,
         rowsPerPage: 4,
     },
@@ -118,9 +123,12 @@ export const GALLERY_SCOPES = {
             { id: 'closed', label: 'closed' },
             { id: 'open', label: 'open', props: { open: true } },
             { id: 'pressed', label: 'pressed', flags: { pressed: true } },
+            { id: 'open-pressed', label: 'open·pressed', flags: { pressed: true }, props: { open: true } },
             { id: 'focus', label: 'focus', flags: { 'focus-visible': true } },
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
         ],
+        // orientation="horizontal": the items side by side (zero 0.6).
+        extras: ['horizontal'],
         cellWidth: 104,
         rowsPerPage: 4,
     },
@@ -131,6 +139,9 @@ export const GALLERY_SCOPES = {
             DEFAULT,
             { id: 'marker', label: 'marker=error', props: { markerColor: 'error' } },
         ],
+        // A horizontal timeline, and a vertical one with long content (the
+        // marker must stay a dot beside wrapping text, never a pill).
+        extras: ['horizontal', 'long'],
         cellWidth: 150,
     },
     dialog: {

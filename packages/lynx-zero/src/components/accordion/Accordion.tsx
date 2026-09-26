@@ -5,6 +5,16 @@
  * web's panel collapses via the native element). No `height: auto`
  * transitions exist on this target either — a skin animates
  * opacity/translate, or measures; the open/closed classes are the hook.
+ *
+ * `orientation` (zero 0.6, `vertical` by default) is the web's arrow-key
+ * axis; there are no arrow keys here, but it rides the root and every
+ * trigger exactly as the anatomy says, so a skin can lay the items out in a
+ * row. `disabled` on the Root disables every item. The web's `loop` and
+ * `regions` props are keyboard and landmark semantics this platform has no
+ * surface for, so they are not taken.
+ *
+ * The trigger's screen-reader status carries `expanded`/`collapsed` — the
+ * lynx spelling of the web's `aria-expanded`.
  */
 import type { Define } from '@sigx/lynx';
 import { component, compound, defineInjectable, defineProvide } from '@sigx/lynx';
@@ -19,14 +29,20 @@ import { createPressFeedback } from '../../behaviors/press.js';
 
 const anatomy = anatomies.accordion;
 
+type Orientation = 'horizontal' | 'vertical';
+
 interface AccordionContext {
     isOpen(value: string): boolean;
     toggle(value: string): void;
+    disabled(): boolean;
+    orientation(): Orientation;
 }
 
 const useAccordionContext = defineInjectable<AccordionContext>(() => ({
     isOpen: () => false,
     toggle: () => {},
+    disabled: () => false,
+    orientation: () => 'vertical',
 }));
 
 interface ItemContext {
@@ -49,6 +65,10 @@ export type AccordionRootProps =
     & Define.Prop<'multiple', boolean, false>
     /** Allow closing the last open item. */
     & Define.Prop<'collapsible', boolean, false>
+    /** Lay the items out along this axis (default `vertical`). */
+    & Define.Prop<'orientation', Orientation, false>
+    /** Disable every item. */
+    & Define.Prop<'disabled', boolean, false>
     & Define.Prop<'color', string, false>
     & Define.Prop<'size', string, false>
     & Define.Prop<'class', string, false>
@@ -61,7 +81,10 @@ const AccordionRoot = component<AccordionRootProps>(({ props, slots, emit }) => 
         (value) => emit('valueChange', value),
     );
     const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size }));
+    const orientation = (): Orientation => props.orientation ?? 'vertical';
     const ctx: AccordionContext = {
+        disabled: () => !!props.disabled,
+        orientation,
         isOpen: (value) => state.value.includes(value),
         toggle: (value) => {
             const open = state.value.includes(value);
@@ -76,7 +99,7 @@ const AccordionRoot = component<AccordionRootProps>(({ props, slots, emit }) => 
     defineProvide(useAccordionContext, () => ctx);
 
     return () => (
-        <view {...partBag(anatomy, 'root', { ...partAxes(axes()), class: props.class })}>
+        <view {...partBag(anatomy, 'root', { orientation: orientation(), ...partAxes(axes()), class: props.class })}>
             {slots.default?.()}
         </view>
     );
@@ -92,7 +115,7 @@ const AccordionItem = component<AccordionItemProps>(({ props, slots }) => {
     const accordion = useAccordionContext();
     const field = useFieldContext();
     const axes = useVariantAxes();
-    const disabled = () => !!props.disabled || field.disabled();
+    const disabled = () => !!props.disabled || accordion.disabled() || field.disabled();
     const item: ItemContext = {
         value: () => props.value,
         open: () => accordion.isOpen(props.value),
@@ -125,10 +148,11 @@ const AccordionTrigger = component<PartProps>(({ props, slots }) => {
             {...partBag(anatomy, 'trigger', {
                 state: item.open() ? 'open' : 'closed',
                 flags: { disabled: item.disabled(), pressed: press.pressed() },
+                orientation: accordion.orientation(),
                 ...partAxes(axes()),
                 class: props.class,
             })}
-            {...partA11y({ trait: 'button', disabled: item.disabled() })}
+            {...partA11y({ trait: 'button', expanded: item.open(), disabled: item.disabled() })}
             bindtap={() => {
                 if (!item.disabled()) accordion.toggle(item.value());
             }}

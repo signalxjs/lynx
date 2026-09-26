@@ -86,13 +86,36 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
     },
     tabs: {
         cell: (c) => (
-            <Tabs.Root defaultValue="a" color={c.color} size={c.size} variant={c.variant}>
+            <Tabs.Root
+                defaultValue={(c.props['value'] as string | undefined) ?? 'a'}
+                color={c.color}
+                size={c.size}
+                variant={c.variant}
+            >
                 <Tabs.List>
                     <Tabs.Tab value="a"><text>A</text></Tabs.Tab>
                     <Tabs.Tab value="b" disabled={bool(c.props['disabled'])}><text>B</text></Tabs.Tab>
                 </Tabs.List>
             </Tabs.Root>
         ),
+        extras: {
+            indicator: () => (
+                <Col gap={16}>
+                    {(['border', 'lift', 'box'] as const).map((variant) => (
+                        <Tabs.Root key={variant} defaultValue="two" variant={variant} color="primary">
+                            <Tabs.List>
+                                <Tabs.Tab value="one"><text>First</text></Tabs.Tab>
+                                <Tabs.Tab value="two"><text>{`Second · ${variant}`}</text></Tabs.Tab>
+                                <Tabs.Tab value="three"><text>Third</text></Tabs.Tab>
+                            </Tabs.List>
+                            {(['one', 'two', 'three'] as const).map((value) => (
+                                <Tabs.Panel key={value} value={value}><text>{`The ${variant} panel of tab ${value}.`}</text></Tabs.Panel>
+                            ))}
+                        </Tabs.Root>
+                    ))}
+                </Col>
+            ),
+        },
     },
     accordion: {
         cell: (c) => (
@@ -103,6 +126,20 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                 </Accordion.Item>
             </Accordion.Root>
         ),
+        extras: {
+            horizontal: () => (
+                <Accordion.Root orientation="horizontal" defaultValue={['a']} multiple>
+                    <Accordion.Item value="a">
+                        <Accordion.Trigger><text>Open</text></Accordion.Trigger>
+                        <Accordion.Panel><text>Side-by-side items.</text></Accordion.Panel>
+                    </Accordion.Item>
+                    <Accordion.Item value="b">
+                        <Accordion.Trigger><text>Closed</text></Accordion.Trigger>
+                        <Accordion.Panel><text>Hidden.</text></Accordion.Panel>
+                    </Accordion.Item>
+                </Accordion.Root>
+            ),
+        },
     },
     timeline: {
         cell: (c) => (
@@ -118,6 +155,34 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                 </Timeline.Item>
             </Timeline.Root>
         ),
+        extras: {
+            horizontal: () => (
+                <Timeline.Root orientation="horizontal" color="primary">
+                    {(['Plan', 'Build', 'Ship'] as const).map((step, index, all) => (
+                        <Timeline.Item key={step}>
+                            <Timeline.Marker color={index === 2 ? 'success' : undefined} />
+                            <Timeline.Content><text>{step}</text></Timeline.Content>
+                            {index < all.length - 1 ? <Timeline.Connector /> : null}
+                        </Timeline.Item>
+                    ))}
+                </Timeline.Root>
+            ),
+            long: () => (
+                <Timeline.Root color="neutral">
+                    {[
+                        'Order placed. A long line of content that wraps across several lines beside its marker.',
+                        'Payment failed. The card was declined, so the order is on hold until it is retried.',
+                        'Retried.',
+                    ].map((text, index, all) => (
+                        <Timeline.Item key={text}>
+                            <Timeline.Marker color={index === 1 ? 'error' : undefined} />
+                            <Timeline.Content><text>{text}</text></Timeline.Content>
+                            {index < all.length - 1 ? <Timeline.Connector /> : null}
+                        </Timeline.Item>
+                    ))}
+                </Timeline.Root>
+            ),
+        },
     },
     dialog: {
         cell: (c) => (
