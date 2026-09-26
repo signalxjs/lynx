@@ -22,14 +22,18 @@ examples → **[sigx.dev/lynx](https://sigx.dev/lynx/)**
 ```bash
 npm create @sigx@latest my-app -- --kind lynx --styling daisyui --install
 cd my-app
-npx sigx doctor        # checks Node, JDK, Android SDK, emulators, package versions
-npx sigx run:android   # builds, installs and launches on an emulator/device (or run:ios on macOS)
+npx sigx doctor
+npx sigx run:android
 ```
 
-(Run `npm create @sigx@latest` without flags for the interactive wizard —
-choose **Customize → Native mobile (Lynx)**.) `run:android` starts an emulator
-for you when nothing is connected, then keeps the dev server running with live
-reload.
+`sigx doctor` checks Node, the JDK, the Android SDK, emulators and your package
+versions. `sigx run:android` builds the app, installs it and launches it. If
+nothing is connected it starts an emulator for you, then keeps the dev server
+running with live reload. On macOS, use `npx sigx run:ios` for iOS.
+
+For the interactive wizard, run `npm create @sigx@latest` without flags and
+choose **Mobile app**. On older CLI versions it's under **Customize → Native
+mobile (Lynx)**.
 
 ## Prerequisites
 

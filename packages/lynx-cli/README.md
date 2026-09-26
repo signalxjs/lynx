@@ -117,8 +117,9 @@ This package is auto-installed when you scaffold a Lynx project, so you rarely d
 
 ```bash
 npm create @sigx@latest my-app -- --kind lynx --styling daisyui --install
-# or run it without flags and choose Customize → Native mobile (Lynx)
 ```
+
+Or run it without flags and choose **Mobile app** in the wizard.
 
 It gives you a single toolchain — start a dev server with HMR and streamed device logs, produce production bundles, generate and auto-link native iOS/Android projects, diagnose your toolchain, and run on a device, simulator, or the browser.
 
