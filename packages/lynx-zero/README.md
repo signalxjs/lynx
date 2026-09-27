@@ -444,6 +444,84 @@ import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
 - Arrow-key roving, `focus-visible` detection and form reset are web
   keyboard/form semantics with no surface here; `focus-visible` still
   renders when forced (`ForceStates`).
+## Text fields and Field (zero wave 2)
+
+`Input`, `Textarea` and `Field` carry zero's `input`, `textarea` and
+`field` anatomies on the native lynx `<input>` / `<textarea>`:
+
+```tsx
+import { Field, Input, Textarea } from '@sigx/lynx-zero';
+
+<Field.Root invalid={!!error} required size="sm">
+    <Field.Label>Email</Field.Label>
+    <Input.Root model={() => form.email} type="email" enterkeyhint="next">
+        <Input.Control>
+            <Input.Adornment placement="start"><text>@</text></Input.Adornment>
+            <Input.Input placeholder="you@example.com" onConfirm={next} />
+            <Input.ClearTrigger />
+        </Input.Control>
+    </Input.Root>
+    {error ? <Field.Error>{error}</Field.Error> : <Field.Description>We never share it.</Field.Description>}
+</Field.Root>
+
+<Input.Root type="password" model={() => form.password} model:visible={() => ui.shown}>
+    <Input.Control><Input.Input /><Input.VisibilityTrigger /></Input.Control>
+</Input.Root>
+
+<Textarea.Root model={() => form.bio} minRows={2} maxRows={6} enterkeyhint="send">
+    <Textarea.Label>Bio</Textarea.Label>
+    <Textarea.Textarea placeholder="Tell us about yourself" />
+</Textarea.Root>
+```
+
+| Export | Parts | Notable props / events |
+|---|---|---|
+| `Input` | `Root`, `Label`, `Control`, `Input`, `Adornment`, `ClearTrigger`, `VisibilityTrigger` | `model` (`string`) / `defaultValue` / `valueChange`; `type` (`text` `email` `password` `search` `tel` `url`); `inputmode`, `enterkeyhint`, `maxlength`, `spellcheck`, `autocorrect`, `autofocus`; `model:visible` / `defaultVisible` / `visibleChange`; `disabled` `invalid` `required` `readonly`; `color` `size`; `label` (accessible name). `Input.Input`: `placeholder`, `focus` / `blur` / `confirm` (Enter, with the text) events |
+| `Textarea` | `Root`, `Label`, `Textarea` | as Input (no `type`/`inputmode`/`visible`), plus `minRows` / `maxRows` (autosize) |
+| `Field` | `Root`, `Label`, `Description`, `Error` | `disabled` `invalid` `required` `readonly` `color` `size` |
+
+The platform spellings to know:
+
+- **The model is the only value channel.** The Root's controllable state is
+  the sigx `Model` the native element binds, so the lynx model processor
+  owns write-back (and the iOS deferred initial value). There is no `value`
+  prop — a component prop named `value` breaks `emit` in runtime-core.
+- **State paints on views, the native field is a text face.** iOS never
+  repaints a native text field's styles after mount, so every state that
+  paints (invalid border, disabled fade, focus ring) is a class on a view:
+  Input's `control`, and Textarea's `textarea` part, which on lynx is a
+  view holding the native `<textarea>`. That inner field wears the part's
+  base + axis classes (the only way the skin's font size, ink and
+  placeholder colour reach a native element) with the box zeroed inline;
+  it carries no `data-part`, so it is not a second part instance.
+- **`focus-visible` is focus.** A text field shows its ring on any focus
+  (as the web's `:focus-visible` does for text inputs), driven by
+  `bindfocus`/`bindblur` onto `control` + `input` (Input) or the
+  `textarea` part.
+- **Taps focus through the UI method.** Lynx has no `<label for>` and no
+  `element.focus()`: a tap on a `Label`, on Input's `control` padding or an
+  adornment, or on Textarea's box invokes the native field's `focus` method.
+  `Field.Label` focuses the first control that registered with the Field
+  (zero's `FieldContext.report` seam). The triggers use `catchtap`, so a
+  trigger press never also lands on the control.
+- **Field is zero's `FieldContext`.** Controls inside — these, and Switch,
+  Slider, Select, Button — adopt its flags, and its `size` when they set
+  none; it ORs in an enclosing Fieldset's flags. Lynx has no constraint
+  validation, so `validate`/`validateOn` and `Field.Error`'s `match` are
+  not taken: set `invalid` yourself and mount a `Field.Error` while there
+  is something to say. The skin's required-label asterisk is a web
+  `::after` and does not render on lynx.
+- **Attributes map onto lynx's set.** `enterkeyhint` → `confirm-type`
+  (`done` `go` `next` `search` `send`; a `search` field defaults to
+  `search`); `inputmode="numeric"`/`"decimal"` pick the `digit`/`number`
+  pads on a text field; `spellcheck`/`autocorrect` are iOS-only
+  (`ios-spell-check`/`ios-auto-correct`). An unset optional string never
+  reaches the native element (iOS would receive `NSNull`). No `name`/`form`
+  (no forms), no Escape-to-clear (no hardware Escape), no `modelModifiers`
+  timing yet (lynx-side of core#127, #496).
+- **Autosize** (`minRows`/`maxRows`) stamps `data-autosize` and grows the
+  native field (`auto-height`), capped at `maxRows` lines (`maxlines`).
+  The skin's `min-height` is the floor; a row count has no lynx spelling.
 
 ## What comes next
 
