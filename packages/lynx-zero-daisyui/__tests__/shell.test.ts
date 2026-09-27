@@ -169,6 +169,27 @@ describe('shipped artifacts', () => {
             expect(unsized).toEqual([]);
         });
 
+        it('draws the tabs underline on the indicator part, not on the tab (zero#340)', () => {
+            // lynx drops the web's `::before` underline. lynx-zero renders the
+            // `indicator` part as a measured box over the active tab in every
+            // list (#1145); since zero 0.7.0 the skin paints daisy's 3px bar on
+            // that box for the `border` flavor, and `lift`/`box` keep it hidden.
+            const tabs = readFileSync(join(componentsDir, 'tabs.css'), 'utf8');
+            const rule = (selector: string): string => {
+                const at = tabs.indexOf(`${selector} {`);
+                return at === -1 ? '' : tabs.slice(at, tabs.indexOf('}', at));
+            };
+            expect(rule('.zx-tabs__indicator')).toMatch(/display:\s*none/);
+            const border = rule('.zx-tabs__indicator.zx-a-variant-border');
+            expect(border).toMatch(/display:\s*flex/);
+            expect(border).toMatch(/border-bottom-width:\s*3px/);
+            expect(border).toMatch(/border-bottom-color:\s*var\(--tab-active-ink\)/);
+            // The tab itself no longer draws the full-width stand-in border.
+            expect(rule('.zx-tabs__tab.zx-a-variant-border')).not.toMatch(/border-bottom/);
+            expect(rule('.zx-tabs__indicator.zx-a-variant-lift')).not.toMatch(/display:\s*flex/);
+            expect(rule('.zx-tabs__indicator.zx-a-variant-box')).not.toMatch(/display:\s*flex/);
+        });
+
         it('emits no CSS math lynx cannot evaluate', () => {
             // Measured on device (#1066): min() resolves neither bare nor
             // inside calc(), and the declaration carrying it is dropped

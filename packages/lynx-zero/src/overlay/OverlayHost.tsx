@@ -7,7 +7,12 @@
  *
  * `ZeroRoot` is that container: the app wraps its page once, and it renders
  * the ThemeProvider host (so overlays inherit the theme tokens) with app
- * content FIRST and `<OverlayOutlet/>` LAST. Overlay components register a
+ * content FIRST and the outlet LAST. The outlet is a full-window
+ * `position: fixed` layer (#1169) — lynx attaches fixed nodes to the page
+ * root, after everything already there — so a backdrop dims the whole
+ * screen even when the host itself sits inside safe-area padding, below a
+ * header, or under a clipping navigation stack; the host's own box stays
+ * the safe frame content respects (`useOverlayInsets`). Overlay components register a
  * render closure through `useOverlayPortal()`; the outlet maps the stack in
  * registration order — later registration paints on top, which matches the
  * dismiss stack's innermost-first order by construction.
@@ -154,44 +159,90 @@ const OverlayEntryBoundary = component<OverlayEntryProps>(({ props }) => {
 type OverlayHostProps = Define.Slot<'default'>;
 
 /**
+ * The outlet layer: the whole window, above everything (fixed nodes attach
+ * to the page root, after the page's own content), transparent to touches
+ * that land on the layer itself.
+ */
+const OUTLET_LAYER_STYLE = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+} as const;
+
+/**
  * The bare host: provides the registry, renders content first and the
  * outlet last. Use `ZeroRoot` unless the theme host already exists.
  */
 export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     const registry = makeRegistry();
     defineProvide(useOverlayRegistry, () => registry);
-    // The host IS the outlet's coordinate space (`position: relative`), and
-    // its origin sits below whatever chrome precedes it (a navigation
-    // header). Anchored popups measure in viewport coordinates, so they
-    // shift into this measured rect (#1086) — and re-measure it with their
-    // own rects (#1146): the host's layout events never fire for a
-    // transform, so a rect from mount is stale once a push transition ends.
-    const origin = useViewportRect();
-    provideOverlayOrigin(() => origin.rect.value, origin.measure);
+    // Two measured rects (#1169). The OUTLET is a full-window layer: the host
+    // is laid out inside whatever the app gives it — a SafeAreaView's padding,
+    // below a navigation header, inside a Stack that clips its screens — and
+    // an outlet confined to that box left a modal backdrop's inset strips
+    // undimmed and cut a bottom toast's shadow at the home indicator. The
+    // layer is `position: fixed`, which lynx attaches to the page root: it
+    // escapes every clipping ancestor and fills the window. The host's own
+    // box is the SAFE FRAME content respects (the dialog panel centers in
+    // it, toasts pin to it, anchored popups clamp to it — #1086).
+    //
+    // Anchored popups measure in viewport coordinates, so they shift into the
+    // outlet's measured rect and re-measure both rects with their own
+    // (#1146): layout events never fire for a transform.
+    const outlet = useViewportRect();
+    const frame = useViewportRect();
+    const measure = (): void => {
+        outlet.measure();
+        frame.measure();
+    };
+    provideOverlayOrigin(() => outlet.rect.value, measure, () => frame.rect.value);
     // `display: flex` is load-bearing, not decoration: a lynx `<view>` defaults
     // to `display: linear`, which ignores its children's flex properties — the
     // app content below would size to itself and a `<ScrollView flex={1}>`
     // would never scroll (#1064).
-    return () => (
-        <view
-            main-thread:ref={origin.ref}
-            bindlayoutchange={() => origin.measure()}
-            style={{
-                position: 'relative',
-                display: 'flex',
-                flexDirection: 'column',
-                flexGrow: 1,
-                flexShrink: 1,
-                flexBasis: '0%',
-                minHeight: 0,
-            }}
-        >
-            {slots.default?.()}
-            {registry.entries().map((entry) => (
-                <OverlayEntryBoundary key={entry.id} render={entry.render} />
-            ))}
-        </view>
-    );
+    //
+    // The layer exists only while something is open, and it is
+    // `pointer-events: none`: a full-window view would otherwise take every
+    // touch meant for the page under a non-modal overlay (a toast, a popover).
+    // Its own children keep the default `auto`, so a backdrop or a toast
+    // still receives its taps; lynx falls through to the page for a touch
+    // that lands on the layer itself.
+    return () => {
+        const entries = registry.entries();
+        return (
+            <view
+                main-thread:ref={frame.ref}
+                bindlayoutchange={() => frame.measure()}
+                style={{
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flexGrow: 1,
+                    flexShrink: 1,
+                    flexBasis: '0%',
+                    minHeight: 0,
+                }}
+            >
+                {slots.default?.()}
+                {entries.length > 0
+                    ? (
+                        <view
+                            main-thread:ref={outlet.ref}
+                            bindlayoutchange={measure}
+                            style={OUTLET_LAYER_STYLE}
+                        >
+                            {entries.map((entry) => (
+                                <OverlayEntryBoundary key={entry.id} render={entry.render} />
+                            ))}
+                        </view>
+                    )
+                    : null}
+            </view>
+        );
+    };
 }, { name: 'OverlayHost' });
 
 export type PortalScopeProps =

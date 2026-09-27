@@ -28,6 +28,13 @@
  * slide settled, and the popup landed a screen width off to the LEFT. So
  * every re-measure trigger measures the origin too.
  *
+ * Since #1169 the outlet is a full-window `position: fixed` layer, so its
+ * origin no longer rides a screen transform at all; the clamp box is the
+ * host's SAFE FRAME (its content box), measured with the same triggers and
+ * ignored while it pokes out of the outlet (mid-transform). The popup
+ * itself sits in the fixed layer, so it does not slide with its screen
+ * during a push; it lands where the anchor was last measured.
+ *
  * Placement values are the zero contract's `PLACEMENT_VOCABULARY` subset the
  * popup's anatomy declares — the runtime stamps the RESOLVED side (after
  * flipping) through `partBag`, exactly like the web behavior does.
@@ -36,30 +43,101 @@ import { defineInjectable, defineProvide, useScreen, useViewportRect } from '@si
 import type { ElementLayout, LayoutChangeEvent, MainThread, MainThreadRef } from '@sigx/lynx';
 
 /**
- * The overlay outlet's own viewport rect. The floating panel renders
- * absolutely inside the OUTLET — a `position: relative` host whose origin
- * sits below whatever chrome precedes it (the navigation header, ~96dp on
- * the showcase, #1086) and moves with whatever transform its screen carries
- * (a push transition). The host provides its measured rect plus a way to
- * re-measure it; the placement converts the anchor into outlet space with
- * it. Unknown when nothing provides (an outlet at the viewport origin, the
- * screen as its box).
+ * The overlay outlet's own viewport rect, plus the SAFE FRAME inside it.
+ *
+ * The outlet is a full-window layer (`position: fixed`, #1169): a modal
+ * backdrop has to dim the whole screen, edge to edge, and a toast's shadow
+ * must not be clipped at a safe-area inset. The floating panel renders
+ * absolutely inside that layer, so `rect` is the layer's measured rect (the
+ * window, in practice).
+ *
+ * The `frame` is the host's own content box: whatever the app laid it out
+ * in — below a navigation header, inside a `SafeAreaView`'s padding. Content
+ * respects it: anchored popups flip/clamp against it (#1086), the dialog
+ * panel centers in it, and toasts pin to its edges. Unknown when nothing
+ * provides (an outlet at the viewport origin, the screen as its box).
  */
 interface OverlayOrigin {
     rect(): ElementLayout | null;
+    frame(): ElementLayout | null;
     measure(): void;
 }
 
-const useOverlayOriginInjectable = defineInjectable<OverlayOrigin>(() => ({ rect: () => null, measure: () => {} }));
+const useOverlayOriginInjectable = defineInjectable<OverlayOrigin>(() => ({
+    rect: () => null,
+    frame: () => null,
+    measure: () => {},
+}));
 
 /**
  * Provide the overlay outlet's measured viewport rect (OverlayHost wires
- * this). `measure` re-measures it: anchored overlays call it alongside their
- * own measurements, so the origin and the anchor always come from the same
- * moment — a transform on a shared ancestor then cancels out.
+ * this), a way to re-measure it, and optionally the safe frame content
+ * should respect. Anchored overlays call `measure` alongside their own
+ * measurements, so the outlet, the frame and the anchor always come from
+ * the same moment.
  */
-export function provideOverlayOrigin(read: () => ElementLayout | null, measure: () => void = () => {}): void {
-    defineProvide(useOverlayOriginInjectable, () => ({ rect: read, measure }));
+export function provideOverlayOrigin(
+    read: () => ElementLayout | null,
+    measure: () => void = () => {},
+    frame: () => ElementLayout | null = () => null,
+): void {
+    defineProvide(useOverlayOriginInjectable, () => ({ rect: read, frame, measure }));
+}
+
+/** How far the safe frame sits inside the outlet, per edge (px). */
+export interface OverlayInsets {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+}
+
+const NO_INSETS: OverlayInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+
+/** Sub-pixel slack for rounding in measured rects. */
+const EPSILON = 1;
+
+/**
+ * The frame, when it is usable: measured, with a size, and CONTAINED in the
+ * outlet. A frame that pokes out of the outlet was measured mid-transform —
+ * a screen sliding in on a push sits a screen width to the right — and
+ * means nothing until it is re-measured; callers then fall back to the
+ * whole outlet. Pure, over fake rects.
+ */
+export function containedFrame(origin: ElementLayout | null, frame: ElementLayout | null): ElementLayout | null {
+    if (!origin || !frame || frame.width <= 0 || frame.height <= 0) return null;
+    const inside = frame.top >= origin.top - EPSILON
+        && frame.left >= origin.left - EPSILON
+        && frame.top + frame.height <= origin.top + origin.height + EPSILON
+        && frame.left + frame.width <= origin.left + origin.width + EPSILON;
+    return inside ? frame : null;
+}
+
+/**
+ * The safe frame's insets inside the outlet — what a full-window overlay
+ * pads its content by (the dialog panel centers inside them, a toast
+ * viewport pins to them). All zero when either rect is unknown or the frame
+ * is not contained (see `containedFrame`). Pure, over fake rects.
+ */
+export function computeOverlayInsets(origin: ElementLayout | null, frame: ElementLayout | null): OverlayInsets {
+    const f = containedFrame(origin, frame);
+    if (!origin || !f) return NO_INSETS;
+    const clamp = (n: number): number => Math.max(0, Math.round(n));
+    return {
+        top: clamp(f.top - origin.top),
+        left: clamp(f.left - origin.left),
+        bottom: clamp(origin.top + origin.height - (f.top + f.height)),
+        right: clamp(origin.left + origin.width - (f.left + f.width)),
+    };
+}
+
+/**
+ * The reactive safe-frame insets of the nearest overlay outlet. Read inside
+ * a render or effect (the portal closure) — it tracks both measurements.
+ */
+export function useOverlayInsets(): () => OverlayInsets {
+    const origin = useOverlayOriginInjectable();
+    return () => computeOverlayInsets(origin.rect(), origin.frame());
 }
 
 /**
@@ -198,6 +276,29 @@ export function computeOutletPosition(
     return computeAnchorPosition(local, floating, { width: origin.width, height: origin.height }, options);
 }
 
+/**
+ * `computeOutletPosition` with a safe frame: flip/clamp against the frame
+ * (the host's content box, below any header and inside the safe-area
+ * insets) when it is usable, then shift the result from frame space into
+ * the outlet layer's space. Without a usable frame it is exactly
+ * `computeOutletPosition` over the outlet. Pure, over fake rects.
+ *
+ * @internal
+ */
+export function computeFramedPosition(
+    anchor: ElementLayout,
+    floating: Size,
+    outlet: ElementLayout | null,
+    frame: ElementLayout | null,
+    screen: { width: number; height: number },
+    options: AnchorPositionOptions = {},
+): ResolvedPosition {
+    const safe = containedFrame(outlet, frame);
+    if (!safe || !outlet) return computeOutletPosition(anchor, floating, outlet, screen, options);
+    const p = computeOutletPosition(anchor, floating, safe, screen, options);
+    return { ...p, top: p.top + safe.top - outlet.top, left: p.left + safe.left - outlet.left };
+}
+
 export interface LynxAnchorPosition {
     /** Bind on the ANCHOR element: `main-thread:ref={anchorRef}`. */
     anchorRef: MainThreadRef<MainThread.Element | null>;
@@ -240,7 +341,7 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
         const f = floating.rect.value;
         const v = screen.value;
         return a && f && v.width > 0
-            ? computeOutletPosition(a, { width: f.width, height: f.height }, origin.rect(), v, options)
+            ? computeFramedPosition(a, { width: f.width, height: f.height }, origin.rect(), origin.frame(), v, options)
             : null;
     };
 

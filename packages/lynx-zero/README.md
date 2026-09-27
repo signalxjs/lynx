@@ -131,6 +131,16 @@ The platform spellings to know:
   lynx surface, so they are not taken.
 - **Overlays portal to the outlet.** Wrap the app once in `ZeroRoot` (theme
   host + overlay outlet as the LAST child — stacking is document order).
+  The outlet is a full-window `position: fixed` layer, mounted only while
+  something is open: lynx attaches fixed nodes to the page root, so a modal
+  backdrop dims the whole screen — status bar and home-indicator strips
+  included — even when `ZeroRoot` sits inside a `SafeAreaView`, below a
+  navigation header, or in a navigation stack that clips its screens. The
+  layer is `pointer-events: none`, so a touch that misses every overlay
+  reaches the page (a toast never blocks the screen). The host's own box
+  is the **safe frame** content respects: the dialog panel centers in it,
+  a toast viewport pins to its edges, and `useOverlayInsets()` returns
+  the frame's per-edge insets inside the window for a custom overlay.
   Dialog renders the anatomy's `::backdrop` pseudo part as a real view;
   light dismiss routes through the shared layer stack (`dismissTopLayer()`),
   so nested overlays close innermost-first. `Dialog.Close` and
@@ -138,11 +148,14 @@ The platform spellings to know:
   styled as the quiet member of the pair) and `Popover.Close` take
   `disabled` and an accessible `label`.
 - **Anchored popups position in the outlet's own space.** Popover and
-  Select measure the anchor, the popup and the outlet together
-  (`boundingClientRect`) and flip/clamp against the outlet's box
-  (`computeOutletPosition`), so a transform shared by the anchor and the
-  outlet — a screen sliding in on a navigation push — cancels out. A popup
-  opened at mount (`defaultOpen`) lands where its anchor settles.
+  Select measure the anchor, the popup, the outlet and the safe frame
+  together (`boundingClientRect`) and flip/clamp against the safe frame
+  (`computeOutletPosition`), so a popup never flips into a status-bar or
+  home-indicator strip or under a header. A frame measured mid-transform
+  (a screen sliding in on a navigation push) pokes out of the window and
+  is ignored until it is re-measured. A popup opened at mount
+  (`defaultOpen`) lands where its anchor settles. The outlet does not ride
+  a screen transform, so an open popup stays put while its screen slides.
 - **Press feedback has two tiers.** Every pressable part (Button, a Tabs
   tab, an Accordion trigger, the Popover/Dialog triggers and closes, the
   Select trigger and items, the Toast action and close) is wired through
