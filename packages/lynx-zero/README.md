@@ -53,7 +53,8 @@ the runtime those stylesheets target.
   in the order the property ids were first seen. A static shorthand is
   expanded into longhands when the stylesheet is parsed. So a var-bearing
   `border`/`border-color`/`padding` and a static longhand of the same edge
-  never compete by specificity, and whichever was first seen later wins
+  never compete by specificity: the one whose property id first appears
+  later in the merged rules wins
   ([#1161](https://github.com/signalxjs/lynx/issues/1161),
   [#1162](https://github.com/signalxjs/lynx/issues/1162)). In a recipe's
   lynx section, write a var-bearing edge as its physical longhands
