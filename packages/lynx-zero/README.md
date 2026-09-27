@@ -590,8 +590,9 @@ How it behaves on lynx:
   (NumberInput does). `Fieldset.Legend` is a `text` part that repeats the
   root's `disabled` / `invalid` so the skin can dim or tint it. It hands its
   content the OUTER fieldset's flags, the platform's legend exemption.
-  Button, Switch, Slider and Select read the Field context but not the
-  Fieldset one yet.
+  The other lynx-zero controls (Button, Switch, Slider, Select, Checkbox,
+  CheckboxGroup, RadioGroup, Toggle, ToggleGroup) do not read the Fieldset
+  yet ([#1208](https://github.com/signalxjs/lynx/issues/1208)).
 
 ## What comes next
 
