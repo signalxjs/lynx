@@ -50,7 +50,7 @@ import { createPressFeedback } from '../../behaviors/press.js';
 import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
 import type { LynxPlacement } from '../../behaviors/position.js';
 import { createAnchorPosition } from '../../behaviors/position.js';
-import { useOverlayPortal } from '../../overlay/OverlayHost.js';
+import { OVERLAY_ROOT_STYLE, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.select;
 
@@ -221,7 +221,9 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                 <view
                     // Transparent outside surface — light dismiss through the
                     // stack, so a select inside a dialog closes before it.
-                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                    // It opts back into touches under the pass-through
+                    // outlet layer (#1180).
+                    style={{ ...OVERLAY_ROOT_STYLE, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                     bindtap={() => dismissTopLayer()}
                 >
                     <view

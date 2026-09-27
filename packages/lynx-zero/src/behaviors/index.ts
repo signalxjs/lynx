@@ -50,6 +50,6 @@ export type { LynxDismissLayer } from './dismiss.js';
 export { clearDismissLayers, dismissTopLayer, openLayerCount, registerDismissLayer } from './dismiss.js';
 export type { AnchorPositionOptions, LynxAnchorPosition, LynxPlacement, OverlayInsets, ResolvedPosition } from './position.js';
 export {
-    computeAnchorPosition, computeOutletPosition, computeOverlayInsets, containedFrame, createAnchorPosition, provideOverlayOrigin,
+    computeAnchorPosition, computeOutletPosition, computeOverlayInsets, containedFrame, createAnchorPosition, fixedOutletRect, provideOverlayOrigin,
     toOutletCoordinates, useOverlayInsets,
 } from './position.js';

@@ -97,3 +97,6 @@ export type { TabsIndicatorProps, TabsListProps } from './components/tabs/Tabs.j
 export type {
     ToastActionData, ToastActionProps, ToastCloseProps, ToastRootProps, ToasterOptions,
 } from './components/toast/Toast.js';
+
+// ── Overlay hit-testing contract (#1180): a portal root's `pointer-events: auto` ──
+export { OVERLAY_ROOT_STYLE } from './overlay/OverlayHost.js';

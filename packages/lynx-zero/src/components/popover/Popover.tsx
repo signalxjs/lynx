@@ -22,7 +22,7 @@ import { createPressFeedback } from '../../behaviors/press.js';
 import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
 import type { LynxAnchorPosition, LynxPlacement } from '../../behaviors/position.js';
 import { createAnchorPosition } from '../../behaviors/position.js';
-import { PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
+import { OVERLAY_ROOT_STYLE, PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.popover;
 
@@ -123,8 +123,9 @@ const PopoverPopup = component<PopupProps>(({ props, slots }) => {
                     // The transparent outside surface — light dismiss lives
                     // on the overlay itself on this platform, and it routes
                     // through the stack so the INNERMOST layer owns the
-                    // gesture (dismiss.ts's contract).
-                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                    // gesture (dismiss.ts's contract). It opts back into
+                    // touches under the pass-through outlet layer (#1180).
+                    style={{ ...OVERLAY_ROOT_STYLE, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                     bindtap={() => dismissTopLayer()}
                 >
                     <view

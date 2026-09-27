@@ -48,8 +48,9 @@ import type { ElementLayout, LayoutChangeEvent, MainThread, MainThreadRef } from
  * The outlet is a full-window layer (`position: fixed`, #1169): a modal
  * backdrop has to dim the whole screen, edge to edge, and a toast's shadow
  * must not be clipped at a safe-area inset. The floating panel renders
- * absolutely inside that layer, so `rect` is the layer's measured rect (the
- * window, in practice).
+ * absolutely inside that layer, so `rect` is the layer's rect: the page
+ * root's origin and the layer's layout size (`fixedOutletRect` — derived,
+ * not measured, #1181).
  *
  * The `frame` is the host's own content box: whatever the app laid it out
  * in — below a navigation header, inside a `SafeAreaView`'s padding. Content
@@ -82,6 +83,24 @@ export function provideOverlayOrigin(
     frame: () => ElementLayout | null = () => null,
 ): void {
     defineProvide(useOverlayOriginInjectable, () => ({ rect: read, frame, measure }));
+}
+
+/**
+ * The outlet layer's rect. The layer is `position: fixed` with all four
+ * edges at 0, so it sits at the page root's origin by construction — the
+ * same origin viewport rects are reported against — and only its SIZE is
+ * unknown: its own layout size once it has one, the screen until then.
+ * Deliberately not measured with `boundingClientRect`: on iOS that returned
+ * a shifted rect for the fixed layer, which rejected the safe frame and
+ * pushed anchored popups into the right-edge clamp (#1181, #1182). Pure.
+ */
+export function fixedOutletRect(
+    size: { width: number; height: number } | null,
+    screen: { width: number; height: number },
+): ElementLayout | null {
+    const s = size && size.width > 0 && size.height > 0 ? size : screen;
+    if (!(s.width > 0) || !(s.height > 0)) return null;
+    return { top: 0, left: 0, width: s.width, height: s.height, right: s.width, bottom: s.height };
 }
 
 /** How far the safe frame sits inside the outlet, per edge (px). */

@@ -145,13 +145,18 @@ The platform spellings to know:
   lynx surface, so they are not taken.
 - **Overlays portal to the outlet.** Wrap the app once in `ZeroRoot` (theme
   host + overlay outlet as the LAST child — stacking is document order).
-  The outlet is a full-window `position: fixed` layer, mounted only while
-  something is open: lynx attaches fixed nodes to the page root, so a modal
+  The outlet is a full-window `position: fixed` layer, mounted once with
+  the page and shown only while something is open (it toggles `display`,
+  it is never re-inserted): lynx attaches fixed nodes to the page root, so a modal
   backdrop dims the whole screen — status bar and home-indicator strips
   included — even when `ZeroRoot` sits inside a `SafeAreaView`, below a
   navigation header, or in a navigation stack that clips its screens. The
   layer is `pointer-events: none`, so a touch that misses every overlay
-  reaches the page (a toast never blocks the screen). The host's own box
+  reaches the page (a toast never blocks the screen). Both engines INHERIT
+  `pointer-events`, so the root of every overlay opts back in explicitly:
+  a custom overlay rendered through `useOverlayPortal()` must spread
+  `OVERLAY_ROOT_STYLE` (`pointer-events: auto`) into its root's inline
+  style, or its taps fall through to the page. The host's own box
   is the **safe frame** content respects: the dialog panel centers in it,
   a toast viewport pins to its edges, and `useOverlayInsets()` returns
   the frame's per-edge insets inside the window for a custom overlay.
@@ -162,10 +167,12 @@ The platform spellings to know:
   styled as the quiet member of the pair) and `Popover.Close` take
   `disabled` and an accessible `label`.
 - **Anchored popups position in the outlet's own space.** Popover and
-  Select measure the anchor, the popup, the outlet and the safe frame
-  together (`boundingClientRect`) and flip/clamp against the safe frame
+  Select measure the anchor, the popup and the safe frame together
+  (`boundingClientRect`) and flip/clamp against the safe frame
   (`computeOutletPosition`), so a popup never flips into a status-bar or
-  home-indicator strip or under a header. A frame measured mid-transform
+  home-indicator strip or under a header. The outlet itself is not
+  measured: pinned to all four edges, it sits at the page root's origin
+  with its own layout size (`fixedOutletRect`). A frame measured mid-transform
   (a screen sliding in on a navigation push) pokes out of the window and
   is ignored until it is re-measured. A popup opened at mount
   (`defaultOpen`) lands where its anchor settles. The outlet does not ride
