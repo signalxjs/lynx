@@ -118,7 +118,9 @@ describe('Popover', () => {
         expect(popup._style['top']).toBe('-10000px');
         // Tap the transparent outside surface (the popup's sibling, out of
         // native hit-testing so a pan scrolls the page — #1190).
-        await act(() => fireEvent.tap(popup.parent!.children.find((n) => n.props['native-interaction-enabled'] === false) as never));
+        const surface = popup.parent!.children.find((n) => n.props['native-interaction-enabled'] === false);
+        expect(surface).toBeDefined();
+        await act(() => fireEvent.tap(surface as never));
         await act(() => {});
         expect(byPart(container, 'popover', 'popup')).toBeNull();
     });

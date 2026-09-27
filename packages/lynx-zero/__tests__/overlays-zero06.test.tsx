@@ -204,7 +204,9 @@ describe('Select — zero 0.6 parts', () => {
         await act(() => fireEvent.tap(trigger as never));
         await act(() => {});
         const popup = byPart(container, 'select', 'popup')!;
-        await act(() => fireEvent.tap(popup.parent!.children.find((n) => n.props['native-interaction-enabled'] === false) as never));
+        const surface = popup.parent!.children.find((n) => n.props['native-interaction-enabled'] === false);
+        expect(surface).toBeDefined();
+        await act(() => fireEvent.tap(surface as never));
         await act(() => {});
         expect(opens).toEqual([true, false, true, false]);
     });
