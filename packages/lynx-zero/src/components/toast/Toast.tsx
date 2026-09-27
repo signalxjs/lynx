@@ -22,6 +22,7 @@ import type { ForcedFlags, VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideForcedFlags, provideVariantAxes, useVariantAxes } from '../../contract/axes-context.js';
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
+import { useOverlayInsets } from '../../behaviors/position.js';
 import { PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.toast;
@@ -313,12 +314,18 @@ const ToastViewport = component<ToastViewportProps>(({ props }) => {
     // the left edge — the inline `transform: none` cancels it. `display:
     // flex` because a lynx view defaults to linear layout, where the skin's
     // flex-direction/gap never apply. Card alignment is the skin's.
+    //
+    // The outlet is the whole window (#1169); the strip pins to the host's
+    // SAFE FRAME instead — clear of the status bar and home indicator — while
+    // a card's shadow is free to paint into the inset below it.
+    const insets = useOverlayInsets();
     const edge = (): Record<string, string | number> => {
+        const inset = insets();
         const style: Record<string, string | number> = {
-            position: 'absolute', left: 0, right: 0, transform: 'none', display: 'flex',
+            position: 'absolute', left: `${inset.left}px`, right: `${inset.right}px`, transform: 'none', display: 'flex',
         };
-        if (placement().startsWith('top')) style['top'] = 0;
-        else style['bottom'] = 0;
+        if (placement().startsWith('top')) style['top'] = `${inset.top}px`;
+        else style['bottom'] = `${inset.bottom}px`;
         return style;
     };
 

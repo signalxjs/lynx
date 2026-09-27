@@ -27,6 +27,7 @@ import { partAxes, provideVariantAxes, useVariantAxes } from '../../contract/axe
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
+import { useOverlayInsets } from '../../behaviors/position.js';
 import { PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.dialog;
@@ -106,6 +107,7 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
     const dialog = useDialogContext();
     const axes = useVariantAxes();
     const portal = useOverlayPortal();
+    const insets = useOverlayInsets();
     // Slot content mounts under the OUTLET — re-provide what it needs.
     const bridge = () => {
         defineProvide(useDialogContext, () => dialog);
@@ -136,9 +138,16 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
                     // the native <dialog>'s UA `margin: auto` — a behavior the
                     // recipe never spells, so the compiled skin carries no
                     // centering and the panel would pin to the top (#1080).
+                    //
+                    // The backdrop fills the outlet — the whole window (#1169)
+                    // — and pads itself by the host's safe frame, so the dim
+                    // reaches every edge while the panel centers in the
+                    // content box (never under a status bar or a header).
                     style={{
                         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        paddingTop: `${insets().top}px`, paddingRight: `${insets().right}px`,
+                        paddingBottom: `${insets().bottom}px`, paddingLeft: `${insets().left}px`,
                     }}
                     // Route through the stack, not straight to setOpen: the
                     // innermost layer owns the gesture (dismiss.ts's contract).
