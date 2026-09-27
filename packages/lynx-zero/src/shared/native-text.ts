@@ -137,4 +137,6 @@ export const VISUALLY_HIDDEN: Record<string, string> = {
     height: '1px',
     overflow: 'hidden',
     opacity: '0',
+    // Out of hit-testing too: an invisible box must never take a tap.
+    pointerEvents: 'none',
 };

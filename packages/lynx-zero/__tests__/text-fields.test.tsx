@@ -459,6 +459,7 @@ describe('Field', () => {
         );
         const label = byPart(container, 'field', 'label');
         expect(label.props['data-visually-hidden']).toBe('');
+        expect(label.props['style']).toMatchObject({ position: 'absolute', opacity: '0', pointerEvents: 'none' });
         conforms(container, 'field');
     });
 
