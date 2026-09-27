@@ -191,12 +191,16 @@ describe('load-bearing signatures', () => {
         expectTypeOf(zero.partBag).returns.toMatchTypeOf<LynxPartProps>();
     });
 
-    it('NumberInput is a compound with the zero parts', () => {
+    it('NumberInput and Fieldset are compounds with the zero parts', () => {
         expectTypeOf(zero.NumberInput.Root).toBeFunction();
+        expectTypeOf(zero.NumberInput.Label).toBeFunction();
+        expectTypeOf(zero.NumberInput.Control).toBeFunction();
         expectTypeOf(zero.NumberInput.Input).toBeFunction();
         expectTypeOf(zero.NumberInput.IncrementTrigger).toBeFunction();
-        expectTypeOf(zero.Fieldset.Legend).toBeFunction();
+        expectTypeOf(zero.NumberInput.DecrementTrigger).toBeFunction();
         expectTypeOf(zero.NUMBER_INPUT_SPIN_INTERVAL).toBeNumber();
+        expectTypeOf(zero.Fieldset.Root).toBeFunction();
+        expectTypeOf(zero.Fieldset.Legend).toBeFunction();
     });
 
     it('the controller keeps the legacy handle shape', () => {

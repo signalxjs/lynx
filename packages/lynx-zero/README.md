@@ -546,7 +546,7 @@ import { Fieldset, NumberInput } from '@sigx/lynx-zero';
 </Fieldset.Root>
 ```
 
-| `NumberInput.Root` prop | Type | Default | |
+| `NumberInput.Root` prop | Type | Default | Notes |
 |---|---|---|---|
 | `model` / `defaultValue` | `number \| null` | `null` | `null` is an empty field, not 0. `valueChange` fires on every commit. |
 | `min` / `max` | `number` | — | Bounds. A committed value outside them marks the control `invalid`. |
