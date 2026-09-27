@@ -45,3 +45,9 @@ describe('insufficient-storage diagnosis', () => {
         expect(diagnoseGradleFailure('Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE]').hint).toContain('out of storage');
     });
 });
+
+describe('insufficient-storage diagnosis scope', () => {
+    it('does not claim host-disk "not enough space" errors are the device\'s', () => {
+        expect(diagnoseGradleFailure('* What went wrong:\nCould not write to build cache: not enough space on the disk\n').hint).toBeNull();
+    });
+});

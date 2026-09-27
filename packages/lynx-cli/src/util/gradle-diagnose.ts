@@ -97,7 +97,7 @@ const RULES: Rule[] = [
     {
         // Newer package managers word it "Requested internal only, but not
         // enough space" (a ParcelableException) instead of the error code.
-        test: (_r, output) => /INSTALL_FAILED_INSUFFICIENT_STORAGE|not enough space/i.test(output),
+        test: (_r, output) => /INSTALL_FAILED_INSUFFICIENT_STORAGE|Requested internal only, but not enough space/i.test(output),
         hint: () =>
             'The device is out of storage — installing needs roughly 2-3x the APK size free.\n' +
             '  This is the device\'s own /data partition, not your computer\'s disk: an emulator has a\n' +
