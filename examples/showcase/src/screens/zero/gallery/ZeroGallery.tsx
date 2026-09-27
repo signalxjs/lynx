@@ -9,7 +9,7 @@
  *
  * `?theme=<name>` picks the zero theme (default: the skin's light theme) and
  * themes the page edge to edge — status-bar strip included (`usePageTheme`).
- * Deep-linkable cold: `xcrun simctl openurl booted showcase://zero-gallery/button/color`.
+ * Deep-linkable cold: `xcrun simctl openurl booted showcase://zero-gallery/button/color-1`.
  *
  * The DATA (axes, states, sections) lives in `scopes.ts`; this file pairs
  * each scope with its render fn. Held/focus states are forced through
