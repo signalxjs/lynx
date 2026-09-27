@@ -208,7 +208,13 @@ The platform spellings to know:
   clamped against the right edge, and toasts clear the status bar and the
   home indicator from the first frame the slide settles. The outlet does
   not ride a screen transform, so an open popup follows its anchor in
-  measured steps while its screen slides.
+  measured steps while its screen slides. Only an OPEN popup measures: a
+  closed trigger takes no measurement and runs no settle loop. Every
+  re-measure loop on the page ticks on one shared clock, loops due in the
+  same frame measure in one batch, the shared safe frame is measured once
+  per batch, and each burst is capped (about two seconds of motion), so a
+  screen with dozens of popups costs what one does. A custom overlay built
+  on `createAnchorPosition` passes `isOpen` to get the same gating.
 - **Press feedback has two tiers.** Every pressable part (Button, a Tabs
   tab, an Accordion trigger, the Popover/Dialog triggers and closes, the
   Select trigger and items, the Toast action and close, a Toggle, each

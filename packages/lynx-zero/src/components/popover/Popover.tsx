@@ -57,6 +57,7 @@ const PopoverRoot = component<PopoverRootProps>(({ props, slots, emit }) => {
     const position = createAnchorPosition({
         placement: props.placement ?? 'bottom',
         offset: props.offset,
+        isOpen: () => state.value,
     });
     defineProvide(usePopoverContext, () => ({
         open: () => state.value,

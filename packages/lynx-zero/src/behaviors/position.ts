@@ -224,59 +224,151 @@ export interface SettleOptions {
 export interface SettleHandle {
     /**
      * Something may start moving the rect without a layout event (a finger
-     * leaving a scroll view mid-fling): measure now and keep measuring for
-     * `kickTicks` ticks even if the next measurements agree, then settle as
-     * usual.
+     * leaving a scroll view mid-fling): measure on the next frame and keep
+     * measuring for `kickTicks` ticks even if the measurements agree, then
+     * settle as usual. Kicks within one frame coalesce into one measurement.
      */
     kick(): void;
+}
+
+/** A measurement: one function, or several taken together. */
+export type MeasureRequest = (() => void) | ReadonlyArray<() => void>;
+
+/**
+ * Deadlines closer together than this share one measurement batch: loops
+ * due within one frame of the earliest fire together.
+ */
+const FRAME_MS = 16;
+
+interface SettleTick {
+    /** When this loop wants its next measurement (ms, `Date.now()` clock). */
+    due: number;
+    /** Add this loop's measurements to the frame's batch. */
+    fire(batch: Set<() => void>): void;
+}
+
+/**
+ * ONE clock for every settle loop on the page (#1200). A screen of anchored
+ * popups used to run one timer each, and every tick measured its anchor AND
+ * the shared outlet frame: dozens of measurements per frame during a push
+ * slide, each one a `Lynx.Sigx.AvPublish` event, past the engine's
+ * per-window event limit. Now pending loops wait on a single timer, every
+ * loop due within a frame of it fires in the same batch, and a measurement
+ * requested by several loops (the outlet frame every anchor re-measures)
+ * runs once per batch.
+ */
+const pendingTicks = new Set<SettleTick>();
+let clockTimer: ReturnType<typeof setTimeout> | null = null;
+let clockDue = Infinity;
+
+function armClock(): void {
+    let earliest = Infinity;
+    for (const t of pendingTicks) earliest = Math.min(earliest, t.due);
+    if (earliest === Infinity) {
+        if (clockTimer !== null) clearTimeout(clockTimer);
+        clockTimer = null;
+        clockDue = Infinity;
+        return;
+    }
+    if (clockTimer !== null && clockDue <= earliest) return;
+    if (clockTimer !== null) clearTimeout(clockTimer);
+    clockDue = earliest;
+    clockTimer = setTimeout(runClock, Math.max(0, earliest - Date.now()));
+}
+
+function runClock(): void {
+    clockTimer = null;
+    clockDue = Infinity;
+    const cutoff = Date.now() + FRAME_MS;
+    const batch = new Set<() => void>();
+    for (const t of [...pendingTicks]) {
+        if (t.due > cutoff) continue;
+        pendingTicks.delete(t);
+        t.fire(batch);
+    }
+    for (const m of batch) m();
+    armClock();
+}
+
+function addMeasure(batch: Set<() => void>, measure: MeasureRequest): void {
+    if (typeof measure === 'function') batch.add(measure);
+    else for (const m of measure) batch.add(m);
+}
+
+/** Pending settle ticks on the shared clock (tests). @internal */
+export function pendingSettleTicks(): number {
+    return pendingTicks.size;
 }
 
 /**
  * Keep re-measuring a rect until it stops moving (#1181, #1182). `read`
  * returns the rect, or several (the first one is the subject: nothing
- * happens until it has measured) that must ALL hold still. A
- * TRANSFORM never fires a layout event, so a rect measured while its screen
- * slides in on a push (a screen width to the right, and still moving) was
- * the last one anything took: popups opened at mount stayed clamped to the
- * right edge, and the safe frame poked out of the outlet, so toasts lost
- * their insets. Whenever a measurement lands that differs from the previous
- * one (or `unsettled()` holds, or a `kick()` is pending), this measures
- * again after `interval`, until two in a row agree or the budget runs out.
- * Reactive over `read`, so call it in setup; the pending timer is cleared on
- * unmount. @internal
+ * happens until it has measured, or while `read` returns null) that must ALL
+ * hold still. A TRANSFORM never fires a layout event, so a rect measured
+ * while its screen slides in on a push (a screen width to the right, and
+ * still moving) was the last one anything took: popups opened at mount
+ * stayed clamped to the right edge, and the safe frame poked out of the
+ * outlet, so toasts lost their insets. Whenever a measurement lands that
+ * differs from the previous one (or `unsettled()` holds, or a `kick()` is
+ * pending), this measures again after `interval`, until two in a row agree
+ * or the budget runs out.
+ *
+ * Cheap by construction (#1200): every loop ticks on one shared clock, loops
+ * due in the same frame measure in one batch, and a measure function passed
+ * by several loops (give them the SAME function) runs once per batch. Pass
+ * `measure` as an array to let its parts dedupe separately. Reactive over
+ * `read`, so call it in setup; the pending tick is dropped on unmount.
+ * @internal
  */
 export function settleRect(
     read: () => ElementLayout | null | ReadonlyArray<ElementLayout | null>,
-    measure: () => void,
+    measure: MeasureRequest,
     options: SettleOptions = {},
 ): SettleHandle {
     const interval = options.interval ?? 100;
     const budget = options.budget ?? 40;
     const kickTicks = options.kickTicks ?? 5;
     let last: ReadonlyArray<ElementLayout | null> | null = null;
-    let timer: ReturnType<typeof setTimeout> | null = null;
     let tries = 0;
     let lastTick = 0;
     let forced = 0;
-    const schedule = (): void => {
-        tries++;
-        lastTick = Date.now();
-        if (forced > 0) forced--;
-        timer = setTimeout(() => {
-            timer = null;
-            measure();
+    let alive = true;
+    const tick: SettleTick = {
+        due: 0,
+        fire(batch) {
+            addMeasure(batch, measure);
             // A measurement that lands UNCHANGED may not re-run the effect
             // below (same value, nothing to notify), so the loop keeps itself
             // alive for the conditions a rect change cannot show: forced
             // ticks and `unsettled()`. A change re-arms it through the effect.
-            if (timer === null && (forced > 0 || (options.unsettled?.() ?? false)) && tries < budget) schedule();
-        }, interval);
+            if ((forced > 0 || (options.unsettled?.() ?? false)) && tries < budget) schedule(interval);
+        },
+    };
+    const scheduled = (): boolean => pendingTicks.has(tick);
+    const schedule = (delay: number): void => {
+        if (!alive) return;
+        tries++;
+        lastTick = Date.now();
+        if (forced > 0) forced--;
+        tick.due = Date.now() + delay;
+        pendingTicks.add(tick);
+        armClock();
     };
     effect(() => {
         const value = read();
         const rects = Array.isArray(value) ? value as ReadonlyArray<ElementLayout | null> : [value as ElementLayout | null];
         const unsettled = options.unsettled?.() ?? false;
-        if (!rects[0]) return;
+        if (!rects[0]) {
+            // Inactive (nothing measured yet, or the caller switched the loop
+            // off — a closed popup): drop any pending tick, and forget the
+            // last rects so the next activation counts as a change.
+            last = null;
+            if (scheduled()) {
+                pendingTicks.delete(tick);
+                armClock();
+            }
+            return;
+        }
         const prev = last;
         const changed = !prev || prev.length !== rects.length || rects.some((r, i) => {
             const p = prev[i];
@@ -287,19 +379,24 @@ export function settleRect(
         // A new burst (the rect moved again long after it settled) gets a
         // fresh budget.
         if (Date.now() - lastTick > interval * 3) tries = 0;
-        if (!moving || timer !== null || tries >= budget) return;
-        schedule();
+        if (!moving || scheduled() || tries >= budget) return;
+        schedule(interval);
     });
     onUnmounted(() => {
-        if (timer !== null) clearTimeout(timer);
-        timer = null;
+        alive = false;
+        if (pendingTicks.delete(tick)) armClock();
     });
     return {
         kick() {
             forced = kickTicks;
             tries = 0;
-            measure();
-            if (timer === null) schedule();
+            // Next frame, not now: a touch stream kicks on every move event,
+            // and those coalesce into one measurement per frame.
+            if (!scheduled()) schedule(0);
+            else if (tick.due > Date.now()) {
+                tick.due = Date.now();
+                armClock();
+            }
         },
     };
 }
@@ -479,6 +576,18 @@ export interface LynxAnchorPosition {
     style(): Record<string, string | number>;
 }
 
+export interface CreateAnchorPositionOptions extends AnchorPositionOptions {
+    /**
+     * Whether the popup is open. While it is not, nothing is measured and no
+     * settle loop runs: a closed popup has nothing to place, and a screen of
+     * closed triggers each re-measuring through a push slide flooded the
+     * engine's event limit (#1200). Opening measures the anchor, the popup
+     * and the outlet together (the popup's layout event). Default: always
+     * open.
+     */
+    isOpen?: () => boolean;
+}
+
 /**
  * The wiring half. Call in component setup; wire BOTH bindings on each
  * element (`main-thread:ref` carries the element to measure,
@@ -486,7 +595,7 @@ export interface LynxAnchorPosition {
  * recomputes in whatever render or effect reads it once a measurement or
  * the viewport changes.
  */
-export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxAnchorPosition {
+export function createAnchorPosition(options: CreateAnchorPositionOptions = {}): LynxAnchorPosition {
     const anchor = useViewportRect();
     const floating = useViewportRect();
     // The screen metrics stand in for the viewport: viewport rects and
@@ -496,6 +605,12 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
     // raised keyboard is its own problem).
     const screen = useScreen();
     const origin = useOverlayOriginInjectable();
+    const isOpen = options.isOpen ?? (() => true);
+    // One measurement of the anchor and the outlet frame. The outlet's
+    // `measure` is the same function for every popup under one host, so the
+    // shared settle clock measures the frame once per batch, not once per
+    // popup (#1200).
+    const measureAnchor: ReadonlyArray<() => void> = [anchor.measure, origin.measure];
     // The anchor rides its screen's transform; the popup, in the fixed
     // outlet, does not. Measured mid push-transition, the anchor sits up to
     // a screen width to the right and nothing re-fires once the slide
@@ -507,12 +622,13 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
     // of the outlet as moving: that is a push slide pending or under way, and
     // two anchor measurements taken before the slide STARTS agree, which
     // would otherwise end the loop with the anchor a screen width off.
-    const settle = settleRect(() => [anchor.rect.value, origin.frame()], () => {
-        anchor.measure();
-        origin.measure();
-    }, {
+    //
+    // Only while OPEN (#1200): a closed popup's loop is off (`read` returns
+    // null), and the budget bounds an open one to about two seconds of
+    // motion per burst.
+    const settle = settleRect(() => (isOpen() ? [anchor.rect.value, origin.frame()] : null), measureAnchor, {
         interval: 32,
-        budget: 120,
+        budget: 60,
         unsettled: () => {
             const frame = origin.frame();
             return !!frame && !containedFrame(origin.rect(), frame);
@@ -533,6 +649,8 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
         anchorRef: anchor.ref,
         floatingRef: floating.ref,
         anchorLayoutChange: () => {
+            // A closed popup has nothing to place; opening measures anyway.
+            if (!isOpen()) return;
             anchor.measure();
             origin.measure();
         },
@@ -548,7 +666,9 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
             floating.measure();
             origin.measure();
         },
-        track: () => settle.kick(),
+        track: () => {
+            if (isOpen()) settle.kick();
+        },
         position,
         style: () => {
             const p = position();
