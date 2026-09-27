@@ -166,8 +166,10 @@ export const GALLERY_SCOPES = {
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
         ],
         // `open`: title, description, Cancel + Close. `open-states`: Cancel
-        // held (forced pressed), Close disabled.
-        extras: ['open', 'open-states'],
+        // held (forced pressed), Close disabled. `nested`: a Select opened
+        // inside the open dialog — both live in the full-window outlet layer
+        // (#1169), so the list must paint above the panel and the backdrop.
+        extras: ['open', 'open-states', 'nested'],
     },
     popover: {
         title: 'Popover',

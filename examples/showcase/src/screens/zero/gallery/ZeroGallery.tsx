@@ -291,6 +291,25 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     </Dialog.Popup>
                 </Dialog.Root>
             ),
+            nested: () => (
+                <Dialog.Root defaultOpen dismissible={false}>
+                    <Dialog.Trigger><text>Open dialog</text></Dialog.Trigger>
+                    <Dialog.Popup>
+                        <Dialog.Title>Pick inside a dialog</Dialog.Title>
+                        <Dialog.Description>The list opens above the panel, not under the backdrop.</Dialog.Description>
+                        <Select.Root
+                            defaultOpen
+                            items={FRUIT}
+                            itemValue={(o) => o.value}
+                            defaultValue="banana"
+                            placeholder="Pick a fruit"
+                        />
+                        <Dialog.Footer>
+                            <Dialog.Close><text>Close</text></Dialog.Close>
+                        </Dialog.Footer>
+                    </Dialog.Popup>
+                </Dialog.Root>
+            ),
         },
     },
     popover: {
