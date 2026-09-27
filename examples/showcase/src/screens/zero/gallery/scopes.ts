@@ -195,11 +195,15 @@ export const GALLERY_SCOPES = {
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
             { id: 'readonly', label: 'readonly', props: { value: 'apple', readonly: true } },
             { id: 'clearable', label: 'clearable', props: { value: 'apple', clearable: true } },
+            // The ring on both focusable parts: the trigger and the clear-trigger.
+            { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true }, props: { value: 'apple', clearable: true } },
         ],
         // `open`: grouped list anchored at mount, one item selected.
         // `open-parts`: zero 0.6 parts — clear-trigger, group separators —
         // with every item held (forced pressed).
-        extras: ['open', 'open-parts'],
+        // `open-color`: a non-default colour through the portal — the
+        // selected item and its tick in secondary, not primary (#1168).
+        extras: ['open', 'open-parts', 'open-color'],
         cellWidth: 150,
         rowsPerPage: 4,
     },
