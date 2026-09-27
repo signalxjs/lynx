@@ -33,7 +33,7 @@
  */
 import type { Define, LayoutChangeEvent } from '@sigx/lynx';
 import { component, createLogger, defineInjectable, defineProvide, onUnmounted, signal, useScreen, useViewportRect } from '@sigx/lynx';
-import { fixedOutletRect, provideOverlayOrigin } from '../behaviors/position.js';
+import { containedFrame, fixedOutletRect, provideOverlayOrigin, settleRect } from '../behaviors/position.js';
 import type { ThemeProviderProps } from '../theme/ThemeProvider.js';
 import { ThemeProvider } from '../theme/ThemeProvider.js';
 
@@ -166,9 +166,20 @@ const OverlayEntryBoundary = component<OverlayEntryProps>(({ props }) => {
 type OverlayHostProps = Define.Slot<'default'>;
 
 /**
- * The outlet layer: the whole window, above everything (fixed nodes attach
- * to the page root, after the page's own content), transparent to touches
- * that land on the layer itself.
+ * The outlet layer: a ZERO-SIZE `position: fixed` node at the page root's
+ * origin (fixed nodes attach to the page root, after the page's own
+ * content), `overflow: visible`, so its children paint and hit-test out
+ * across the window while the layer itself covers nothing.
+ *
+ * Zero-size is the native half of the pass-through contract (#1190).
+ * `pointer-events: none` only steers LYNX's hit-test (taps). The native
+ * one is UIKit's on iOS, and a full-window layer's own view was the deepest
+ * view under every point: the page's scroll view never saw a pan while any
+ * overlay was open. A 0×0 view contains no point, but its subviews are
+ * still walked (lynx's view hit-test does not clip to the parent), so each
+ * overlay still takes its own touches, natively and in lynx. The window's
+ * size comes from `OUTLET_SIZER_STYLE`, and a root that fills the window
+ * states that size itself (`useOutletFill`).
  *
  * The layer is ALWAYS mounted (#1181): it is inserted once, with the page,
  * and only toggles `display` as overlays come and go. Mounting and
@@ -177,6 +188,23 @@ type OverlayHostProps = Define.Slot<'default'>;
  * painting over the page. A style flip never moves the node.
  */
 const OUTLET_LAYER_STYLE = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+    overflow: 'visible',
+    pointerEvents: 'none',
+} as const;
+
+/**
+ * The window-sized measuring node: `position: fixed` on all four edges, so
+ * its layout size IS the outlet's size (`fixedOutletRect`). Childless, and
+ * out of both hit-tests — `pointer-events: none` for lynx's,
+ * `native-interaction-enabled={false}` for the platform's — so it never
+ * holds a touch or a pan (#1190).
+ */
+const OUTLET_SIZER_STYLE = {
     position: 'fixed',
     top: 0,
     left: 0,
@@ -224,7 +252,8 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     // the root is the space viewport rects are reported in. Measuring it on
     // iOS returned a shifted rect, which rejected the safe frame (toasts
     // under the status bar) and pushed anchored popups into the right-edge
-    // clamp. Its size comes from its own layout (the screen until then).
+    // clamp. Its size comes from the window-sized sizer's layout (the screen
+    // until then) — the layer itself is 0×0 (#1190).
     //
     // Anchored popups measure in viewport coordinates and re-measure the
     // frame with their own rects (#1146): layout events never fire for a
@@ -232,11 +261,17 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     const frame = useViewportRect();
     const screen = useScreen();
     const outletSize = signal<{ value: { width: number; height: number } | null }>({ value: null });
-    provideOverlayOrigin(
-        () => fixedOutletRect(outletSize.value, screen.value),
-        () => frame.measure(),
-        () => frame.rect.value,
-    );
+    const outletRect = () => fixedOutletRect(outletSize.value, screen.value);
+    provideOverlayOrigin(outletRect, () => frame.measure(), () => frame.rect.value);
+    // The frame is measured on LAYOUT, and a push transition is a transform:
+    // the host inside a screen sliding in measures a screen width to the
+    // right, pokes out of the outlet, and `containedFrame` drops it — every
+    // toast lost its insets, and anchored popups their clamp box, because
+    // nothing measured again once the slide settled (#1181, #1182). Keep
+    // measuring until the frame holds still inside the outlet.
+    settleRect(() => frame.rect.value, () => frame.measure(), {
+        unsettled: () => !containedFrame(outletRect(), frame.rect.value),
+    });
     const onOutletLayout = (e: LayoutChangeEvent): void => {
         const d = e?.detail ?? e?.params;
         if (d && d.width > 0 && d.height > 0) {
@@ -252,10 +287,11 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     // app content below would size to itself and a `<ScrollView flex={1}>`
     // would never scroll (#1064).
     //
-    // The layer is `display: none` while nothing is open, and
-    // `pointer-events: none` always: a full-window view would otherwise take
-    // every touch meant for the page under a non-modal overlay (a toast). Each
-    // overlay's root opts back in with `OVERLAY_ROOT_STYLE` (see there).
+    // The layer is `display: none` while nothing is open, zero-size, and
+    // `pointer-events: none` always: a layer that covered the window would
+    // take every touch (iOS: every pan too) meant for the page under a
+    // non-modal overlay (a toast). Each overlay's root opts back in with
+    // `OVERLAY_ROOT_STYLE` (see there).
     return () => {
         const entries = registry.entries();
         return (
@@ -275,8 +311,10 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
                 {slots.default?.()}
                 <view
                     bindlayoutchange={onOutletLayout}
-                    style={{ ...OUTLET_LAYER_STYLE, display: entries.length > 0 ? 'flex' : 'none' }}
-                >
+                    native-interaction-enabled={false}
+                    style={OUTLET_SIZER_STYLE}
+                />
+                <view style={{ ...OUTLET_LAYER_STYLE, display: entries.length > 0 ? 'flex' : 'none' }}>
                     {entries.map((entry) => (
                         <OverlayEntryBoundary key={entry.id} render={entry.render} />
                     ))}

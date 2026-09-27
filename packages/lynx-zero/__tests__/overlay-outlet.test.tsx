@@ -96,6 +96,11 @@ describe('computeFramedPosition — anchored popups clamp to the safe frame (#10
     });
 });
 
+/** The outlet layer: fixed, 0×0 (#1190). */
+const isLayer = (n: TestNode): boolean => n._style?.position === 'fixed' && n._style?.width === 0;
+/** The window-sized measuring node: fixed on all four edges. */
+const isSizer = (n: TestNode): boolean => n._style?.position === 'fixed' && n._style?.right === 0;
+
 describe('OverlayHost — the outlet layer', () => {
     it('keeps the layer mounted but display:none while nothing is open (#1181)', () => {
         const { container } = render(
@@ -104,7 +109,7 @@ describe('OverlayHost — the outlet layer', () => {
             </OverlayHost>,
         );
         const host = container.children[0]!;
-        const layers = host.children.filter((n) => n._style?.position === 'fixed');
+        const layers = host.children.filter(isLayer);
         expect(layers.length).toBe(1);
         expect(layers[0]!._style.display).toBe('none');
         expect(layers[0]!._style.pointerEvents).toBe('none');
@@ -127,21 +132,23 @@ describe('OverlayHost — the outlet layer', () => {
         );
         await act(() => {});
         const host = container.children[0]!;
-        const layer = host.children.find((n) => n._style?.position === 'fixed')!;
+        const layer = host.children.find(isLayer)!;
+        const sizer = host.children.find(isSizer)!;
         expect(layer._style.display).toBe('none');
         await act(() => { open.value = true; });
         await act(() => {});
-        expect(host.children.find((n) => n._style?.position === 'fixed')).toBe(layer);
+        expect(host.children.find(isLayer)).toBe(layer);
+        expect(host.children.find(isSizer)).toBe(sizer);
         expect(layer._style.display).toBe('flex');
         expect(layer.textContent()).toBe('overlay');
         await act(() => { open.value = false; });
         await act(() => {});
-        expect(host.children.find((n) => n._style?.position === 'fixed')).toBe(layer);
+        expect(host.children.find(isLayer)).toBe(layer);
         expect(layer._style.display).toBe('none');
         expect(elementsOf(layer).length).toBe(0);
     });
 
-    it('an open overlay mounts in a full-window fixed layer, last in the host, transparent to its own touches', async () => {
+    it('an open overlay mounts in a zero-size fixed layer, last in the host, transparent to its own touches', async () => {
         const Owner = component(() => {
             const portal = useOverlayPortal();
             effect(() => portal.show(() => <text>overlay</text>));
@@ -154,18 +161,38 @@ describe('OverlayHost — the outlet layer', () => {
         );
         await act(() => {});
         const host = container.children[0]!;
-        const layer = host.children.filter((n) => n._style?.position === 'fixed').at(-1)!;
-        expect(host.children.filter((n) => n._style?.position === 'fixed').length).toBe(1);
+        const layer = host.children.find(isLayer)!;
+        expect(host.children.filter(isLayer).length).toBe(1);
         expect(layer._style.display).toBe('flex');
         // Last element child: document order is paint order.
+        expect(host.children.indexOf(layer)).toBe(host.children.length - 1);
         expect(host.children.indexOf(layer)).toBeGreaterThan(host.children.findIndex((n) => n.textContent() === 'content'));
-        expect(layer._style.position).toBe('fixed');
-        expect([layer._style.top, layer._style.left, layer._style.right, layer._style.bottom]).toEqual([0, 0, 0, 0]);
+        // 0×0 at the origin, children painting out of it (#1190).
+        expect([layer._style.top, layer._style.left, layer._style.width, layer._style.height]).toEqual([0, 0, 0, 0]);
+        expect(layer._style.overflow).toBe('visible');
+        expect(layer._style.right).toBeUndefined();
+        expect(layer._style.bottom).toBeUndefined();
         expect(layer._style.pointerEvents).toBe('none');
         expect(layer.textContent()).toBe('overlay');
         // The host stays the page's flex column (#1064).
         expect(host._style.position).toBe('relative');
         expect(host._style.display).toBe('flex');
+    });
+
+    it('the window size comes from a childless sizer that is out of BOTH hit-tests (#1190)', () => {
+        const { container } = render(
+            <OverlayHost>
+                <text>content</text>
+            </OverlayHost>,
+        );
+        const host = container.children[0]!;
+        const sizers = host.children.filter(isSizer);
+        expect(sizers.length).toBe(1);
+        const sizer = sizers[0]!;
+        expect([sizer._style.top, sizer._style.left, sizer._style.right, sizer._style.bottom]).toEqual([0, 0, 0, 0]);
+        expect(sizer._style.pointerEvents).toBe('none');
+        expect(sizer.props['native-interaction-enabled']).toBe(false);
+        expect(elementsOf(sizer).length).toBe(0);
     });
 });
 
@@ -183,7 +210,10 @@ describe('Dialog — the backdrop fills the window, the panel respects the frame
         await act(() => {});
         const backdrop = byPart(container, 'dialog', 'backdrop')!;
         expect(backdrop).not.toBeNull();
-        expect([backdrop._style.top, backdrop._style.right, backdrop._style.bottom, backdrop._style.left]).toEqual([0, 0, 0, 0]);
+        // The layer is 0×0 (#1190): the backdrop states the window's size.
+        expect([backdrop._style.top, backdrop._style.left]).toEqual([0, 0]);
+        expect([backdrop._style.width, backdrop._style.height]).toEqual(['402px', '874px']);
+        expect(backdrop.props['native-interaction-enabled']).toBeUndefined();
         expect(backdrop._style.paddingTop).toBe('62px');
         expect(backdrop._style.paddingBottom).toBe('34px');
         expect(backdrop._style.paddingLeft).toBe('0px');
@@ -220,10 +250,14 @@ describe('Toast — the viewport pins to the safe frame', () => {
         const viewport = byPart(container, 'toast', 'viewport')!;
         expect(viewport).not.toBeNull();
         expect(viewport._style.position).toBe('absolute');
-        expect(viewport._style.bottom).toBe('34px');
+        // Pinned by its top at the frame's bottom edge, lifted by its own
+        // height: `bottom` against the 0×0 layer would mean nothing (#1190).
+        expect(viewport._style.top).toBe(`${874 - 34}px`);
+        expect(viewport._style.transform).toBe('translateY(-100%)');
+        expect(viewport._style.bottom).toBeUndefined();
         expect(viewport._style.left).toBe('0px');
-        expect(viewport._style.right).toBe('0px');
-        expect(viewport._style.top).toBeUndefined();
+        expect(viewport._style.width).toBe('402px');
+        expect(viewport._style.height).toBe('max-content');
     });
 
     it('top placement clears the status bar', async () => {
@@ -240,6 +274,7 @@ describe('Toast — the viewport pins to the safe frame', () => {
         const viewport = byPart(container, 'toast', 'viewport')!;
         expect(viewport._style.top).toBe('62px');
         expect(viewport._style.bottom).toBeUndefined();
+        expect(viewport._style.transform).toBe('none');
     });
 });
 
@@ -278,8 +313,7 @@ const effectivePointerEvents = (root: TestNode, target: TestNode): string => {
 };
 
 describe('event routing contract (#1180): the layer passes touches through, overlays take their own', () => {
-    const layerOf = (container: TestNode): TestNode =>
-        walk(container).find((n) => n._style?.position === 'fixed')!;
+    const layerOf = (container: TestNode): TestNode => walk(container).find(isLayer)!;
 
     /** Every tappable node under the layer resolves to `auto`; the layer itself to `none`. */
     const expectRouting = (container: TestNode): void => {

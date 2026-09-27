@@ -51,5 +51,5 @@ export { clearDismissLayers, dismissTopLayer, openLayerCount, registerDismissLay
 export type { AnchorPositionOptions, LynxAnchorPosition, LynxPlacement, OverlayInsets, ResolvedPosition } from './position.js';
 export {
     computeAnchorPosition, computeOutletPosition, computeOverlayInsets, containedFrame, createAnchorPosition, fixedOutletRect, provideOverlayOrigin,
-    toOutletCoordinates, useOverlayInsets,
+    toOutletCoordinates, useOutletFill, useOverlayInsets,
 } from './position.js';

@@ -145,7 +145,7 @@ describe('Select', () => {
 
         // The transparent outside surface routes through the stack.
         const popup = byPart(container, 'select', 'popup')!;
-        await act(() => fireEvent.tap(popup.parent as never));
+        await act(() => fireEvent.tap(popup.parent!.children.find((n) => n.props['native-interaction-enabled'] === false) as never));
         await act(() => {});
         expect(byPart(container, 'select', 'popup')).toBeNull();
     });

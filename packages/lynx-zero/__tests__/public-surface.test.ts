@@ -91,6 +91,7 @@ describe('public runtime exports', () => {
                 'fixedOutletRect',
                 'provideOverlayOrigin',
                 'toOutletCoordinates',
+                'useOutletFill',
                 'useOverlayInsets',
                 'createCollection',
                 'createControllableState',

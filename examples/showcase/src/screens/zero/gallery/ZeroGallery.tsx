@@ -374,6 +374,7 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                             <Popover.Trigger><text>{`Popover ${color}`}</text></Popover.Trigger>
                             <Popover.Popup>
                                 <Popover.Title>{`Anchored · ${color}`}</Popover.Title>
+                                <Popover.Description>Description part (zero 0.6)</Popover.Description>
                                 <Popover.Close><text>×</text></Popover.Close>
                             </Popover.Popup>
                         </Popover.Root>

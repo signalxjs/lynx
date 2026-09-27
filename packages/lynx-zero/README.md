@@ -149,38 +149,66 @@ The platform spellings to know:
   lynx surface, so they are not taken.
 - **Overlays portal to the outlet.** Wrap the app once in `ZeroRoot` (theme
   host + overlay outlet as the LAST child — stacking is document order).
-  The outlet is a full-window `position: fixed` layer, mounted once with
-  the page and shown only while something is open (it toggles `display`,
-  it is never re-inserted): lynx attaches fixed nodes to the page root, so a modal
+  The outlet is a `position: fixed` layer, mounted once with the page and
+  shown only while something is open (it toggles `display`, it is never
+  re-inserted): lynx attaches fixed nodes to the page root, so a modal
   backdrop dims the whole screen — status bar and home-indicator strips
   included — even when `ZeroRoot` sits inside a `SafeAreaView`, below a
-  navigation header, or in a navigation stack that clips its screens. The
-  layer is `pointer-events: none`, so a touch that misses every overlay
-  reaches the page (a toast never blocks the screen). Both engines INHERIT
-  `pointer-events`, so the root of every overlay opts back in explicitly:
-  a custom overlay rendered through `useOverlayPortal()` must spread
-  `OVERLAY_ROOT_STYLE` (`pointer-events: auto`) into its root's inline
-  style, or its taps fall through to the page. The host's own box
-  is the **safe frame** content respects: the dialog panel centers in it,
-  a toast viewport pins to its edges, and `useOverlayInsets()` returns
-  the frame's per-edge insets inside the window for a custom overlay.
-  Dialog renders the anatomy's `::backdrop` pseudo part as a real view;
-  light dismiss routes through the shared layer stack (`dismissTopLayer()`),
-  so nested overlays close innermost-first. `Dialog.Close` and
-  `Dialog.Cancel` (the alert-style least-destructive action — its own part,
-  styled as the quiet member of the pair) and `Popover.Close` take
-  `disabled` and an accessible `label`.
+  navigation header, or in a navigation stack that clips its screens.
+- **The outlet passes touches AND pans through.** Two hit-tests matter.
+  Lynx's own (taps, `bindtap`) honours `pointer-events`: the layer is
+  `none`, and since both engines INHERIT the value, the root of every
+  overlay opts back in — a custom overlay rendered through
+  `useOverlayPortal()` must spread `OVERLAY_ROOT_STYLE`
+  (`pointer-events: auto`) into its root's inline style, or its taps fall
+  through to the page. The platform's (iOS UIKit, which is what starts a
+  scroll view's pan) ignores `pointer-events`, so the layer is **0×0** with
+  `overflow: visible`: it covers no point, while its children still paint
+  and hit-test across the window. A full-window layer swallowed every pan
+  on iOS while a toast or popover was open. Consequences for a custom
+  overlay root:
+  - Lynx bounds an absolute child's auto height by its containing block,
+    so a content-sized root states `height: 'max-content'`.
+  - A root that must cover the window spreads `useOutletFill()` (the
+    window's size, known from a childless full-window sizer that is out of
+    both hit-tests) instead of `top/right/bottom/left: 0`.
+  - A full-window surface that should catch taps but let a pan scroll the
+    page sets `native-interaction-enabled={false}` (lynx taps still reach
+    it). The native flag covers a view's whole native subtree, so keep
+    interactive content a SIBLING of such a surface, never its child.
+  Popover and Select light-dismiss through exactly such a surface: a tap
+  outside closes them, a pan beside them scrolls the page, as on the web,
+  and the popup follows its anchor through the scroll and its fling. A
+  Dialog backdrop keeps native hit-testing: a modal holds the pan. Toasts
+  block only their own strip.
+- **The safe frame.** The host's own box is the **safe frame** content
+  respects: the dialog panel centers in it, a toast viewport pins to its
+  edges, and `useOverlayInsets()` returns the frame's per-edge insets
+  inside the window for a custom overlay. Dialog renders the anatomy's
+  `::backdrop` pseudo part as a real view; light dismiss routes through
+  the shared layer stack (`dismissTopLayer()`), so nested overlays close
+  innermost-first. `Dialog.Close` and `Dialog.Cancel` (the alert-style
+  least-destructive action — its own part, styled as the quiet member of
+  the pair) and `Popover.Close` take `disabled` and an accessible `label`.
+  Popover carries zero 0.6's `description` part (`Popover.Description`,
+  the popup's muted body line under `Popover.Title`). Its `arrow` is
+  painted by the web target only, and its separate `anchor` part is not
+  taken: the popup anchors to `Popover.Trigger`.
 - **Anchored popups position in the outlet's own space.** Popover and
   Select measure the anchor, the popup and the safe frame together
   (`boundingClientRect`) and flip/clamp against the safe frame
   (`computeOutletPosition`), so a popup never flips into a status-bar or
   home-indicator strip or under a header. The outlet itself is not
-  measured: pinned to all four edges, it sits at the page root's origin
-  with its own layout size (`fixedOutletRect`). A frame measured mid-transform
-  (a screen sliding in on a navigation push) pokes out of the window and
-  is ignored until it is re-measured. A popup opened at mount
-  (`defaultOpen`) lands where its anchor settles. The outlet does not ride
-  a screen transform, so an open popup stays put while its screen slides.
+  measured: it sits at the page root's origin with the window's size
+  (`fixedOutletRect`). A transform (a screen sliding in on a navigation
+  push) fires no layout event, so the anchor and the frame keep
+  re-measuring until they hold still inside the window; a frame that pokes
+  out of the window counts as still moving. A popup opened at mount
+  (`defaultOpen`, a cold deep link) therefore lands at its anchor, not
+  clamped against the right edge, and toasts clear the status bar and the
+  home indicator from the first frame the slide settles. The outlet does
+  not ride a screen transform, so an open popup follows its anchor in
+  measured steps while its screen slides.
 - **Press feedback has two tiers.** Every pressable part (Button, a Tabs
   tab, an Accordion trigger, the Popover/Dialog triggers and closes, the
   Select trigger and items, the Toast action and close) is wired through
