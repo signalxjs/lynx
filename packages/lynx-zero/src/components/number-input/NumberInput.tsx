@@ -160,6 +160,11 @@ const NumberInputRoot = component<NumberInputRootProps>(({ props, slots, emit, o
     const fc = createFormControl({ props: () => props, idBase: 'zx-number', controlPart: 'input', invalid: outOfRange });
     const disabled = fc.disabled;
     const readonly = fc.readonly;
+    // Going disabled/read-only mid-edit drops the draft at once, so the
+    // field shows the model again instead of text that can never commit.
+    effect(() => {
+        if ((disabled() || readonly()) && local.draft !== null) local.draft = null;
+    });
 
     // Coerced, not trusted: snapToStep divides by it.
     const step = (): number => {

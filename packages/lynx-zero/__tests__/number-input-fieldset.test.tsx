@@ -181,9 +181,12 @@ describe('NumberInput', () => {
         ));
         const { container } = render(<Host />);
         await act(() => type(nip(container, 'input'), '8'));
+        expect(nip(container, 'input').props['value']).toBe('8');
         await act(() => {
             state.locked = true;
         });
+        // Dropped at once — the field shows the model again before any blur.
+        expect(nip(container, 'input').props['value']).toBe('3');
         await act(() => fire(nip(container, 'input'), 'bindblur'));
         expect(changes).toEqual([]);
         expect(nip(container, 'input').props['value']).toBe('3');
