@@ -9,13 +9,20 @@
  * Every axis sweeps on its own against every state, with the other axes at
  * the skin's defaults: `button/color` is 8 colors × the states, not the
  * full color × size × variant cube. A section is one axis block (`color`,
- * `size`, `variant`) or an `extras` entry (overlays rendered open) — each
- * sized to fit one iPhone screenshot.
+ * `size`, `variant`) or an `extras` entry (overlays rendered open).
+ *
+ * Each section must fit ONE iPhone screenshot with no cell overlapping
+ * another (#1192). Rather than hand-tuned page splits, every entry carries a
+ * `cell` footprint model — its largest state cell per size, computed from
+ * the daisy size ramp (the same token formulas the skin's CSS uses) — and
+ * the axis blocks paginate from it (`axisPages`). `__tests__/layout.test.ts`
+ * asserts every section fits and every cell fits its column.
  *
  * Axis values mirror the daisy skin's manifest
  * (`@sigx/zero-daisyui/lynx/manifest.json` → `components.<scope>`).
  *
- * To add a scope: an entry here, a render fn in `ZeroGallery.tsx`.
+ * To add a scope: an entry here (with its `cell` model), a render fn in
+ * `ZeroGallery.tsx`.
  */
 
 export interface GalleryState {
@@ -30,6 +37,13 @@ export interface GalleryState {
 }
 
 export type GalleryAxis = 'color' | 'size' | 'variant';
+export type GallerySize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+
+/** A cell's footprint in points: the widest / tallest state cell at one size. */
+export interface CellBox {
+    width: number;
+    height: number;
+}
 
 export interface GalleryScope {
     title: string;
@@ -37,13 +51,21 @@ export interface GalleryScope {
     states: readonly GalleryState[];
     /** Extra sections the render fn draws itself (overlays open, …). */
     extras?: readonly string[];
-    /** Cell width in points; cells wrap inside a row. Default 76. */
+    /** Column width in points; cells wrap inside a row. Default 76. */
     cellWidth?: number;
     /**
-     * Axis values per section. An axis with more values than this splits into
-     * numbered pages (`color-1`, `color-2`, …) so each fits one screenshot.
+     * Where each row's axis label goes. `left` (default): a label column
+     * beside the cells. `above`: a line above them, so the cells get the
+     * full screen width — for scopes whose xl cell needs it (toast).
      */
-    rowsPerPage?: number;
+    labels?: 'left' | 'above';
+    /**
+     * The footprint of the scope's largest state cell at `size`, in points,
+     * from the daisy size ramp. A focus ring (a 4pt box-shadow spread) is
+     * NOT part of the box: it spills into the column's 6pt right padding.
+     * The color and variant axes render at the skin default, `md`.
+     */
+    cell: (size: GallerySize) => CellBox;
     /**
      * shoot.mjs settle tolerance — the fraction of sampled screenshot bytes
      * allowed to change between frames that still count as "settled".
@@ -51,6 +73,70 @@ export interface GalleryScope {
      * progress bar). Default 0.003.
      */
     settleTolerance?: number;
+}
+
+// ── The screen and the gallery chrome, in points ─────────────────────────
+// `ZeroGallery.tsx` renders with these same numbers, so the layout model and
+// the rendered matrix cannot drift apart.
+
+/** The QA device: iPhone 17 Pro, portrait. */
+export const GALLERY_SCREEN = { width: 402, height: 874, safeTop: 62, safeBottom: 34 } as const;
+/** Frame padding (all sides) around the section. */
+export const FRAME_PADDING = 12;
+/** The axis-label column (`labels: 'left'`). */
+export const LABEL_WIDTH = 52;
+/** Right padding inside each column: a focus ring's 4pt spread lands here. */
+export const CELL_PAD = 6;
+/** Gap between wrapped lines of cells (and of state labels) inside one row. */
+export const LINE_GAP = 6;
+/** Gap between the section's blocks: title, header, and each row. */
+export const BLOCK_GAP = 8;
+/** Gap between an `above` label and its cells. */
+export const LABEL_GAP = 4;
+/** Chrome font sizes (`zero-gallery.css`). */
+export const FONT = { title: 13, head: 9, label: 10 } as const;
+/**
+ * Line-height and average glyph-width factors. Measured on the iOS sim at
+ * 16px: a text line is ~18pt tall (1.125×) and "Item" is 33pt wide (0.52em a
+ * glyph); "Changes" runs 0.56em. Both rounded up so the model over-estimates.
+ */
+const LEADING = 1.25;
+const GLYPH = 0.56;
+
+/** The height of one line of text at `px`. */
+export function lineHeight(px: number): number {
+    return px * LEADING;
+}
+
+/** An estimate of `text`'s rendered width at `px` (proportional sans). */
+export function textWidth(text: string, px: number): number {
+    return text.length * px * GLYPH;
+}
+
+/** The screen height a section may use: the safe frame, minus the frame's top padding. */
+export const SECTION_BUDGET =
+    GALLERY_SCREEN.height - GALLERY_SCREEN.safeTop - GALLERY_SCREEN.safeBottom - FRAME_PADDING;
+
+// ── The daisy size ramp (--size-field / --size-selector = 4px, --border = 1px) ─
+
+type Ramp = Readonly<Record<GallerySize, number>>;
+const ramp = (xs: number, sm: number, md: number, lg: number, xl: number): Ramp => ({ xs, sm, md, lg, xl });
+
+/** `--text-<size>`. */
+const TEXT = ramp(12, 14, 16, 18, 20);
+/** Field-family triggers (select, dialog, popover): `--size-field * 8…16`, `* 2…6` inline padding. */
+const FIELD_H = ramp(32, 40, 48, 56, 64);
+const FIELD_PX = ramp(8, 12, 16, 20, 24);
+const FIELD_TEXT = ramp(12, 14, 14, 16, 18);
+/** Selector controls (switch, slider): `--size-selector * 4…8`. */
+const SELECTOR = ramp(16, 20, 24, 28, 32);
+const BORDER = 1;
+
+function fieldTrigger(label: string) {
+    return (size: GallerySize): CellBox => ({
+        width: 2 * BORDER + 2 * FIELD_PX[size] + textWidth(label, FIELD_TEXT[size]),
+        height: FIELD_H[size],
+    });
 }
 
 export const COLORS = ['primary', 'secondary', 'accent', 'neutral', 'info', 'success', 'warning', 'error'] as const;
@@ -71,8 +157,17 @@ export const GALLERY_SCOPES = {
         // Wide enough for an xl loading button: the button is content-sized
         // and never squeezed (#1165), so a narrower cell would only show it
         // overflowing into its neighbour.
-        cellWidth: 112,
-        rowsPerPage: 3,
+        cellWidth: 116,
+        // Height `--size-field * 6…14`; padding-inline `--space-xs…2xl`. The
+        // widest state is `loading`: a 1em spinner + 0.5em gap before "Btn".
+        cell: (size) => {
+            const font = TEXT[size];
+            const px = ramp(4, 6, 12, 16, 20)[size];
+            return {
+                width: 2 * BORDER + 2 * px + 1.5 * font + textWidth('Btn', font),
+                height: ramp(24, 32, 40, 48, 56)[size],
+            };
+        },
         // `modifiers`: wide, block, square, circle, active. `squeeze`: buttons
         // in boxes narrower than their content — they overflow, never break
         // a word (#1165).
@@ -91,7 +186,14 @@ export const GALLERY_SCOPES = {
             { id: 'readonly-on', label: 'ro·on', props: { readonly: true, checked: true } },
             { id: 'invalid', label: 'invalid', props: { invalid: true } },
         ],
-        cellWidth: 52,
+        // xl is 54pt wide: 52 overlapped the next cell (#1192).
+        cellWidth: 62,
+        // daisy's toggle: height `--size-selector * 4…8`, width
+        // `2h - 2(border + h/8)`.
+        cell: (size) => {
+            const h = SELECTOR[size];
+            return { width: 2 * h - 2 * (BORDER + h / 8), height: h };
+        },
     },
     slider: {
         title: 'Slider',
@@ -105,7 +207,9 @@ export const GALLERY_SCOPES = {
         ],
         extras: ['vertical'],
         cellWidth: 150,
-        rowsPerPage: 2,
+        // Fluid width; the control (and its thumb) is `--size-selector * 4…8`
+        // tall, the marks sit inside the track.
+        cell: (size) => ({ width: 96, height: SELECTOR[size] }),
     },
     progress: {
         title: 'Progress',
@@ -117,6 +221,8 @@ export const GALLERY_SCOPES = {
         ],
         extras: ['text'],
         cellWidth: 96,
+        // Fluid width; the track is `--size-selector * 1…4.5` tall.
+        cell: (size) => ({ width: 60, height: ramp(4, 6, 10, 14, 18)[size] }),
         settleTolerance: 0.05,
     },
     tabs: {
@@ -134,7 +240,17 @@ export const GALLERY_SCOPES = {
         // measured geometry away from the list's origin.
         extras: ['indicator'],
         cellWidth: 150,
-        rowsPerPage: 4,
+        // Two tabs, "A" and "B": padding `--tab-py` × `--tab-px`, inside the
+        // list's 4pt ring room (the box variant's list padding is also 4).
+        cell: (size) => {
+            const font = ramp(12, 12, 14, 16, 18)[size];
+            const py = ramp(2, 4, 6, 8, 12)[size];
+            const px = ramp(8, 12, 16, 20, 20)[size];
+            return {
+                width: 2 * (2 * px + textWidth('A', font)) + 2 * 4 + 4,
+                height: 2 * py + lineHeight(font) + 2 * 4 + 2 * BORDER,
+            };
+        },
     },
     accordion: {
         title: 'Accordion',
@@ -150,7 +266,19 @@ export const GALLERY_SCOPES = {
         // orientation="horizontal": the items side by side (zero 0.6).
         extras: ['horizontal'],
         cellWidth: 104,
-        rowsPerPage: 4,
+        // One bordered item, open: the trigger (padding `--space-md…2xl`)
+        // plus the panel (bottom padding `--space-md…2xl`). The focus ring
+        // is inset. Fluid width; the widest text is "Panel".
+        cell: (size) => {
+            const triggerFont = ramp(14, 14, 16, 18, 20)[size];
+            const panelFont = ramp(14, 14, 16, 16, 18)[size];
+            const py = ramp(8, 12, 16, 20, 20)[size];
+            const px = ramp(12, 16, 20, 20, 20)[size];
+            return {
+                width: 2 * BORDER + 2 * px + textWidth('Panel', panelFont),
+                height: 2 * BORDER + 2 * py + lineHeight(triggerFont) + py + lineHeight(panelFont),
+            };
+        },
     },
     timeline: {
         title: 'Timeline',
@@ -163,6 +291,18 @@ export const GALLERY_SCOPES = {
         // marker must stay a dot beside wrapping text, never a pill).
         extras: ['horizontal', 'long'],
         cellWidth: 150,
+        // Two items and a 12pt connector. An item is the marker
+        // (`--size-selector * 2…4`) beside a bordered content box (margin
+        // and padding `--space-xs` × `--space-md`).
+        cell: (size) => {
+            const marker = ramp(8, 10, 12, 14, 16)[size];
+            const font = ramp(12, 12, 14, 16, 16)[size];
+            const content = 2 * 4 + 2 * 4 + 2 * BORDER + lineHeight(font);
+            return {
+                width: marker + 2 * 8 + 2 * 8 + 2 * BORDER + textWidth('two', font),
+                height: 2 * Math.max(marker, content) + 12,
+            };
+        },
     },
     dialog: {
         title: 'Dialog',
@@ -178,6 +318,9 @@ export const GALLERY_SCOPES = {
         // inside the open dialog — both live in the full-window outlet layer
         // (#1169), so the list must paint above the panel and the backdrop.
         extras: ['open', 'open-states', 'nested'],
+        // The default 76 let the xl trigger overlap its neighbour (#1192).
+        cellWidth: 100,
+        cell: fieldTrigger('Open'),
     },
     popover: {
         title: 'Popover',
@@ -191,6 +334,8 @@ export const GALLERY_SCOPES = {
         // `open`: two popovers anchored at mount (trigger in its open state).
         // `open-states`: Close held (forced pressed) / Close disabled.
         extras: ['open', 'open-states'],
+        cellWidth: 100,
+        cell: fieldTrigger('Open'),
     },
     select: {
         title: 'Select',
@@ -218,8 +363,15 @@ export const GALLERY_SCOPES = {
         // `open-color`: a non-default colour through the portal — the
         // selected item and its tick in secondary, not primary (#1168).
         extras: ['open', 'open-parts', 'open-color'],
-        cellWidth: 150,
-        rowsPerPage: 4,
+        // Two columns, as wide as the screen allows.
+        cellWidth: 163,
+        // Fluid width. The widest state is `clearable`: "Apple", then the
+        // 24pt clear chip, which sits `border + padding + 1em(sm) + 4` in
+        // from the right edge, with 4pt of air on each side.
+        cell: (size) => ({
+            width: fieldTrigger('Apple')(size).width + 4 + 24 + 4 + 14,
+            height: FIELD_H[size],
+        }),
     },
     // Cells are toasts composed in place (Toast.Root + parts, no store, no
     // portal) so ForceStates reaches the action and close; `open` / `bottom`
@@ -235,18 +387,92 @@ export const GALLERY_SCOPES = {
             { id: 'action-disabled', label: 'action disabled', props: { actionDisabled: true } },
         ],
         extras: ['open', 'bottom'],
-        cellWidth: 156,
-        rowsPerPage: 2,
+        // The xl toast needs ~175pt, more than two columns beside a label
+        // column leave (163): "Changes stored." wrapped (#1192). Labels
+        // go above the cells instead, so two columns get the full width.
+        labels: 'above',
+        cellWidth: 189,
+        // Fluid width: padding `--space-xs…xl` × `--space-md…2xl`; the title
+        // (with 1.75em reserved for the close button), the description, then
+        // the action (margin-top 4, padding 2, --text-xs, bordered).
+        cell: (size) => {
+            const font = ramp(12, 14, 14, 16, 18)[size];
+            const description = ramp(12, 12, 12, 14, 16)[size];
+            const py = ramp(4, 6, 8, 12, 16)[size];
+            const px = ramp(8, 8, 12, 16, 20)[size];
+            return {
+                width: 2 * px + Math.max(textWidth('Saved', font) + 1.75 * font, textWidth('Changes stored.', description)),
+                height: 2 * py + lineHeight(font) + lineHeight(description) + 4 + 2 * 2 + lineHeight(12) + 2 * BORDER,
+            };
+        },
     },
 } as const satisfies Record<string, GalleryScope>;
 
 export type GalleryScopeId = keyof typeof GALLERY_SCOPES;
 
 const AXES: readonly GalleryAxis[] = ['color', 'size', 'variant'];
+const DEFAULT_CELL_WIDTH = 76;
 
-function pagesOf(entry: GalleryScope, axis: GalleryAxis): number {
+/** The size an axis value renders at: the value itself on the size axis, else the skin default. */
+export function sizeOf(axis: GalleryAxis, value: string): GallerySize {
+    return axis === 'size' ? (value as GallerySize) : 'md';
+}
+
+/** The matrix geometry of a scope: its column width, columns per line, and lines per row. */
+export function matrixOf(entry: GalleryScope): { cellWidth: number; columns: number; lines: number; cellArea: number } {
+    const cellWidth = entry.cellWidth ?? DEFAULT_CELL_WIDTH;
+    const cellArea = GALLERY_SCREEN.width - 2 * FRAME_PADDING - (entry.labels === 'above' ? 0 : LABEL_WIDTH);
+    const columns = Math.max(1, Math.floor(cellArea / cellWidth));
+    return { cellWidth, columns, lines: Math.ceil(entry.states.length / columns), cellArea };
+}
+
+/** The height of one row of the matrix: one axis value × every state, wrapped. */
+export function rowHeight(entry: GalleryScope, axis: GalleryAxis, value: string): number {
+    const { lines } = matrixOf(entry);
+    const cells = lines * entry.cell(sizeOf(axis, value)).height + (lines - 1) * LINE_GAP;
+    const label = lineHeight(FONT.label);
+    return entry.labels === 'above' ? label + LABEL_GAP + cells : Math.max(cells, label + 4);
+}
+
+/** The height of an axis section's fixed part: the title and the state-label header. */
+export function headerHeight(entry: GalleryScope): number {
+    const { lines } = matrixOf(entry);
+    const header = lines * lineHeight(FONT.head) + (lines - 1) * LINE_GAP;
+    return lineHeight(FONT.title) + BLOCK_GAP + header + BLOCK_GAP;
+}
+
+/** The height of an axis section holding `values`, from the top of the safe frame's padding. */
+export function sectionHeight(entry: GalleryScope, axis: GalleryAxis, values: readonly string[]): number {
+    const rows = values.reduce((sum, value) => sum + rowHeight(entry, axis, value), 0);
+    return headerHeight(entry) + rows + Math.max(0, values.length - 1) * BLOCK_GAP;
+}
+
+/**
+ * An axis's values split into pages that each fit one screen. Rows are
+ * first packed in order until the next would overflow `SECTION_BUDGET`,
+ * which gives the fewest pages; the rows are then spread evenly over that
+ * many pages when that still fits (8 colours → 4 + 4, not 6 + 2). A row
+ * taller than a whole screen still gets a page of its own (the layout test
+ * flags it).
+ */
+export function axisPages(entry: GalleryScope, axis: GalleryAxis): string[][] {
     const values = entry.axes[axis] ?? [];
-    return entry.rowsPerPage ? Math.ceil(values.length / entry.rowsPerPage) : 1;
+    if (values.length === 0) return [];
+    const packed: string[][] = [];
+    let page: string[] = [];
+    for (const value of values) {
+        if (page.length > 0 && sectionHeight(entry, axis, [...page, value]) > SECTION_BUDGET) {
+            packed.push(page);
+            page = [];
+        }
+        page.push(value);
+    }
+    if (page.length > 0) packed.push(page);
+    const per = Math.ceil(values.length / Math.max(1, packed.length));
+    const even: string[][] = [];
+    for (let i = 0; i < values.length; i += per) even.push(values.slice(i, i + per));
+    const fits = even.length === packed.length && even.every((p) => sectionHeight(entry, axis, p) <= SECTION_BUDGET);
+    return fits ? even : packed;
 }
 
 /** The sections of a scope, in shooting order: its axes (paged), then its extras. */
@@ -255,7 +481,7 @@ export function gallerySections(scope: GalleryScopeId): string[] {
     const out: string[] = [];
     for (const axis of AXES) {
         if (!entry.axes[axis]) continue;
-        const pages = pagesOf(entry, axis);
+        const pages = axisPages(entry, axis).length;
         if (pages <= 1) out.push(axis);
         else for (let page = 1; page <= pages; page++) out.push(`${axis}-${page}`);
     }
@@ -278,8 +504,7 @@ export function parseSection(entry: GalleryScope, section: string): ParsedSectio
     const axis = match[1] as GalleryAxis;
     const values = entry.axes[axis];
     if (!values) return null;
-    if (!match[2] || !entry.rowsPerPage) return { kind: 'axis', axis, values };
-    const page = Number(match[2]);
-    const slice = values.slice((page - 1) * entry.rowsPerPage, page * entry.rowsPerPage);
-    return slice.length > 0 ? { kind: 'axis', axis, values: slice } : null;
+    if (!match[2]) return { kind: 'axis', axis, values };
+    const slice = axisPages(entry, axis)[Number(match[2]) - 1];
+    return slice ? { kind: 'axis', axis, values: slice } : null;
 }

@@ -42,6 +42,10 @@ node scripts/zero-qa/shoot.mjs --scope select/open,tabs/variant --theme dark --r
   a bare sleep: consecutive frames must match within a tolerance, and the page
   must have content, so the loading spinner alone doesn't count. It saves the
   shot plus `--bands` (default 3) zoomed horizontal crops.
+- `--theme <name>` themes the whole page, not only the gallery's ZeroRoot:
+  while the gallery screen is focused the app theme mirrors the zero theme,
+  so the status-bar and home-indicator strips, and the status-bar icons,
+  follow it too (#1193).
 - Output goes to `.zero-qa/<run>/<scope>/<section>.png` and
   `<section>.bandN.png`, and each run gets a `run.json` manifest. `.zero-qa/`
   is gitignored. A shot that never settled is flagged in the log and on the
@@ -92,8 +96,13 @@ than `--stale-min` (default 120 minutes). It never takes a fresh one.
 ## Adding a scope
 
 1. Add an entry to `GALLERY_SCOPES` in `gallery/scopes.ts`. The entry lists the
-   scope's axis values (from the daisy manifest), its states, and its
-   `extras`. Optional fields are `cellWidth`, `rowsPerPage` and
+   scope's axis values (from the daisy manifest), its states, its `extras`,
+   and its `cell` model: the footprint of its largest state cell at each
+   size, computed from the daisy size ramp. The axis sections paginate from
+   that model so each one fits one iPhone 17 Pro screen, and
+   `gallery/__tests__/layout.test.ts` fails when a section overflows or a
+   cell is wider than its column (#1192). Optional fields are `cellWidth`,
+   `labels` (`'above'` gives the cells the full width) and
    `settleTolerance`; raise the last one for a perpetual animation.
 2. Add the scope's render function to `RENDER` in `gallery/ZeroGallery.tsx`.
    The TypeScript types require one render function per scope.

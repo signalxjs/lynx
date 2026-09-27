@@ -7,8 +7,9 @@
  *   /zero-gallery/:scope             every section of a scope, scrollable
  *   /zero-gallery/:scope/:section    one section, header hidden — one screenshot
  *
- * `?theme=<name>` picks the zero theme (default: the skin's light theme).
- * Deep-linkable cold: `xcrun simctl openurl booted showcase://zero-gallery/button/color`.
+ * `?theme=<name>` picks the zero theme (default: the skin's light theme) and
+ * themes the page edge to edge — status-bar strip included (`usePageTheme`).
+ * Deep-linkable cold: `xcrun simctl openurl booted showcase://zero-gallery/button/color-1`.
  *
  * The DATA (axes, states, sections) lives in `scopes.ts`; this file pairs
  * each scope with its render fn. Held/focus states are forced through
@@ -21,14 +22,19 @@ import '@sigx/lynx-zero-daisyui';
 import './zero-gallery.css';
 import type { Define, JSXElement } from '@sigx/lynx';
 import { component } from '@sigx/lynx';
-import { Screen, useNav, useParams, useSearch } from '@sigx/lynx-navigation';
+import { extendTheme, registerTheme, themeController } from '@sigx/lynx-daisyui';
+import { Screen, useFocusEffect, useNav, useParams, useSearch } from '@sigx/lynx-navigation';
 import {
     Accordion, Button, Col, Dialog, Popover, Progress, ScrollView, Select, Slider,
-    Switch, Tabs, Timeline, Toast, ZeroRoot, createToaster,
+    Switch, Tabs, Timeline, Toast, ZeroRoot, createToaster, getTheme,
 } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
+import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
-import { GALLERY_SCOPES, SIZES, gallerySections, parseSection } from './scopes.js';
+import {
+    BLOCK_GAP, CELL_PAD, FRAME_PADDING, GALLERY_SCOPES, LABEL_GAP, LABEL_WIDTH, LINE_GAP, SIZES,
+    gallerySections, matrixOf, parseSection,
+} from './scopes.js';
 
 /** What one matrix cell renders: the swept axis value plus the state's props. */
 export interface GalleryCell {
@@ -474,8 +480,6 @@ const ToastsOpen = component<Define.Prop<'placement', 'top' | 'bottom', true>>((
     return () => <Toast.Viewport placement={props.placement} toaster={toaster} />;
 });
 
-const LABEL_WIDTH = 52;
-
 function forced(state: GalleryState, node: JSXElement): JSXElement {
     if (!state.flags) return node;
     return <ForceStates flags={state.flags} parts={state.parts}>{node}</ForceStates>;
@@ -486,32 +490,41 @@ type MatrixProps =
     & Define.Prop<'axis', GalleryAxis, true>
     & Define.Prop<'values', readonly string[], true>;
 
-/** One axis block: a header row of state labels, then one row per axis value. */
+/**
+ * One axis block: a header row of state labels, then one row per axis value.
+ * The geometry (column width, label placement, gaps) is the same one
+ * `scopes.ts` paginates with, so a page the model says fits does fit.
+ */
 const Matrix = component<MatrixProps>(({ props }) => {
     return () => {
         const entry: GalleryScope = GALLERY_SCOPES[props.scope];
         const render = RENDER[props.scope].cell;
-        const width = entry.cellWidth ?? 76;
-        // Label column + a wrapping cell area: when the states wrap onto a
-        // second line they stay under the header's columns, not the label.
-        const row = { display: 'flex', flexDirection: 'row', alignItems: 'flex-start' };
-        const cells = { display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', rowGap: '6px', flexGrow: 1, flexShrink: 1, flexBasis: '0px' };
+        const { cellWidth } = matrixOf(entry);
+        const above = entry.labels === 'above';
+        // Label column (or a label line above) + a wrapping cell area: when
+        // the states wrap onto a second line they stay under the header's
+        // columns, not the label.
+        const row: Record<string, string> = above
+            ? { display: 'flex', flexDirection: 'column', gap: `${LABEL_GAP}px` }
+            : { display: 'flex', flexDirection: 'row', alignItems: 'flex-start' };
+        const cells = { display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', rowGap: `${LINE_GAP}px`, flexGrow: 1, flexShrink: 1, flexBasis: '0px' };
+        const labelStyle: Record<string, string> = above ? {} : { width: `${LABEL_WIDTH}px`, paddingTop: '4px' };
         return (
-            <view style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <view style={row}>
-                    <view style={{ width: `${LABEL_WIDTH}px` }} />
+            <view style={{ display: 'flex', flexDirection: 'column', gap: `${BLOCK_GAP}px` }}>
+                <view style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
+                    {above ? null : <view style={{ width: `${LABEL_WIDTH}px` }} />}
                     <view style={cells}>
                         {entry.states.map((state) => (
-                            <text key={state.id} class="zg-head" style={{ width: `${width}px` }}>{state.label}</text>
+                            <text key={state.id} class="zg-head" style={{ width: `${cellWidth}px` }}>{state.label}</text>
                         ))}
                     </view>
                 </view>
                 {props.values.map((value) => (
                     <view key={value} style={row}>
-                        <text class="zg-label" style={{ width: `${LABEL_WIDTH}px`, paddingTop: '4px' }}>{value}</text>
-                        <view style={cells}>
+                        <text class="zg-label" style={labelStyle}>{value}</text>
+                        <view style={above ? { ...cells, flexGrow: 0, flexBasis: 'auto', width: '100%' } : cells}>
                             {entry.states.map((state) => (
-                                <view key={state.id} style={{ width: `${width}px`, paddingRight: '6px' }}>
+                                <view key={state.id} style={{ width: `${cellWidth}px`, paddingRight: `${CELL_PAD}px` }}>
                                     {render
                                         ? forced(state, render({ [props.axis]: value, state, props: state.props ?? {} } as GalleryCell))
                                         : null}
@@ -538,13 +551,38 @@ const Section = component<SectionProps>(({ props }) => {
                 ? RENDER[props.scope].extras?.[parsed.id]?.() ?? null
                 : <text class="zg-error">{`Unknown section "${props.section}" — have: ${gallerySections(props.scope).join(', ')}`}</text>;
         return (
-            <view style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '12px' }}>
+            <view style={{ display: 'flex', flexDirection: 'column', gap: `${BLOCK_GAP}px`, paddingBottom: '12px' }}>
                 <text class="zg-title">{`${entry.title} · ${props.section}`}</text>
                 {body}
             </view>
         );
     };
 });
+
+/**
+ * `?theme=<name>` themes the whole page, not just the ZeroRoot subtree:
+ * while this screen is focused the app theme mirrors the zero theme, so the
+ * status-bar and home-indicator strips (painted by the app shell) and the
+ * status-bar icons follow it too (#1193). See `page-theme.ts`.
+ *
+ * What `useScreenTheme` does (save, pin, restore on blur), with the focus
+ * effect registered unconditionally so the hook runs the same way whether
+ * or not `?theme=` resolves.
+ */
+function usePageTheme(theme: string | undefined): void {
+    const page = theme ? pageThemeOf(getTheme(theme)) : null;
+    if (page) registerTheme(extendTheme(page.base, { name: page.name, variant: page.variant, colors: page.colors }));
+    useFocusEffect(() => {
+        if (!page) return undefined;
+        const prevName = themeController.name;
+        const prevFollowing = themeController.followingSystem;
+        themeController.set(page.name);
+        return () => {
+            if (prevFollowing) themeController.followSystem();
+            else themeController.set(prevName);
+        };
+    });
+}
 
 function knownScope(scope: string): scope is GalleryScopeId {
     return Object.prototype.hasOwnProperty.call(GALLERY_SCOPES, scope);
@@ -554,7 +592,7 @@ const Frame = component<Define.Prop<'theme', string | undefined, false> & Define
     return () => (
         <ZeroRoot initial={props.theme ?? 'light'}>
             <ScrollView flex={1}>
-                <Col padding={12} gap={4}>{slots.default?.()}</Col>
+                <Col padding={FRAME_PADDING} gap={4}>{slots.default?.()}</Col>
             </ScrollView>
         </ZeroRoot>
     );
@@ -591,6 +629,7 @@ export const ZeroGalleryIndex = component(() => {
 export const ZeroGalleryScope = component(() => {
     const { scope } = useParams('zeroGalleryScope');
     const search = useSearch('zeroGalleryScope');
+    usePageTheme(search.theme);
     return () => (
         <Frame theme={search.theme}>
             <Screen title={`Zero Gallery · ${scope}`} />
@@ -604,6 +643,7 @@ export const ZeroGalleryScope = component(() => {
 export const ZeroGallerySection = component(() => {
     const { scope, section } = useParams('zeroGallerySection');
     const search = useSearch('zeroGallerySection');
+    usePageTheme(search.theme);
     return () => (
         <Frame theme={search.theme}>
             <Screen title={`${scope} · ${section}`} headerShown={false} />
