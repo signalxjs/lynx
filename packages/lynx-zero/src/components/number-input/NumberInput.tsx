@@ -34,7 +34,11 @@
  * - The triggers are views: a tap steps once, a long press repeats every
  *   `spinInterval` ms until the touch ends (the web's press-and-hold spin).
  *   Each carries the main-thread press feel and the `pressed` flag, and is
- *   `disabled` at its bound, while the root is disabled or read-only.
+ *   `disabled` at its bound, while the root is disabled or read-only. They
+ *   `catchtap`, so stepping never bubbles to the control's focus tap.
+ * - There is no `<label for>`: a tap on the Label or on the control's box
+ *   focuses the input through its `focus` UI method, and the control
+ *   reports that focus to an enclosing `Field` so `Field.Label` does too.
  * - `hidden-input` is omitted (no forms on lynx; the anatomy oracle walks
  *   rendered parts), and with it `name`. `locale`/`formatOptions` are not
  *   carried — `Intl` is not guaranteed on lynx's JS engines; pass `format`
@@ -54,6 +58,8 @@ import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes, useVariantAxes } from '../../contract/axes-context.js';
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
+import type { InvokableElement } from '../../shared/native-text.js';
+import { focusNative } from '../../shared/native-text.js';
 import { clamp, parseDecimal, snapToStep, stepToward } from './number.js';
 
 const anatomy = anatomies['number-input'];
@@ -79,6 +85,9 @@ interface NumberInputContext {
     inputType(): 'digit' | 'number';
     spinInterval(): number;
     label(): string | undefined;
+    setInputEl(el: InvokableElement | null): void;
+    /** Focus the native input (its `focus` UI method) unless disabled. */
+    focus(): void;
 }
 
 const INERT: NumberInputContext = {
@@ -97,6 +106,8 @@ const INERT: NumberInputContext = {
     inputType: () => 'number',
     spinInterval: () => NUMBER_INPUT_SPIN_INTERVAL,
     label: () => undefined,
+    setInputEl: () => {},
+    focus: () => {},
 };
 
 const useNumberInputContext = defineInjectable<NumberInputContext>(() => INERT);
@@ -132,13 +143,14 @@ export type NumberInputRootProps =
     & Define.Prop<'label', string, false>
     & Define.Slot<'default'>;
 
-const NumberInputRoot = component<NumberInputRootProps>(({ props, slots, emit }) => {
+const NumberInputRoot = component<NumberInputRootProps>(({ props, slots, emit, onUnmounted }) => {
     const state = createControllableState<number | null>(
         () => props.model,
         props.defaultValue ?? null,
         (v) => emit('valueChange', v),
     );
     const local = signal({ draft: null as string | null, focused: false });
+    let inputEl: InvokableElement | null = null;
 
     const outOfRange = (): boolean => {
         const v = state.value;
@@ -220,8 +232,15 @@ const NumberInputRoot = component<NumberInputRootProps>(({ props, slots, emit })
             return typeof i === 'number' && Number.isFinite(i) && i > 0 ? i : NUMBER_INPUT_SPIN_INTERVAL;
         },
         label: () => props.label,
+        setInputEl: (el) => { inputEl = el; },
+        focus: () => {
+            if (!disabled()) focusNative(inputEl);
+        },
     };
     defineProvide(useNumberInputContext, () => ctx);
+    // The Field's label tap focuses the first control that reports (there
+    // is no `<label for>` on lynx); nothing validates natively here.
+    fc.reportValidity({ element: () => null, value: () => state.value, focus: () => ctx.focus() }, onUnmounted);
 
     const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, {
         color: props.color,
@@ -256,6 +275,7 @@ const NumberInputLabel = component<NumberInputLabelProps>(({ props, slots }) => 
                 ...partAxes(axes()),
                 class: props.class,
             })}
+            {...{ bindtap: () => ctx.focus() }}
         >
             {slots.default?.()}
         </text>
@@ -281,6 +301,9 @@ const NumberInputControl = component<NumberInputControlProps>(({ props, slots })
                 ...partAxes(axes()),
                 class: props.class,
             })}
+            // A tap on the box around the field focuses it; the steppers
+            // catch their own taps, so stepping never opens the keyboard.
+            bindtap={() => ctx.focus()}
         >
             {slots.default?.()}
         </view>
@@ -346,6 +369,7 @@ const NumberInputInput = component<NumberInputInputProps>(({ props }) => {
                 })}
                 {...native}
                 {...handlers}
+                ref={(el: unknown) => ctx.setInputEl(el as InvokableElement | null)}
             />
         );
     };
@@ -404,7 +428,7 @@ function makeTrigger(direction: 1 | -1, part: 'increment-trigger' | 'decrement-t
                         label: props.label ?? (direction > 0 ? 'Increment' : 'Decrement'),
                         disabled,
                     })}
-                    bindtap={() => {
+                    catchtap={() => {
                         if (spun) {
                             spun = false;
                             return;

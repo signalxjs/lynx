@@ -8,7 +8,7 @@ import { act, fireEvent, render, touch } from '@sigx/lynx-testing';
 import type { TestNode } from '@sigx/lynx-testing';
 import { anatomies } from '@sigx/zero/anatomy';
 import { component, signal } from '@sigx/lynx';
-import { Fieldset, NumberInput } from '../src/index';
+import { Field, Fieldset, NumberInput } from '../src/index';
 import { clamp, parseDecimal, precisionOf, snapToStep, stepToward } from '../src/components/number-input/number';
 import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
 
@@ -121,15 +121,15 @@ describe('NumberInput', () => {
         const { container } = render(
             <Full defaultValue={8} min={0} max={10} step={2} onValueChange={(v: number | null) => changes.push(v)} />,
         );
-        await act(() => fireEvent.tap(nip(container, 'increment-trigger')));
+        await act(() => fire(nip(container, 'increment-trigger'), 'catchtap'));
         expect(changes).toEqual([10]);
         expect(nip(container, 'input').props['value']).toBe('10');
         const inc = nip(container, 'increment-trigger');
         expect(inc._class).toContain('zx-f-disabled');
         expect(inc.props['accessibility-status']).toBe('disabled');
-        await act(() => fireEvent.tap(inc));
+        await act(() => fire(inc, 'catchtap'));
         expect(changes).toEqual([10]);
-        await act(() => fireEvent.tap(nip(container, 'decrement-trigger')));
+        await act(() => fire(nip(container, 'decrement-trigger'), 'catchtap'));
         expect(changes).toEqual([10, 8]);
         conforms(container, 'number-input');
     });
@@ -137,7 +137,7 @@ describe('NumberInput', () => {
     it('steps from empty onto the floor of the range', async () => {
         const changes: Array<number | null> = [];
         const { container } = render(<Full min={5} onValueChange={(v: number | null) => changes.push(v)} />);
-        await act(() => fireEvent.tap(nip(container, 'increment-trigger')));
+        await act(() => fire(nip(container, 'increment-trigger'), 'catchtap'));
         expect(changes).toEqual([5]);
     });
 
@@ -193,7 +193,7 @@ describe('NumberInput', () => {
         const changes: Array<number | null> = [];
         const { container } = render(<Full defaultValue={1} onValueChange={(v: number | null) => changes.push(v)} />);
         await act(() => type(nip(container, 'input'), '40'));
-        await act(() => fireEvent.tap(nip(container, 'increment-trigger')));
+        await act(() => fire(nip(container, 'increment-trigger'), 'catchtap'));
         expect(changes).toEqual([40, 41]);
     });
 
@@ -213,7 +213,7 @@ describe('NumberInput', () => {
             </NumberInput.Root>,
         );
         expect(nip(container, 'input').props['value']).toBe('$1500');
-        await act(() => fireEvent.tap(nip(container, 'increment-trigger')));
+        await act(() => fire(nip(container, 'increment-trigger'), 'catchtap'));
         expect(state.qty).toBe(1600);
         await act(() => type(nip(container, 'input'), '$20'));
         await act(() => fire(nip(container, 'input'), 'bindblur'));
@@ -251,7 +251,7 @@ describe('NumberInput', () => {
             await act(() => fireEvent.touchStart(inc, { touches: [touch(1, 1)] }));
             expect(nip(container, 'increment-trigger')._class).not.toContain('zx-f-pressed');
             await act(() => fireEvent.touchEnd(inc));
-            await act(() => fireEvent.tap(inc));
+            await act(() => fire(inc, 'catchtap'));
             await act(() => type(nip(container, 'input'), '9'));
             await act(() => fire(nip(container, 'input'), 'bindblur'));
             expect(changes, flag).toEqual([]);
@@ -293,6 +293,45 @@ describe('NumberInput', () => {
         conforms(container, 'number-input');
     });
 
+    it('a tap on the label or the control focuses the native input; a trigger tap does not', async () => {
+        const calls: string[] = [];
+        const { container } = render(<Full defaultValue={1} />);
+        const input = nip(container, 'input') as unknown as { invoke?: (m: string) => void };
+        input.invoke = (m: string) => { calls.push(m); };
+        await act(() => fire(nip(container, 'label'), 'bindtap'));
+        await act(() => fire(nip(container, 'control'), 'bindtap'));
+        expect(calls).toEqual(['focus', 'focus']);
+        // The steppers catch their taps: nothing bubbles to the control.
+        expect((nip(container, 'increment-trigger') as unknown as { _handlers: Map<string, unknown> })._handlers.has('bindtap')).toBe(false);
+    });
+
+    it('inside a Field: adopts its flags and size, and the Field label focuses the input', async () => {
+        const calls: string[] = [];
+        const { container } = render(
+            <Field.Root required size="sm">
+                <Field.Label>Qty</Field.Label>
+                <NumberInput.Root defaultValue={1}>
+                    <NumberInput.Control><NumberInput.Input /></NumberInput.Control>
+                </NumberInput.Root>
+            </Field.Root>,
+        );
+        expect(nip(container, 'root')._class).toContain('zx-f-required');
+        expect(nip(container, 'control')._class).toContain('zx-a-size-sm');
+        const input = nip(container, 'input') as unknown as { invoke?: (m: string) => void };
+        input.invoke = (m: string) => { calls.push(m); };
+        await act(() => fire(byPart(container, 'field', 'label'), 'bindtap'));
+        expect(calls).toEqual(['focus']);
+    });
+
+    it('a disabled control does not take focus', async () => {
+        const calls: string[] = [];
+        const { container } = render(<Full disabled />);
+        const input = nip(container, 'input') as unknown as { invoke?: (m: string) => void };
+        input.invoke = (m: string) => { calls.push(m); };
+        await act(() => fire(nip(container, 'control'), 'bindtap'));
+        expect(calls).toEqual([]);
+    });
+
     it('custom trigger content replaces the glyph', () => {
         const { container } = render(
             <NumberInput.Root>
@@ -328,7 +367,7 @@ describe('NumberInput', () => {
             });
             expect(changes).toEqual([1, 2, 3, 4]);
             await act(() => fireEvent.touchEnd(inc));
-            await act(() => fireEvent.tap(inc));
+            await act(() => fire(inc, 'catchtap'));
             await act(() => {
                 vi.advanceTimersByTime(200);
             });
@@ -336,7 +375,7 @@ describe('NumberInput', () => {
             // The next plain tap steps again.
             await act(() => fireEvent.touchStart(inc, { touches: [touch(1, 1)] }));
             await act(() => fireEvent.touchEnd(inc));
-            await act(() => fireEvent.tap(inc));
+            await act(() => fire(inc, 'catchtap'));
             expect(changes).toEqual([1, 2, 3, 4, 5]);
         });
 
@@ -395,7 +434,7 @@ describe('Fieldset', () => {
                 </Fieldset.Root>,
             );
             expect(nip(container, 'root')._class, flag).toContain(`zx-f-${flag}`);
-            await act(() => fireEvent.tap(nip(container, 'increment-trigger')));
+            await act(() => fire(nip(container, 'increment-trigger'), 'catchtap'));
             expect(changes, flag).toEqual(flag === 'invalid' ? [2] : []);
             conforms(container, 'number-input');
             conforms(container, 'fieldset');
