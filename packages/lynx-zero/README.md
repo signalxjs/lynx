@@ -47,6 +47,20 @@ the runtime those stylesheets target.
   `provideCarriedAxes(anatomy, part, () => ({ color: props.color }))` in
   place of `useVariantAxes()`; axes the anatomy does not declare are never
   taken from the part.
+- **Skin authors: a `var()` shorthand ignores specificity on lynx.** The
+  engine keeps a declaration that holds `var()` under its own property id,
+  unexpanded, and expands it only after the cascade has merged every rule,
+  in the order the property ids were first seen. A static shorthand is
+  expanded into longhands when the stylesheet is parsed. So a var-bearing
+  `border`/`border-color`/`padding` and a static longhand of the same edge
+  never compete by specificity: the one whose property id first appears
+  later in the merged rules wins
+  ([#1161](https://github.com/signalxjs/lynx/issues/1161),
+  [#1162](https://github.com/signalxjs/lynx/issues/1162)). In a recipe's
+  lynx section, write a var-bearing edge as its physical longhands
+  (`border-top-color: var(--x)` …): they share one key with any competing
+  longhand, so the cascade decides again. A var-bearing longhand such as
+  `color: var(--x)` already cascades normally.
 
 ## Theming
 
@@ -173,6 +187,13 @@ The platform spellings to know:
 - **Button** takes `loading`: it blocks the press like `disabled`, stamps
   the `loading` state (no disabled fade) and renders the anatomy's
   `spinner` part before the label.
+  With the daisy skin, a button is content-sized and never squeezed, like
+  daisy's `btn`. In a row or box narrower than its content, it overflows
+  whole instead of breaking its label mid-word
+  ([#1165](https://github.com/signalxjs/lynx/issues/1165); the skin side
+  is [signalxjs/zero#372](https://github.com/signalxjs/zero/pull/372) and
+  arrives with the next zero release). Use `mods={{ block: true }}` (or
+  `wide`) for a full-width button.
 - **Toast** follows zero's presence model. A toast is created `closed`,
   flips to `open` a frame later so the skin's entry transition plays, and
   `dismiss(id)` flips it back and removes it after the exit

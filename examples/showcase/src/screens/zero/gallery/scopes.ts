@@ -66,9 +66,17 @@ export const GALLERY_SCOPES = {
     button: {
         title: 'Button',
         axes: { color: COLORS, size: SIZES, variant: ['solid', 'outline', 'soft', 'ghost', 'dash', 'link'] },
-        // Five states wrap to two lines per row — paged so each fits a screen.
+        // Five states wrap to three lines per row — paged so each fits a screen.
         states: [...PRESSABLE, { id: 'loading', label: 'loading', props: { loading: true } }],
-        rowsPerPage: 4,
+        // Wide enough for an xl loading button: the button is content-sized
+        // and never squeezed (#1165), so a narrower cell would only show it
+        // overflowing into its neighbour.
+        cellWidth: 112,
+        rowsPerPage: 3,
+        // `modifiers`: wide, block, square, circle, active. `squeeze`: buttons
+        // in boxes narrower than their content — they overflow, never break
+        // a word (#1165).
+        extras: ['modifiers', 'squeeze'],
     },
     switch: {
         title: 'Switch',
