@@ -50,8 +50,11 @@ export function lynxInputType(type: InputType | undefined, inputmode: InputMode 
     }
 }
 
+/** The lynx `confirm-type` set — the Enter key's label. */
+export type LynxConfirmType = 'done' | 'go' | 'next' | 'search' | 'send';
+
 /** Lynx's `confirm-type` covers five of the web's seven Enter-key hints. */
-const CONFIRM_TYPES: Partial<Record<EnterKeyHint, string>> = {
+const CONFIRM_TYPES: Partial<Record<EnterKeyHint, LynxConfirmType>> = {
     done: 'done', go: 'go', next: 'next', search: 'search', send: 'send',
 };
 
@@ -68,20 +71,36 @@ export interface NativeTextOptions {
     readonly: boolean;
 }
 
+/**
+ * The lynx `<input>`/`<textarea>` attributes this seam writes — named and
+ * typed, so a misspelt attribute or an unsupported value fails to compile
+ * instead of shipping to the native element unnoticed.
+ */
+export interface NativeTextAttrs {
+    disabled: boolean;
+    readonly: boolean;
+    placeholder?: string;
+    maxlength?: number;
+    'confirm-type'?: LynxConfirmType;
+    'ios-spell-check'?: boolean;
+    'ios-auto-correct'?: boolean;
+    focus?: boolean;
+}
+
 /** The native attributes for a text field, with every unset key left out. */
-export function nativeTextAttrs(o: NativeTextOptions): Record<string, unknown> {
-    const attrs: Record<string, unknown> = {
+export function nativeTextAttrs(o: NativeTextOptions): NativeTextAttrs {
+    const attrs: NativeTextAttrs = {
         disabled: o.disabled,
         readonly: o.readonly,
     };
-    if (o.placeholder != null) attrs['placeholder'] = o.placeholder;
+    if (o.placeholder != null) attrs.placeholder = o.placeholder;
     // A whole, non-negative count — the native bridge takes nothing else.
-    if (o.maxlength != null && Number.isFinite(o.maxlength)) attrs['maxlength'] = Math.max(0, Math.floor(o.maxlength));
+    if (o.maxlength != null && Number.isFinite(o.maxlength)) attrs.maxlength = Math.max(0, Math.floor(o.maxlength));
     const confirm = CONFIRM_TYPES[o.enterkeyhint ?? (o.type === 'search' ? 'search' : 'enter')];
     if (confirm) attrs['confirm-type'] = confirm;
     if (o.spellcheck != null) attrs['ios-spell-check'] = o.spellcheck;
     if (o.autocorrect != null) attrs['ios-auto-correct'] = o.autocorrect === 'on';
-    if (o.autofocus) attrs['focus'] = true;
+    if (o.autofocus) attrs.focus = true;
     return attrs;
 }
 
