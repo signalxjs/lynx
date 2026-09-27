@@ -211,13 +211,14 @@ The platform spellings to know:
   measured steps while its screen slides.
 - **Press feedback has two tiers.** Every pressable part (Button, a Tabs
   tab, an Accordion trigger, the Popover/Dialog triggers and closes, the
-  Select trigger and items, the Toast action and close) is wired through
+  Select trigger and items, the Toast action and close, a Toggle, each
+  ToggleGroup item) is wired through
   `createPressFeedback`. Tier 1 is the `pressed` flag (`zx-f-pressed`),
   which the skin styles. Tier 2, on by default, runs on the main thread:
   touch-down scales the touched element to `PRESSED_SCALE` (0.97) in the
   same frame, with no thread crossing, then hands the flag to the
   background thread. Neither tier fires while the part is disabled. Opt out
-  per Button with `pressFeel={false}`, or per custom part with
+  per Button, Toggle or ToggleGroup item with `pressFeel={false}`, or per custom part with
   `createPressFeedback({ feel: false })`. `feel: { scale, opacity }` tunes
   it; opacity is off by default, because the release has to write an
   explicit `opacity: 1`, which would then hide a skin's disabled fade.
@@ -292,6 +293,42 @@ The platform spellings to know:
   never toggles it and it shows no press. Readonly Switch and Slider are
   still accessibility elements, with "read only" in their accessibility
   status (a readonly slider drops the `adjustable` trait).
+- **Toggle** (zero's `toggle` scope, Wave 2): a button with one bit of
+  state. `Toggle.Root` flips `on|off` on a tap; the model concept is
+  `pressed` (`model`, `defaultPressed`, `onPressedChange`). It is not a
+  form control: Switch owns that case. There is no `aria-pressed` on lynx,
+  so the on-state is announced as `selected` on a `button` trait; pass
+  `label` for an icon-only toggle. The `pressed` flag (the finger is down)
+  and the `on` state (the mode) are independent: a held on-toggle carries
+  both. `disabled` (or the Field's) blocks the tap and the press;
+  `pressFeel={false}` keeps the flag but drops the main-thread scale.
+- **ToggleGroup** (`Root` / `Item`): toggles under one value model. As on
+  the web, the model's shape follows `multiple`: a `string` in single mode
+  (`''` when none is on), a `string[]` under `multiple`, and the exported
+  root is typed by that overload. In single mode, tapping the on item
+  turns it off unless `deselectable={false}`. `orientation`
+  (`horizontal` by default) and the root's axes are stamped on every item.
+  `disabled` on the root disables every item. `invalid` and `required`
+  (the props or the Field's) are root flags. There is no keyboard, so no
+  roving focus: items need no registration. There is no form, so no
+  `hidden-input` part. There is no group role: the root carries no
+  accessibility props, because an accessible root would hide its items
+  from the reader on iOS. Each item is a `button`, `selected` while on,
+  with its own press feedback. An item valued `''` throws in single mode,
+  where `''` means "none".
+
+  ```tsx
+  <Toggle.Root label="Bold" model={() => state.bold}><text>B</text></Toggle.Root>
+
+  <ToggleGroup.Root model={() => state.align} color="secondary">
+      <ToggleGroup.Item value="left"><text>Left</text></ToggleGroup.Item>
+      <ToggleGroup.Item value="center"><text>Center</text></ToggleGroup.Item>
+  </ToggleGroup.Root>
+  <ToggleGroup.Root multiple defaultValue={['bold']} onValueChange={(v: string[]) => save(v)}>
+      <ToggleGroup.Item value="bold" label="Bold"><text>B</text></ToggleGroup.Item>
+      <ToggleGroup.Item value="italic" label="Italic"><text>I</text></ToggleGroup.Item>
+  </ToggleGroup.Root>
+  ```
 - **Progress** follows zero 0.6's value model: `min`/`max`, where 100% of
   the range is `complete` and a degenerate range with a value reads as
   done. An indeterminate range gets no inline width, so the skin's rule

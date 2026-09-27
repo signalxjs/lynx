@@ -100,3 +100,9 @@ export type {
 
 // ── Overlay hit-testing contract (#1180): a portal root's `pointer-events: auto` ──
 export { OVERLAY_ROOT_STYLE } from './overlay/OverlayHost.js';
+
+// ── Components (Wave 2, forms — #1204) ───────────────────────────────────
+export type { ToggleRootProps } from './components/toggle/Toggle.js';
+export { Toggle } from './components/toggle/Toggle.js';
+export type { ToggleGroupItemProps, ToggleGroupRoot, ToggleGroupRootProps } from './components/toggle-group/ToggleGroup.js';
+export { ToggleGroup } from './components/toggle-group/ToggleGroup.js';

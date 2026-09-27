@@ -25,8 +25,8 @@ import { component } from '@sigx/lynx';
 import { extendTheme, registerTheme, themeController } from '@sigx/lynx-daisyui';
 import { Screen, useFocusEffect, useNav, useParams, useSearch } from '@sigx/lynx-navigation';
 import {
-    Accordion, Button, Col, Dialog, Popover, Progress, ScrollView, Select, Slider,
-    Switch, Tabs, Timeline, Toast, ZeroRoot, createToaster, getTheme,
+    Accordion, Button, Col, Dialog, Popover, Progress, Row, ScrollView, Select, Slider,
+    Switch, Tabs, Timeline, Toast, Toggle, ToggleGroup, ZeroRoot, createToaster, getTheme,
 } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
@@ -470,7 +470,98 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             bottom: () => <ToastsOpen placement="bottom" />,
         },
     },
+    toggle: {
+        cell: (c) => (
+            <Toggle.Root
+                color={c.color}
+                size={c.size}
+                defaultPressed={bool(c.props['on'])}
+                disabled={bool(c.props['disabled'])}
+            >
+                <text>Bold</text>
+            </Toggle.Root>
+        ),
+        extras: {
+            // A glyph + label row on both states, then a toggle in a box
+            // narrower than its content: it overflows whole, never wraps.
+            content: () => (
+                <Col gap={12}>
+                    <Row gap={10} align="center">
+                        <Toggle.Root label="Star"><text>★</text><text>Star</text></Toggle.Root>
+                        <Toggle.Root label="Star" defaultPressed color="warning"><text>★</text><text>Starred</text></Toggle.Root>
+                        <Toggle.Root label="Bold" size="sm" color="neutral" defaultPressed><text>B</text></Toggle.Root>
+                    </Row>
+                    <view style={{ width: '60px', borderWidth: '1px', borderStyle: 'dashed', borderColor: '#9ca3af' }}>
+                        <Toggle.Root size="lg"><text>Notifications</text></Toggle.Root>
+                    </view>
+                </Col>
+            ),
+        },
+    },
+    'toggle-group': {
+        cell: (c) => (
+            <ToggleGroupCell
+                color={c.color}
+                size={c.size}
+                initial={(c.props['value'] as string | undefined) ?? 'a'}
+                disabled={bool(c.props['disabled'])}
+                itemDisabled={bool(c.props['itemDisabled'])}
+                invalid={bool(c.props['invalid'])}
+            />
+        ),
+        extras: {
+            vertical: () => (
+                <Row gap={12} align="flex-start">
+                    {SIZES.map((size) => (
+                        <ToggleGroup.Root key={size} orientation="vertical" size={size} defaultValue="b">
+                            <ToggleGroup.Item value="a"><text>Top</text></ToggleGroup.Item>
+                            <ToggleGroup.Item value="b"><text>Mid</text></ToggleGroup.Item>
+                            <ToggleGroup.Item value="c"><text>End</text></ToggleGroup.Item>
+                        </ToggleGroup.Root>
+                    ))}
+                </Row>
+            ),
+            multiple: () => (
+                <Col gap={12}>
+                    <ToggleGroup.Root multiple defaultValue={['bold', 'underline']} color="secondary">
+                        <ToggleGroup.Item value="bold" label="Bold"><text>B</text></ToggleGroup.Item>
+                        <ToggleGroup.Item value="italic" label="Italic"><text>I</text></ToggleGroup.Item>
+                        <ToggleGroup.Item value="underline" label="Underline"><text>U</text></ToggleGroup.Item>
+                        <ToggleGroup.Item value="strike" label="Strikethrough"><text>S</text></ToggleGroup.Item>
+                    </ToggleGroup.Root>
+                    <ToggleGroup.Root defaultValue="center" deselectable={false} color="accent">
+                        <ToggleGroup.Item value="left"><text>Left</text></ToggleGroup.Item>
+                        <ToggleGroup.Item value="center"><text>Center</text></ToggleGroup.Item>
+                        <ToggleGroup.Item value="right"><text>Right</text></ToggleGroup.Item>
+                    </ToggleGroup.Root>
+                </Col>
+            ),
+        },
+    },
 };
+
+type ToggleGroupCellProps =
+    & Define.Prop<'color', string, false>
+    & Define.Prop<'size', string, false>
+    & Define.Prop<'initial', string, true>
+    & Define.Prop<'disabled', boolean, false>
+    & Define.Prop<'itemDisabled', boolean, false>
+    & Define.Prop<'invalid', boolean, false>;
+
+/** One toggle-group cell: three items, `initial` on ('' = none). */
+const ToggleGroupCell = component<ToggleGroupCellProps>(({ props }) => () => (
+    <ToggleGroup.Root
+        color={props.color}
+        size={props.size}
+        defaultValue={props.initial}
+        disabled={props.disabled}
+        invalid={props.invalid}
+    >
+        <ToggleGroup.Item value="a"><text>A</text></ToggleGroup.Item>
+        <ToggleGroup.Item value="b" disabled={props.itemDisabled}><text>B</text></ToggleGroup.Item>
+        <ToggleGroup.Item value="c"><text>C</text></ToggleGroup.Item>
+    </ToggleGroup.Root>
+));
 
 /** Toasts need a live store: three pinned toasts (duration 0 = no timer). */
 const ToastsOpen = component<Define.Prop<'placement', 'top' | 'bottom', true>>(({ props }) => {
