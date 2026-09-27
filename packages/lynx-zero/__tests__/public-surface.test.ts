@@ -135,6 +135,9 @@ describe('public runtime exports', () => {
                 'Slider',
                 // ── components (zero#94 — a part that re-carries an axis) ──
                 'Timeline',
+                // ── components (Wave 2, forms — #1204) ──
+                'Toggle',
+                'ToggleGroup',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',
