@@ -523,6 +523,76 @@ The platform spellings to know:
   native field (`auto-height`), capped at `maxRows` lines (`maxlines`).
   The skin's `min-height` is the floor; a row count has no lynx spelling.
 
+## NumberInput and Fieldset
+
+`NumberInput` is zero's spinbutton over lynx's native `<input>`. It has the
+anatomy `root` / `label` / `control` / `input` / `increment-trigger` /
+`decrement-trigger`. `Fieldset` groups form controls and says
+`disabled` / `readonly` / `invalid` once for all of them (`root` / `legend`).
+
+```tsx
+import { Fieldset, NumberInput } from '@sigx/lynx-zero';
+
+<Fieldset.Root disabled={!editing}>
+    <Fieldset.Legend>Order</Fieldset.Legend>
+    <NumberInput.Root model={() => state.qty} min={0} max={99} onValueChange={(v) => save(v)}>
+        <NumberInput.Label>Quantity</NumberInput.Label>
+        <NumberInput.Control>
+            <NumberInput.DecrementTrigger />
+            <NumberInput.Input placeholder="0" />
+            <NumberInput.IncrementTrigger />
+        </NumberInput.Control>
+    </NumberInput.Root>
+</Fieldset.Root>
+```
+
+| `NumberInput.Root` prop | Type | Default | |
+|---|---|---|---|
+| `model` / `defaultValue` | `number \| null` | `null` | `null` is an empty field, not 0. `valueChange` fires on every commit. |
+| `min` / `max` | `number` | — | Bounds. A committed value outside them marks the control `invalid`. |
+| `step` | `number` | `1` | The grid, anchored at `min`. |
+| `clampOnBlur` | `boolean` | `true` | Clamp a typed value into `[min, max]` on commit. |
+| `format` / `parse` | functions | `String` / decimal | The display text and how typed text reads back. `parse` returns `null` for "not a number". |
+| `spinInterval` | `number` (ms) | `80` (`NUMBER_INPUT_SPIN_INTERVAL`) | Repeat rate while a trigger is long-pressed. |
+| `disabled` / `readonly` / `invalid` / `required` | `boolean` | `false` | Each ORs with the enclosing Field's and Fieldset's. |
+| `color` / `size` | skin axes | skin default | `size` falls back to the Field's. |
+| `label` | `string` | — | The input's accessible name. |
+
+How it behaves on lynx:
+
+- **Typing is a draft.** Keystrokes do not reach the model. The draft
+  commits on blur and on the keyboard's confirm key: it is parsed, snapped
+  to the step grid, then clamped. Unparseable text (`-`, `1e`) reverts to
+  the last committed value, and empty text commits `null`. A trigger commits
+  any pending draft before it steps.
+- **Triggers.** A tap steps once. A long press steps, then repeats every
+  `spinInterval` ms until the touch ends. A trigger is `disabled` at its
+  bound and while the root is disabled or read-only. It carries the
+  main-thread press feel and the `pressed` flag. Pass children to replace
+  the default `+` / `−` glyph, and `label` to rename it for the reader.
+- **The native input.** The visible text rides the `value` attribute. The
+  runtime turns a step or a reformatting commit into the element's
+  `setValue`, and skips the echo of the user's own typing, so the caret
+  stays put. `type` is `digit` when `min >= 0` and `number` otherwise.
+  Unset `placeholder` / `label` are left off the element, never sent as
+  `undefined` (iOS would receive `NSNull`). Keep the input mounted: a
+  remount clears its text.
+- **Focus.** Native focus stamps `focus-visible` on `control` and `input`,
+  as the web's `:focus-visible` matches any focused text field. The skin
+  draws the ring on `control`.
+- **Not carried:** `hidden-input` and `name` (there are no forms on lynx),
+  `locale` / `formatOptions` (`Intl` is not guaranteed on lynx's engines;
+  use `format` / `parse`), `largeStep` and wheel stepping (no keyboard or
+  wheel), and `asChild` on the triggers.
+- **Fieldset** is a `view`, because lynx has no native `<fieldset>`. Its
+  flags travel only through zero's `FieldsetContext`. Nested fieldsets chain,
+  and any control built on zero's `createFormControl` reads them
+  (NumberInput does). `Fieldset.Legend` is a `text` part that repeats the
+  root's `disabled` / `invalid` so the skin can dim or tint it. It hands its
+  content the OUTER fieldset's flags, the platform's legend exemption.
+  Button, Switch, Slider and Select read the Field context but not the
+  Fieldset one yet.
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the

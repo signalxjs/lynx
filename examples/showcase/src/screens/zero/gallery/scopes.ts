@@ -621,6 +621,58 @@ export const GALLERY_SCOPES = {
             };
         },
     },
+    // W2D (#1202): cells are the field chrome alone — decrement, the
+    // native input, increment. `label` shows the full anatomy (label part,
+    // a custom format) at every size.
+    'number-input': {
+        title: 'NumberInput',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'value', label: 'value' },
+            { id: 'empty', label: 'empty', props: { empty: true } },
+            // The ring is the control's; the input delegates (daisy).
+            { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true } },
+            { id: 'inc-pressed', label: '+ pressed', flags: { pressed: true }, parts: ['increment-trigger'] },
+            { id: 'at-max', label: 'at max', props: { atMax: true } },
+            { id: 'invalid', label: 'invalid', props: { invalid: true } },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+            { id: 'readonly', label: 'readonly', props: { readonly: true } },
+        ],
+        extras: ['label'],
+        cellWidth: 163,
+        // Height `--size-field * 8…16` on the control. Width: the two
+        // steppers (`--space-lg` each side of a --text-sm glyph) around the
+        // 5rem input, inside the control's border — the same at every size.
+        cell: (size) => ({
+            width: 2 * BORDER + 2 * (2 * 12 + textWidth('+', 14)) + 80,
+            height: FIELD_H[size],
+        }),
+    },
+    // W2D (#1202): a legend over one xs NumberInput, so the group flags are
+    // seen reaching a control. `nested`: nested fieldsets + the legend's
+    // exemption.
+    fieldset: {
+        title: 'Fieldset',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+            { id: 'readonly', label: 'readonly', props: { readonly: true } },
+            { id: 'invalid', label: 'invalid', props: { invalid: true } },
+        ],
+        extras: ['nested'],
+        cellWidth: 163,
+        // Root padding `--space-xs` top/bottom; the legend (`--space-sm`
+        // top/bottom, --text-xs…lg); a `--space-sm` gap; the xs control
+        // (`--size-field * 8`).
+        cell: (size) => {
+            const legend = ramp(12, 12, 14, 16, 18)[size];
+            return {
+                width: Math.max(2 * BORDER + 2 * (2 * 12 + textWidth('+', 14)) + 80, textWidth('Shipping', legend)),
+                height: 2 * 4 + 2 * 6 + lineHeight(legend) + 6 + FIELD_H.xs,
+            };
+        },
+    },
 } as const satisfies Record<string, GalleryScope>;
 
 export type GalleryScopeId = keyof typeof GALLERY_SCOPES;

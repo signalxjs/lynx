@@ -126,3 +126,15 @@ export type {
 export { Input } from './components/input/Input.js';
 export type { TextareaLabelProps, TextareaRootProps, TextareaTextareaProps } from './components/textarea/Textarea.js';
 export { Textarea } from './components/textarea/Textarea.js';
+
+// ── Components (zero wave 2 — forms: W2D, #1202) ─────────────────────────
+export type {
+    NumberInputControlProps,
+    NumberInputInputProps,
+    NumberInputLabelProps,
+    NumberInputRootProps,
+    NumberInputTriggerProps,
+} from './components/number-input/NumberInput.js';
+export { NUMBER_INPUT_SPIN_INTERVAL, NumberInput } from './components/number-input/NumberInput.js';
+export type { FieldsetLegendProps, FieldsetRootProps } from './components/fieldset/Fieldset.js';
+export { Fieldset } from './components/fieldset/Fieldset.js';

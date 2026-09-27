@@ -135,6 +135,10 @@ describe('public runtime exports', () => {
                 'Slider',
                 // ── components (zero#94 — a part that re-carries an axis) ──
                 'Timeline',
+                // ── components (zero wave 2 — forms: W2D, #1202) ──
+                'Fieldset',
+                'NUMBER_INPUT_SPIN_INTERVAL',
+                'NumberInput',
                 // ── components (Wave 2, forms — #1204) ──
                 'Toggle',
                 'ToggleGroup',
@@ -185,6 +189,14 @@ describe('load-bearing signatures', () => {
     it('partBag derives classes and data attrs from one descriptor', () => {
         expectTypeOf(zero.partBag).parameter(1).toBeString();
         expectTypeOf(zero.partBag).returns.toMatchTypeOf<LynxPartProps>();
+    });
+
+    it('NumberInput is a compound with the zero parts', () => {
+        expectTypeOf(zero.NumberInput.Root).toBeFunction();
+        expectTypeOf(zero.NumberInput.Input).toBeFunction();
+        expectTypeOf(zero.NumberInput.IncrementTrigger).toBeFunction();
+        expectTypeOf(zero.Fieldset.Legend).toBeFunction();
+        expectTypeOf(zero.NUMBER_INPUT_SPIN_INTERVAL).toBeNumber();
     });
 
     it('the controller keeps the legacy handle shape', () => {
