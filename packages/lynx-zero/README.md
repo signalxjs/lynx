@@ -223,7 +223,12 @@ The platform spellings to know:
   trigger while something is selected (`clearLabel` names it; it and the
   indicator stamp the root's axes, so a skin can place the × beside the ▾
   at each size — daisy draws it as a 1.5rem chip with an inset focus
-  ring), and
+  ring). While the clear-trigger renders, the trigger, value and indicator
+  also carry zero's `clearable` flag (`zx-f-clearable`, zero#387) — the
+  class-grammar form of the web's `:has(> clear-trigger)` — so a skin
+  reserves the chip's width and the value clips before it instead of
+  running under it. The flag is stamped only on parts the installed zero's
+  anatomy declares it for. And
   `groupSeparators` draws a `separator` between runs of options.
   `readonly` (or the Field's) keeps the value and the popup shut. The
   default glyphs zero's web parts render (`▾`, `✓`, `×`) render as `<text>`

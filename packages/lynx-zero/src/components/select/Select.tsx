@@ -27,7 +27,8 @@
  *
  * zero 0.6 parts (zero#321): `clear-trigger` (the `clearable` sugar — a
  * sibling of the trigger inside the root, rendered only while something is
- * selected and the select is editable) and `separator` (`groupSeparators`
+ * selected and the select is editable; while it renders the trigger, value
+ * and indicator carry zero#387's `clearable` flag) and `separator` (`groupSeparators`
  * — a rule between runs of options). READONLY (the prop or the Field's):
  * the trigger stays announced but does not open, and nothing changes the
  * value. The glyphs zero's web parts render by default (`▾` in the
@@ -53,6 +54,18 @@ import { createAnchorPosition } from '../../behaviors/position.js';
 import { OVERLAY_ROOT_STYLE, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.select;
+
+/**
+ * The parts that carry zero's `clearable` flag (zero#387) while the
+ * clear-trigger renders — the trigger, value and indicator, so the skin can
+ * reserve the chip's width (`zx-f-clearable`) where the web once reached up
+ * with `:has(> clear-trigger)`, which the class grammar cannot express
+ * (#1191). Read off the anatomy: a zero that does not declare the flag yet
+ * gets none, and the anatomy oracle holds against it.
+ */
+const CLEARABLE_PARTS: ReadonlySet<string> = new Set(
+    (['trigger', 'value', 'indicator'] as const).filter((part) => anatomy.parts[part].flags?.includes('clearable')),
+);
 
 /**
  * The web popup and group are block boxes, so their rows (and the
@@ -197,6 +210,8 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
         open.value = false;
     };
     const clearable = (): boolean => !!props.clearable && selected() !== undefined && !disabled() && !readonly();
+    /** `clearable` for a part that declares it (zero#387), absent otherwise. */
+    const clearableFlag = (part: string): { clearable?: boolean } => (CLEARABLE_PARTS.has(part) ? { clearable: clearable() } : {});
     const itemRow = (item: unknown, key: string): JSXElement => (
         <SelectItem
             key={key}
@@ -284,6 +299,7 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                         readonly: readonly(),
                         placeholder: selected() === undefined,
                         pressed: press.pressed(),
+                        ...clearableFlag('trigger'),
                     },
                     ...partAxes(axes()),
                 })}
@@ -295,13 +311,13 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                 bindlayoutchange={position.anchorLayoutChange}
                 {...press.handlers}
             >
-                <text {...partBag(anatomy, 'value', { flags: { placeholder: selected() === undefined }, ...partAxes(axes()) })}>
+                <text {...partBag(anatomy, 'value', { flags: { placeholder: selected() === undefined, ...clearableFlag('value') }, ...partAxes(axes()) })}>
                     {(() => {
                         const current = selected();
                         return current !== undefined ? collection.labelOf(current) : props.placeholder ?? '';
                     })()}
                 </text>
-                <text {...partBag(anatomy, 'indicator', { state: triggerState(), ...partAxes(axes()) })}>▾</text>
+                <text {...partBag(anatomy, 'indicator', { state: triggerState(), flags: clearableFlag('indicator'), ...partAxes(axes()) })}>▾</text>
             </view>
             {clearable()
                 ? (

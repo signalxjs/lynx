@@ -51,6 +51,9 @@ const FRUIT = [
     { value: 'carrot', label: 'Carrot', group: 'Veg' },
 ];
 
+/** The select cells' list: FRUIT plus one label longer than a cell (#1191). */
+const SELECT_ITEMS = [...FRUIT, { value: 'dragonfruit', label: 'Dragon fruit, yellow', group: 'Fruit' }];
+
 const bool = (value: unknown): boolean => value === true;
 
 /** The render half of the registry — one entry per scope in `scopes.ts`. */
@@ -391,7 +394,7 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
     select: {
         cell: (c) => (
             <Select.Root
-                items={FRUIT}
+                items={SELECT_ITEMS}
                 itemValue={(o) => o.value}
                 placeholder="Pick"
                 defaultValue={(c.props['value'] as string | undefined) ?? null}
