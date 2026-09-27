@@ -7,7 +7,7 @@
  * status-bar text, and an open dialog's backdrop dimmed them to mid grey.
  *
  * The fix pins the app theme to a mirror of the zero theme while a gallery
- * screen is focused (`useScreenTheme`, which restores the previous theme on
+ * screen is focused (the `useScreenTheme` pattern, restoring the previous theme on
  * blur): the daisy built-in of the same colour scheme, with the zero theme's
  * own `base-100` / `base-content` from its registry swatch. Then the page is
  * one colour edge to edge and the bar icons follow the scheme.

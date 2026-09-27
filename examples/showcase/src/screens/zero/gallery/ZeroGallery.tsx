@@ -22,13 +22,12 @@ import '@sigx/lynx-zero-daisyui';
 import './zero-gallery.css';
 import type { Define, JSXElement } from '@sigx/lynx';
 import { component } from '@sigx/lynx';
-import { extendTheme, registerTheme } from '@sigx/lynx-daisyui';
-import { Screen, useNav, useParams, useSearch } from '@sigx/lynx-navigation';
+import { extendTheme, registerTheme, themeController } from '@sigx/lynx-daisyui';
+import { Screen, useFocusEffect, useNav, useParams, useSearch } from '@sigx/lynx-navigation';
 import {
     Accordion, Button, Col, Dialog, Popover, Progress, ScrollView, Select, Slider,
     Switch, Tabs, Timeline, Toast, ZeroRoot, createToaster, getTheme,
 } from '@sigx/lynx-zero';
-import { useScreenTheme } from '@sigx/lynx-zero-legacy/screen-theme';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
@@ -565,12 +564,24 @@ const Section = component<SectionProps>(({ props }) => {
  * while this screen is focused the app theme mirrors the zero theme, so the
  * status-bar and home-indicator strips (painted by the app shell) and the
  * status-bar icons follow it too (#1193). See `page-theme.ts`.
+ *
+ * What `useScreenTheme` does (save, pin, restore on blur), with the focus
+ * effect registered unconditionally so the hook runs the same way whether
+ * or not `?theme=` resolves.
  */
 function usePageTheme(theme: string | undefined): void {
     const page = theme ? pageThemeOf(getTheme(theme)) : null;
-    if (!page) return;
-    registerTheme(extendTheme(page.base, { name: page.name, variant: page.variant, colors: page.colors }));
-    useScreenTheme(page.name);
+    if (page) registerTheme(extendTheme(page.base, { name: page.name, variant: page.variant, colors: page.colors }));
+    useFocusEffect(() => {
+        if (!page) return undefined;
+        const prevName = themeController.name;
+        const prevFollowing = themeController.followingSystem;
+        themeController.set(page.name);
+        return () => {
+            if (prevFollowing) themeController.followSystem();
+            else themeController.set(prevName);
+        };
+    });
 }
 
 function knownScope(scope: string): scope is GalleryScopeId {
