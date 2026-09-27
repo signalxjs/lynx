@@ -407,6 +407,67 @@ export const GALLERY_SCOPES = {
             };
         },
     },
+    // Wave 2, forms (#1204). The `pressed` flag (finger down) and the `on`
+    // state (the mode) are independent, so both held cells are shown.
+    toggle: {
+        title: 'Toggle',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'off', label: 'off' },
+            { id: 'on', label: 'on', props: { on: true } },
+            { id: 'pressed', label: 'pressed', flags: { pressed: true } },
+            { id: 'on-pressed', label: 'on·pressed', flags: { pressed: true }, props: { on: true } },
+            { id: 'focus', label: 'focus', flags: { 'focus-visible': true }, props: { on: true } },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+            { id: 'disabled-on', label: 'dis·on', props: { disabled: true, on: true } },
+        ],
+        // `content`: a glyph + label toggle (the row layout and the label
+        // ink on both states), and a toggle squeezed into a narrow box.
+        extras: ['content'],
+        cellWidth: 96,
+        // daisy's pressed btn: padding `--space-2xs…lg` × `--space-xs…2xl`,
+        // `--text-xs…xl`, a hairline border. The label is "Bold".
+        cell: (size) => {
+            const font = ramp(12, 14, 16, 18, 20)[size];
+            const py = ramp(2, 4, 6, 8, 12)[size];
+            const px = ramp(4, 6, 12, 16, 20)[size];
+            return {
+                width: 2 * BORDER + 2 * px + textWidth('Bold', font),
+                height: 2 * BORDER + 2 * py + lineHeight(font),
+            };
+        },
+    },
+    // Three items, "A" on. Forced flags land on every item (the item is the
+    // only part declaring them).
+    'toggle-group': {
+        title: 'Toggle group',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'default', label: 'A on' },
+            { id: 'none', label: 'none on', props: { value: '' } },
+            { id: 'pressed', label: 'pressed (all)', flags: { pressed: true } },
+            { id: 'focus', label: 'focus (all)', flags: { 'focus-visible': true } },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+            { id: 'item-disabled', label: 'B disabled', props: { itemDisabled: true } },
+            { id: 'invalid', label: 'invalid', props: { invalid: true } },
+        ],
+        // `vertical`: the column join (seams on the block axis) per size.
+        // `multiple`: an array model with two items on, and a live group.
+        extras: ['vertical', 'multiple'],
+        cellWidth: 163,
+        // A frame (hairline border) around three items and two hairline
+        // seams; each item is padding `--space-2xs…lg` ×
+        // `--space-sm…2xl` around one glyph.
+        cell: (size) => {
+            const font = ramp(12, 12, 14, 16, 18)[size];
+            const py = ramp(2, 4, 6, 8, 12)[size];
+            const px = ramp(6, 8, 12, 16, 20)[size];
+            return {
+                width: 2 * BORDER + 3 * (2 * px + textWidth('A', font)) + 2 * BORDER,
+                height: 2 * BORDER + 2 * py + lineHeight(font),
+            };
+        },
+    },
 } as const satisfies Record<string, GalleryScope>;
 
 export type GalleryScopeId = keyof typeof GALLERY_SCOPES;
