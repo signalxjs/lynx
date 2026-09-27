@@ -579,7 +579,10 @@ How it behaves on lynx:
   remount clears its text.
 - **Focus.** Native focus stamps `focus-visible` on `control` and `input`,
   as the web's `:focus-visible` matches any focused text field. The skin
-  draws the ring on `control`.
+  draws the ring on `control`. A tap on `NumberInput.Label` or on the
+  control's box focuses the input. Inside a `Field.Root`, `Field.Label`
+  does too, and the control adopts the Field's flags and size. The
+  triggers catch their taps, so stepping never opens the keyboard.
 - **Not carried:** `hidden-input` and `name` (there are no forms on lynx),
   `locale` / `formatOptions` (`Intl` is not guaranteed on lynx's engines;
   use `format` / `parse`), `largeStep` and wheel stepping (no keyboard or
