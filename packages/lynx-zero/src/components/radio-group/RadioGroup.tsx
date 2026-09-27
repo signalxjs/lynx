@@ -127,7 +127,9 @@ const RadioGroupRootImpl = component<RadioGroupRootProps>(({ props, slots, emit 
         // never be told from no selection.
         if (key === '') throw new Error('[@sigx/lynx-zero] RadioGroup: an item keyed "" cannot be selected — give it a non-empty itemKey');
         return (
-            <RadioGroupItem value={key} disabled={collection.isItemDisabled(item)} key={key}>
+            // The label text names the item for the reader too, so a custom
+            // `item` slot that renders no text still announces one.
+            <RadioGroupItem value={key} disabled={collection.isItemDisabled(item)} label={collection.labelOf(item)} key={key}>
                 {slots.item ? slots.item({ item }) : collection.labelOf(item)}
             </RadioGroupItem>
         );

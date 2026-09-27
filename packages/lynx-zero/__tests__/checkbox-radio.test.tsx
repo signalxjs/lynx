@@ -431,6 +431,7 @@ describe('RadioGroup', () => {
             />,
         );
         expect(allParts(container, 'radio-group', 'item')).toHaveLength(3);
+        expect(byPart(container, 'radio-group', 'item', 1).props['accessibility-label']).toBe('Pro');
         expect(byPart(container, 'radio-group', 'item', 2)._class).toContain('zx-f-disabled');
         await act(() => fireEvent.tap(byPart(container, 'radio-group', 'item', 1) as never));
         expect(changes).toEqual(['pro']);
