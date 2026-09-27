@@ -50,3 +50,20 @@ together.
 daisyUI declares no scalable `--text-*` ramp, so `setFontScale` re-emission
 is a no-op under this skin (documented, not a bug); the ramp constant is
 generated empty and will fill in if the skin ever declares one.
+
+## Focus rings on lynx
+
+Lynx's `outline` ignores `border-radius`, and lynx has no `outline-offset`,
+so daisy's web ring (`outline: 2px solid; outline-offset: 2px`) paints as a
+square box flush on the part. The skin's lynx CSS draws the ring as two
+spread box-shadows instead, which follow the part's radius: a 2px gap in the
+surface the part sits on, then 2px of the ring's ink. The Accordion
+trigger fills its clipping card, so its ring is drawn inset. The Slider
+ring is on the thumb only. This ships with the `@sigx/zero-daisyui` release
+after 0.7.0 ([signalxjs/zero#365](https://github.com/signalxjs/zero/issues/365),
+[#1163](https://github.com/signalxjs/lynx/issues/1163),
+[#1164](https://github.com/signalxjs/lynx/issues/1164)).
+
+On lynx the ring shows when the `focus-visible` flag is set. lynx-zero has
+no keyboard-focus detection yet, so today that is only through
+`ForceStates` (`@sigx/lynx-zero/testing`).

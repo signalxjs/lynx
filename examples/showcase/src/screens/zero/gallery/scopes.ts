@@ -195,8 +195,10 @@ export const GALLERY_SCOPES = {
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
             { id: 'readonly', label: 'readonly', props: { value: 'apple', readonly: true } },
             { id: 'clearable', label: 'clearable', props: { value: 'apple', clearable: true } },
-            // The ring on both focusable parts: the trigger and the clear-trigger.
-            { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true }, props: { value: 'apple', clearable: true } },
+            // The rings one part at a time: the clear-trigger sits inside
+            // the trigger, so forcing both would overlap them (#1163).
+            { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true }, parts: ['trigger'], props: { value: 'apple' } },
+            { id: 'clear-focus', label: 'clear focus', flags: { 'focus-visible': true }, parts: ['clear-trigger'], props: { value: 'apple', clearable: true } },
         ],
         // `open`: grouped list anchored at mount, one item selected.
         // `open-parts`: zero 0.6 parts — clear-trigger, group separators —
