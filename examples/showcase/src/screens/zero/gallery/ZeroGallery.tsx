@@ -25,7 +25,7 @@ import { component } from '@sigx/lynx';
 import { extendTheme, registerTheme, themeController } from '@sigx/lynx-daisyui';
 import { Screen, useFocusEffect, useNav, useParams, useSearch } from '@sigx/lynx-navigation';
 import {
-    Accordion, Button, Col, Dialog, Popover, Progress, Row, ScrollView, Select, Slider,
+    Accordion, Button, Col, Dialog, Fieldset, NumberInput, Popover, Progress, Row, ScrollView, Select, Slider,
     Switch, Tabs, Timeline, Toast, Toggle, ToggleGroup, ZeroRoot, createToaster, getTheme,
 } from '@sigx/lynx-zero';
 import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
@@ -796,6 +796,96 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                         <Field.Label>Name (Input, lg)</Field.Label>
                         <Input.Root defaultValue="Ada" label="Name"><Input.Control><Input.Input /></Input.Control></Input.Root>
                     </Field.Root>
+                </Col>
+            ),
+        },
+    },
+    'number-input': {
+        cell: (c) => (
+            <NumberInput.Root
+                color={c.color}
+                size={c.size}
+                min={0}
+                max={10}
+                defaultValue={bool(c.props['empty']) ? null : bool(c.props['atMax']) ? 10 : 5}
+                invalid={bool(c.props['invalid'])}
+                disabled={bool(c.props['disabled'])}
+                readonly={bool(c.props['readonly'])}
+            >
+                <NumberInput.Control>
+                    <NumberInput.DecrementTrigger />
+                    <NumberInput.Input placeholder="0" />
+                    <NumberInput.IncrementTrigger />
+                </NumberInput.Control>
+            </NumberInput.Root>
+        ),
+        extras: {
+            // The full anatomy at every size: label part + a custom format.
+            label: () => (
+                <Col gap={12}>
+                    {SIZES.map((size) => (
+                        <NumberInput.Root key={size} size={size} min={0} step={5} defaultValue={25} format={(v: number) => `${v} %`}>
+                            <NumberInput.Label>{`Opacity (${size})`}</NumberInput.Label>
+                            <NumberInput.Control>
+                                <NumberInput.DecrementTrigger />
+                                <NumberInput.Input />
+                                <NumberInput.IncrementTrigger />
+                            </NumberInput.Control>
+                        </NumberInput.Root>
+                    ))}
+                </Col>
+            ),
+        },
+    },
+    fieldset: {
+        cell: (c) => (
+            <Fieldset.Root
+                color={c.color}
+                size={c.size}
+                disabled={bool(c.props['disabled'])}
+                readonly={bool(c.props['readonly'])}
+                invalid={bool(c.props['invalid'])}
+            >
+                <Fieldset.Legend>Shipping</Fieldset.Legend>
+                <NumberInput.Root size="xs" min={0} defaultValue={2}>
+                    <NumberInput.Control>
+                        <NumberInput.DecrementTrigger />
+                        <NumberInput.Input />
+                        <NumberInput.IncrementTrigger />
+                    </NumberInput.Control>
+                </NumberInput.Root>
+            </Fieldset.Root>
+        ),
+        extras: {
+            // Outer disabled reaches the inner group and its control; a
+            // second, enabled group beside it for contrast.
+            nested: () => (
+                <Col gap={16}>
+                    <Fieldset.Root disabled>
+                        <Fieldset.Legend>Outer (disabled)</Fieldset.Legend>
+                        <Fieldset.Root color="secondary">
+                            <Fieldset.Legend>Inner (inherits)</Fieldset.Legend>
+                            <NumberInput.Root min={0} defaultValue={3}>
+                                <NumberInput.Label>Quantity</NumberInput.Label>
+                                <NumberInput.Control>
+                                    <NumberInput.DecrementTrigger />
+                                    <NumberInput.Input />
+                                    <NumberInput.IncrementTrigger />
+                                </NumberInput.Control>
+                            </NumberInput.Root>
+                        </Fieldset.Root>
+                    </Fieldset.Root>
+                    <Fieldset.Root color="primary" invalid>
+                        <Fieldset.Legend>Invalid group</Fieldset.Legend>
+                        <NumberInput.Root min={0} defaultValue={3}>
+                            <NumberInput.Label>Quantity</NumberInput.Label>
+                            <NumberInput.Control>
+                                <NumberInput.DecrementTrigger />
+                                <NumberInput.Input />
+                                <NumberInput.IncrementTrigger />
+                            </NumberInput.Control>
+                        </NumberInput.Root>
+                    </Fieldset.Root>
                 </Col>
             ),
         },
