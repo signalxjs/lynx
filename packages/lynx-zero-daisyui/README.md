@@ -51,7 +51,7 @@ daisyUI declares no scalable `--text-*` ramp, so `setFontScale` re-emission
 is a no-op under this skin (documented, not a bug); the ramp constant is
 generated empty and will fill in if the skin ever declares one.
 
-## Sizes: `rem` is 16px here too
+## Sizes: the skin's `rem` is compiled to px at 16px/rem
 
 Lynx resolves `rem` against its 14px default page font size, not the web's
 16px, so a skin written in `rem` draws 12.5% small on device (the md button
