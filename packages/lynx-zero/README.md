@@ -216,7 +216,10 @@ The platform spellings to know:
   row; the model is `T | null`, or `V | null` under `itemValue`). The open
   state is a model too (`model:open`, `onOpenChange`; `defaultOpen` seeds
   it). zero 0.6's parts: `clearable` renders a `clear-trigger` beside the
-  trigger while something is selected (`clearLabel` names it), and
+  trigger while something is selected (`clearLabel` names it; it and the
+  indicator stamp the root's axes, so a skin can place the × beside the ▾
+  at each size — daisy draws it as a 1.5rem chip with an inset focus
+  ring), and
   `groupSeparators` draws a `separator` between runs of options.
   `readonly` (or the Field's) keeps the value and the popup shut. The
   default glyphs zero's web parts render (`▾`, `✓`, `×`) render as `<text>`

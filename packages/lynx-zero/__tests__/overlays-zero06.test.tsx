@@ -9,7 +9,7 @@ import { act, fireEvent, render } from '@sigx/lynx-testing';
 import type { TestNode } from '@sigx/lynx-testing';
 import { anatomies } from '@sigx/zero/anatomy';
 import { Dialog, OverlayHost, Popover, Select, clearDismissLayers } from '../src/index';
-import { expectAnatomy, expectClassGrammar } from '../src/testing/index';
+import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
 
 afterEach(() => clearDismissLayers());
 
@@ -86,6 +86,34 @@ describe('Select — zero 0.6 parts', () => {
         expect(byPart(container, 'select', 'clear-trigger')).toBeNull();
         // It never opened the popup on its way.
         expect(byPart(container, 'select', 'popup')).toBeNull();
+    });
+
+    // #1184: the skin places the clear-trigger chip per size, beside the
+    // indicator's 1em box, so both carry the size stamp. An unset size
+    // stamps nothing (the skin's base rules are its `md`), and a forced ring
+    // lands on the clear-trigger alone.
+    it('the clear-trigger and the indicator carry the size stamp at every step', () => {
+        for (const size of [undefined, 'xs', 'sm', 'md', 'lg', 'xl'] as const) {
+            const { container } = render(
+                <OverlayHost>
+                    <ForceStates flags={{ 'focus-visible': true }} parts={['clear-trigger']}>
+                        <Select.Root items={SNACKS} itemValue={(o) => o.value} defaultValue="apple" clearable size={size} />
+                    </ForceStates>
+                </OverlayHost>,
+            );
+            const clear = byPart(container, 'select', 'clear-trigger')!;
+            const indicator = byPart(container, 'select', 'indicator')!;
+            if (size) {
+                expect(clear._class, size).toContain(`zx-a-size-${size}`);
+                expect(indicator._class, size).toContain(`zx-a-size-${size}`);
+            } else {
+                expect(clear._class).not.toContain('zx-a-size-');
+                expect(indicator._class).not.toContain('zx-a-size-');
+            }
+            expect(clear._class).toContain('zx-f-focus-visible');
+            expect(byPart(container, 'select', 'trigger')!._class).not.toContain('zx-f-focus-visible');
+            expectClassGrammar(container as never, anatomies.select);
+        }
     });
 
     it('no clear-trigger while disabled, readonly, or not clearable', () => {
