@@ -377,6 +377,74 @@ The platform spellings to know:
   in the overlay outlet. The showcase's state-matrix gallery
   (`/zero-gallery`) is built on it.
 
+## Checkbox, CheckboxGroup, RadioGroup
+
+Zero's `checkbox`, `checkbox-group` and `radio-group` anatomies (#1203).
+There are no forms on lynx, so the web's hidden native input (the
+`hidden-input` part), `name`/`form` posting and native validity are not
+taken: state is the controllable model, each row is its own tap target and
+accessibility element (trait `button`, status `checked` / `unchecked` /
+`mixed`, then `disabled` or `read only`), and `pressed` rides the visible
+`control` / `item-control` while a touch is held.
+
+```tsx
+import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
+
+// A boolean box — `checkedChange` reports this box's state.
+<Checkbox.Root model={() => state.agreed} color="primary">Accept the terms</Checkbox.Root>
+
+// Array mode: boxes sharing a string[] model toggle their own `value`.
+<Checkbox.Root model={() => state.tags} value="news">News</Checkbox.Root>
+
+// A group with a tri-state "select all" box.
+<CheckboxGroup.Root model={() => state.toppings} orientation="horizontal">
+    <CheckboxGroup.Label>Toppings</CheckboxGroup.Label>
+    <Checkbox.Root parent>All</Checkbox.Root>
+    <Checkbox.Root value="ham">Ham</Checkbox.Root>
+    <Checkbox.Root value="olives">Olives</Checkbox.Root>
+</CheckboxGroup.Root>
+
+// Radios — explicit items, or data mode with the collection accessors.
+<RadioGroup.Root model={() => state.plan}>
+    <RadioGroup.Label>Plan</RadioGroup.Label>
+    <RadioGroup.Item value="free">Free</RadioGroup.Item>
+    <RadioGroup.Item value="pro">Pro</RadioGroup.Item>
+</RadioGroup.Root>
+<RadioGroup.Root items={plans} itemKey={(p) => p.id} itemLabel={(p) => p.name} model={() => state.plan} />
+```
+
+- **Checkbox.Root** — `model` (`boolean | string[]`) / `defaultChecked`,
+  `checkedChange`, `indeterminate` (the app-owned mixed look; a tap flips
+  the underlying checkedness), `value` (the membership key, default `"on"`),
+  `parent`, `disabled` / `invalid` / `required` / `readonly`, `color`,
+  `size`, `label` (the reader's name) and `hideLabel` (render no visible
+  label — pass `label`). A `value` prop sits beside the `checkedChange`
+  event safely: the runtime-core emit lookup no longer collides with a
+  prop named `value` (covered by a unit test).
+- **CheckboxGroup.Root** — `model` (`string[]`) / `defaultValue`,
+  `valueChange`, `allValues` (what a `parent` box selects; default every
+  child's `value`), `orientation` (`vertical` by default), `disabled` /
+  `invalid` / `required` / `readonly` (the prop OR an enclosing Field's —
+  every box takes them, ORed with its own), `color` (the label's ink) and
+  `size` (reaches every box that sets none). A box inside a group needs a
+  distinct `value` (a dev warning says so). A `parent` box is `checked`
+  when all of `allValues` are selected, `unchecked` when none,
+  `indeterminate` when some, and a tap selects all or none.
+  **CheckboxGroup.Label** is the visible name.
+- **RadioGroup.Root** — `model` (`string`; `''` is "nothing chosen") /
+  `defaultValue`, `valueChange`, `items` + `itemKey` / `itemLabel` /
+  `itemDisabled` and an `item` slot (data mode; explicit children win
+  entirely), `orientation`, `disabled` / `invalid` / `required` /
+  `readonly`, `color`, `size`. **RadioGroup.Item** takes `value`
+  (required), `disabled`, `label`; tapping the checked item is a no-op.
+  `invalid` / `readonly` are restated on every item and item-control.
+  **RadioGroup.Label** is the visible name.
+- The group roots are NOT accessibility elements — on lynx that would fold
+  every box into one node — so each box or item announces itself.
+- Arrow-key roving, `focus-visible` detection and form reset are web
+  keyboard/form semantics with no surface here; `focus-visible` still
+  renders when forced (`ForceStates`).
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the

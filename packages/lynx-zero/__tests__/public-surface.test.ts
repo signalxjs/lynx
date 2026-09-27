@@ -138,6 +138,10 @@ describe('public runtime exports', () => {
                 // ── components (Wave 2, forms — #1204) ──
                 'Toggle',
                 'ToggleGroup',
+                // ── components (zero wave 2 — forms, #1203) ──
+                'Checkbox',
+                'CheckboxGroup',
+                'RadioGroup',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',

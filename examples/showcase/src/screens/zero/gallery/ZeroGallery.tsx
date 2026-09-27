@@ -28,6 +28,7 @@ import {
     Accordion, Button, Col, Dialog, Popover, Progress, Row, ScrollView, Select, Slider,
     Switch, Tabs, Timeline, Toast, Toggle, ToggleGroup, ZeroRoot, createToaster, getTheme,
 } from '@sigx/lynx-zero';
+import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
@@ -61,6 +62,13 @@ const FRUIT = [
 const SELECT_ITEMS = [...FRUIT, { value: 'dragonfruit', label: 'Dragon fruit, yellow', group: 'Fruit' }];
 
 const bool = (value: unknown): boolean => value === true;
+
+/** The radio-group `labelled` extra's data: one plan disabled. */
+const PLANS = [
+    { value: 'free', label: 'Free', disabled: false },
+    { value: 'pro', label: 'Pro', disabled: false },
+    { value: 'team', label: 'Team (sold out)', disabled: true },
+];
 
 /** The render half of the registry — one entry per scope in `scopes.ts`. */
 const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
@@ -535,6 +543,119 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                         <ToggleGroup.Item value="right"><text>Right</text></ToggleGroup.Item>
                     </ToggleGroup.Root>
                 </Col>
+            ),
+        },
+    },
+    checkbox: {
+        cell: (c) => (
+            <Checkbox.Root
+                color={c.color}
+                size={c.size}
+                defaultChecked={bool(c.props['checked'])}
+                indeterminate={bool(c.props['indeterminate'])}
+                disabled={bool(c.props['disabled'])}
+                readonly={bool(c.props['readonly'])}
+                invalid={bool(c.props['invalid'])}
+                label="Box"
+            />
+        ),
+        extras: {
+            // The label part beside the box at every size, then the states
+            // that change it (disabled dims the row), and hideLabel.
+            labelled: () => (
+                <Col gap={12}>
+                    {SIZES.map((size) => (
+                        <Checkbox.Root key={size} size={size} defaultChecked>{`Accept the terms · ${size}`}</Checkbox.Root>
+                    ))}
+                    <Checkbox.Root color="secondary" indeterminate>Some selected · secondary</Checkbox.Root>
+                    <Checkbox.Root disabled defaultChecked>Disabled</Checkbox.Root>
+                    <Checkbox.Root readonly defaultChecked>Read only</Checkbox.Root>
+                    <Checkbox.Root invalid required>Invalid · required</Checkbox.Root>
+                    <Checkbox.Root hideLabel label="Hidden label" defaultChecked>Not shown</Checkbox.Root>
+                </Col>
+            ),
+        },
+    },
+    'checkbox-group': {
+        cell: (c) => (
+            <CheckboxGroup.Root
+                color={c.color}
+                size={c.size}
+                defaultValue={['a']}
+                disabled={bool(c.props['disabled'])}
+                readonly={bool(c.props['readonly'])}
+                invalid={bool(c.props['invalid'])}
+                required={bool(c.props['required'])}
+            >
+                <CheckboxGroup.Label>Pick</CheckboxGroup.Label>
+                <Checkbox.Root value="a">A</Checkbox.Root>
+                <Checkbox.Root value="b">B</Checkbox.Root>
+            </CheckboxGroup.Root>
+        ),
+        extras: {
+            // Some of three selected: the parent box is indeterminate.
+            parent: () => (
+                <Col gap={16}>
+                    <CheckboxGroup.Root defaultValue={['ham']} color="primary">
+                        <CheckboxGroup.Label>Toppings</CheckboxGroup.Label>
+                        <Checkbox.Root parent>All toppings</Checkbox.Root>
+                        <Checkbox.Root value="ham">Ham</Checkbox.Root>
+                        <Checkbox.Root value="olives">Olives</Checkbox.Root>
+                        <Checkbox.Root value="basil">Basil</Checkbox.Root>
+                    </CheckboxGroup.Root>
+                    <CheckboxGroup.Root defaultValue={['ham', 'olives', 'basil']} color="secondary" size="lg">
+                        <CheckboxGroup.Label>All selected · lg</CheckboxGroup.Label>
+                        <Checkbox.Root parent>All toppings</Checkbox.Root>
+                        <Checkbox.Root value="ham">Ham</Checkbox.Root>
+                        <Checkbox.Root value="olives">Olives</Checkbox.Root>
+                        <Checkbox.Root value="basil">Basil</Checkbox.Root>
+                    </CheckboxGroup.Root>
+                </Col>
+            ),
+            horizontal: () => (
+                <CheckboxGroup.Root orientation="horizontal" defaultValue={['news']} color="accent">
+                    <CheckboxGroup.Label>Subscribe</CheckboxGroup.Label>
+                    <Checkbox.Root value="news">News</Checkbox.Root>
+                    <Checkbox.Root value="offers">Offers</Checkbox.Root>
+                    <Checkbox.Root value="tips">Tips</Checkbox.Root>
+                </CheckboxGroup.Root>
+            ),
+        },
+    },
+    'radio-group': {
+        cell: (c) => (
+            <RadioGroup.Root
+                color={c.color}
+                size={c.size}
+                defaultValue="a"
+                disabled={bool(c.props['disabled'])}
+                readonly={bool(c.props['readonly'])}
+                invalid={bool(c.props['invalid'])}
+            >
+                <RadioGroup.Item value="a">A</RadioGroup.Item>
+                <RadioGroup.Item value="b">B</RadioGroup.Item>
+            </RadioGroup.Root>
+        ),
+        extras: {
+            // A labelled group (required) with one disabled item, then the
+            // same choice in data mode (`items` — children win entirely, so
+            // it takes no Label).
+            labelled: () => (
+                <Col gap={20}>
+                    <RadioGroup.Root defaultValue="pro" color="secondary" required>
+                        <RadioGroup.Label>Plan</RadioGroup.Label>
+                        {PLANS.map((p) => <RadioGroup.Item key={p.value} value={p.value} disabled={p.disabled}>{p.label}</RadioGroup.Item>)}
+                    </RadioGroup.Root>
+                    <RadioGroup.Root items={PLANS} defaultValue="free" size="lg" />
+                </Col>
+            ),
+            horizontal: () => (
+                <RadioGroup.Root orientation="horizontal" defaultValue="md" color="accent">
+                    <RadioGroup.Label>Size</RadioGroup.Label>
+                    <RadioGroup.Item value="sm">Small</RadioGroup.Item>
+                    <RadioGroup.Item value="md">Medium</RadioGroup.Item>
+                    <RadioGroup.Item value="lg">Large</RadioGroup.Item>
+                </RadioGroup.Root>
             ),
         },
     },
