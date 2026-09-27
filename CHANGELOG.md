@@ -8,6 +8,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 - **`@sigx/zero` and `@sigx/zero-daisyui` pinned to 0.7.0** ([#1159](https://github.com/signalxjs/lynx/issues/1159)). The release carries the daisyUI lynx-fidelity fixes for button, toast, tabs, accordion, timeline, dialog, popover, select, progress, slider and switch ([signalxjs/zero#338](https://github.com/signalxjs/zero/pull/338), [signalxjs/zero#339](https://github.com/signalxjs/zero/pull/339), [signalxjs/zero#341](https://github.com/signalxjs/zero/pull/341), [signalxjs/zero#343](https://github.com/signalxjs/zero/pull/343)).
 
+### Fixed
+
+- **`@sigx/lynx-cli`: debug installs build only for the connected device's ABI** ([#1170](https://github.com/signalxjs/lynx/issues/1170)). `run:android` and the dev dashboard's installs now pass `android.injected.build.abi`, as Android Studio's Run does, so the debug APK carries one ABI's native libs instead of four. The showcase APK drops from 245 MB to 90 MB. The full APK made installs fail with "Requested internal only, but not enough space" on emulators with default-size storage. Every ABI is still packaged when the connected devices differ in CPU architecture, or when `SIGX_ANDROID_ALL_ABIS=1` is set. That install error now gets an out-of-storage hint. The hint makes clear that the space it means is the device's, not the host disk's.
+
 ## [0.33.0] - 2026-09-26
 
 ### Added
