@@ -133,6 +133,49 @@ describe('Button loading (#1143)', () => {
     });
 });
 
+// The daisy skin's lynx fixes for #1161/#1162/#1165 select on these
+// compounds; if the runtime stopped stamping one, the skin rule would
+// silently stop matching.
+describe('Button class compounds the skin selects on (#1161, #1162, #1165)', () => {
+    it('stamps the variant on the spinner, so the solid ring takes its own ink', () => {
+        const { container } = render(
+            <Button.Root variant="solid" loading>
+                <text>Save</text>
+            </Button.Root>,
+        );
+        const spinner = container.children[0]!.children[0]!;
+        expect(spinner._class).toContain('zx-button__spinner');
+        expect(spinner._class).toContain('zx-a-variant-solid');
+        conforms(container as never, 'button');
+    });
+
+    it('stamps variant + disabled together on the root, for the transparent disabled edge', () => {
+        for (const variant of ['outline', 'dash']) {
+            const { container } = render(
+                <Button.Root variant={variant} disabled>
+                    <text>Off</text>
+                </Button.Root>,
+            );
+            const root = container.children[0]!;
+            expect(root._class).toContain(`zx-a-variant-${variant}`);
+            expect(root._class).toContain('zx-f-disabled');
+            conforms(container as never, 'button');
+        }
+    });
+
+    it('stamps the width modifiers the skin restates physically', () => {
+        for (const mod of ['wide', 'block', 'square', 'circle']) {
+            const { container } = render(
+                <Button.Root mods={{ [mod]: true }}>
+                    <text>+</text>
+                </Button.Root>,
+            );
+            expect(container.children[0]!._class).toContain(`zx-m-${mod}`);
+            conforms(container as never, 'button');
+        }
+    });
+});
+
 describe('Switch', () => {
     it('toggles through tap, renders control/thumb states, conforms', async () => {
         const changes: boolean[] = [];

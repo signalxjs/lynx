@@ -67,6 +67,44 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                 <text>Btn</text>
             </Button>
         ),
+        extras: {
+            // daisy's btn modifiers. `wide`/`block` fill the row (wide capped
+            // at 16rem); `square`/`circle` are 1:1 icon chips; `active` holds
+            // the pressed rendering.
+            modifiers: () => (
+                <view style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <Button mods={{ wide: true }}><text>Wide</text></Button>
+                    <Button mods={{ block: true }}><text>Block</text></Button>
+                    <view style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                        {SIZES.map((size) => <Button key={`sq-${size}`} size={size} mods={{ square: true }}><text>+</text></Button>)}
+                    </view>
+                    <view style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                        {SIZES.map((size) => <Button key={`ci-${size}`} size={size} variant="outline" mods={{ circle: true }}><text>+</text></Button>)}
+                    </view>
+                    <view style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                        <Button><text>Rest</text></Button>
+                        <Button mods={{ active: true }}><text>Active</text></Button>
+                    </view>
+                </view>
+            ),
+            // Buttons in dashed boxes narrower than their content. daisy's
+            // btn is content-sized and never squeezed: each one overflows its
+            // box whole, and no label breaks mid-word (#1165).
+            squeeze: () => (
+                <view style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <view style={{ display: 'flex', flexDirection: 'row', gap: '8px', width: '150px', borderWidth: '1px', borderStyle: 'dashed', borderColor: '#9ca3af' }}>
+                        <Button size="lg" variant="outline"><text>Cancel</text></Button>
+                        <Button size="lg" loading><text>Save changes</text></Button>
+                    </view>
+                    <view style={{ width: '60px', borderWidth: '1px', borderStyle: 'dashed', borderColor: '#9ca3af' }}>
+                        <Button size="xl" loading><text>Btn</text></Button>
+                    </view>
+                    <view style={{ width: '60px', borderWidth: '1px', borderStyle: 'dashed', borderColor: '#9ca3af' }}>
+                        <Button size="lg" variant="dash" disabled><text>Disabled</text></Button>
+                    </view>
+                </view>
+            ),
+        },
     },
     switch: {
         cell: (c) => (
