@@ -50,7 +50,7 @@ import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
 import type { LynxPlacement } from '../../behaviors/position.js';
-import { createAnchorPosition } from '../../behaviors/position.js';
+import { createAnchorPosition, useOutletFill } from '../../behaviors/position.js';
 import { OVERLAY_ROOT_STYLE, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.select;
@@ -198,6 +198,7 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
         offset: props.offset,
     });
     const portal = useOverlayPortal();
+    const fill = useOutletFill();
 
     /** The selected item's key — `null` while nothing is selected. */
     const selectedKey = (): string | null => (value.value == null ? null : collection.keyForValue(value.value));
@@ -233,14 +234,24 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                 },
             });
             portal.show(() => (
-                <view
-                    // Transparent outside surface — light dismiss through the
-                    // stack, so a select inside a dialog closes before it.
-                    // It opts back into touches under the pass-through
-                    // outlet layer (#1180).
-                    style={{ ...OVERLAY_ROOT_STYLE, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                    bindtap={() => dismissTopLayer()}
-                >
+                // A 0×0 root (see Popover): it covers nothing natively, so a
+                // pan beside the list scrolls the page (#1190); it opts back
+                // into lynx touches under the pass-through layer (#1180).
+                <view style={{ ...OVERLAY_ROOT_STYLE, position: 'absolute', top: 0, left: 0, width: 0, height: 0, overflow: 'visible' }}>
+                    <view
+                        // Transparent outside surface — light dismiss through
+                        // the stack, so a select inside a dialog closes before
+                        // it. Out of native hit-testing: taps dismiss, pans
+                        // pass through.
+                        native-interaction-enabled={false}
+                        style={fill()}
+                        bindtap={() => dismissTopLayer()}
+                        // A pan here scrolls the page: follow the anchor.
+                        bindtouchstart={position.track}
+                        bindtouchmove={position.track}
+                        bindtouchend={position.track}
+                        bindtouchcancel={position.track}
+                    />
                     <view
                         {...partBag(anatomy, 'popup', {
                             state: 'open',

@@ -331,7 +331,8 @@ export const GALLERY_SCOPES = {
             { id: 'focus', label: 'focus', flags: { 'focus-visible': true } },
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
         ],
-        // `open`: two popovers anchored at mount (trigger in its open state).
+        // `open`: two popovers anchored at mount (trigger in its open state),
+        // title + description + close.
         // `open-states`: Close held (forced pressed) / Close disabled.
         extras: ['open', 'open-states'],
         cellWidth: 100,

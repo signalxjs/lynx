@@ -117,6 +117,17 @@ export interface LynxCommonAttributes
      * `block-native-event`.
      */
     'block-native-event-areas'?: ReadonlyArray<readonly [string, string, string, string]>;
+    /**
+     * `false` takes this element's NATIVE view out of platform hit-testing
+     * (iOS: `UIView.userInteractionEnabled = NO`, which covers its whole
+     * native subtree). Lynx's own events (`bindtap` & co.) still reach it:
+     * they hit-test the Lynx element tree, not the native one. Use it on a
+     * full-window surface that must catch taps but let a pan through to a
+     * native scroll view underneath (an overlay's light-dismiss surface).
+     * `pointer-events: none` alone does not do that on iOS — it only steers
+     * Lynx's hit-test, and the view still swallows the native pan.
+     */
+    'native-interaction-enabled'?: boolean;
 
     // Common Lynx event bindings
     bindtap?: LynxEventHandler;

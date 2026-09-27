@@ -39,7 +39,7 @@
  * popup's anatomy declares — the runtime stamps the RESOLVED side (after
  * flipping) through `partBag`, exactly like the web behavior does.
  */
-import { defineInjectable, defineProvide, useScreen, useViewportRect } from '@sigx/lynx';
+import { defineInjectable, defineProvide, effect, onUnmounted, useScreen, useViewportRect } from '@sigx/lynx';
 import type { ElementLayout, LayoutChangeEvent, MainThread, MainThreadRef } from '@sigx/lynx';
 
 /**
@@ -160,6 +160,34 @@ export function useOverlayInsets(): () => OverlayInsets {
 }
 
 /**
+ * An absolute style that fills the outlet — the whole window. The outlet
+ * layer is 0×0 on purpose (a full-window layer swallowed every native pan on
+ * iOS, #1190), so `top/left/right/bottom: 0` inside it collapses to nothing:
+ * a root that must cover the window (a modal backdrop, a light-dismiss
+ * surface) states the outlet's size instead. Before any size is known it
+ * falls back to the four-edge spelling. Reactive — read it in the portal
+ * closure.
+ */
+export function useOutletFill(): () => Record<string, string | number> {
+    const origin = useOverlayOriginInjectable();
+    return () => outletFill(origin.rect());
+}
+
+/** The nearest outlet's rect (window-sized, at the origin), reactive. @internal */
+export function useOutletRect(): () => ElementLayout | null {
+    const origin = useOverlayOriginInjectable();
+    return () => origin.rect();
+}
+
+/** `useOutletFill`'s style for a given outlet rect. Pure. @internal */
+export function outletFill(outlet: ElementLayout | null): Record<string, string | number> {
+    if (!outlet || !(outlet.width > 0) || !(outlet.height > 0)) {
+        return { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
+    }
+    return { position: 'absolute', top: 0, left: 0, width: `${outlet.width}px`, height: `${outlet.height}px` };
+}
+
+/**
  * Viewport → outlet coordinates: subtract the outlet's viewport origin from
  * a viewport-space position. Identity when the origin is unknown (an outlet
  * at the viewport origin). Pure, so the conversion tests over fake rects.
@@ -169,6 +197,111 @@ export function toOutletCoordinates(
     origin: { top: number; left: number } | null,
 ): { top: number; left: number } {
     return { top: p.top - (origin?.top ?? 0), left: p.left - (origin?.left ?? 0) };
+}
+
+/** Whether two measured rects describe the same box, within rounding. */
+export function sameRect(a: ElementLayout, b: ElementLayout): boolean {
+    return Math.abs(a.left - b.left) <= EPSILON
+        && Math.abs(a.top - b.top) <= EPSILON
+        && Math.abs(a.width - b.width) <= EPSILON
+        && Math.abs(a.height - b.height) <= EPSILON;
+}
+
+export interface SettleOptions {
+    /** ms between re-measures while the rect is still moving. Default 100. */
+    interval?: number;
+    /** Re-measures per burst before giving up. Default 40. */
+    budget?: number;
+    /** Ticks a `kick()` forces even while measurements agree. Default 5. */
+    kickTicks?: number;
+    /**
+     * Also keep going while this is true, even if two measurements agreed:
+     * the safe frame poking out of the outlet is mid-transform by definition.
+     */
+    unsettled?: () => boolean;
+}
+
+export interface SettleHandle {
+    /**
+     * Something may start moving the rect without a layout event (a finger
+     * leaving a scroll view mid-fling): measure now and keep measuring for
+     * `kickTicks` ticks even if the next measurements agree, then settle as
+     * usual.
+     */
+    kick(): void;
+}
+
+/**
+ * Keep re-measuring a rect until it stops moving (#1181, #1182). `read`
+ * returns the rect, or several (the first one is the subject: nothing
+ * happens until it has measured) that must ALL hold still. A
+ * TRANSFORM never fires a layout event, so a rect measured while its screen
+ * slides in on a push (a screen width to the right, and still moving) was
+ * the last one anything took: popups opened at mount stayed clamped to the
+ * right edge, and the safe frame poked out of the outlet, so toasts lost
+ * their insets. Whenever a measurement lands that differs from the previous
+ * one (or `unsettled()` holds, or a `kick()` is pending), this measures
+ * again after `interval`, until two in a row agree or the budget runs out.
+ * Reactive over `read`, so call it in setup; the pending timer is cleared on
+ * unmount. @internal
+ */
+export function settleRect(
+    read: () => ElementLayout | null | ReadonlyArray<ElementLayout | null>,
+    measure: () => void,
+    options: SettleOptions = {},
+): SettleHandle {
+    const interval = options.interval ?? 100;
+    const budget = options.budget ?? 40;
+    const kickTicks = options.kickTicks ?? 5;
+    let last: ReadonlyArray<ElementLayout | null> | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let tries = 0;
+    let lastTick = 0;
+    let forced = 0;
+    const schedule = (): void => {
+        tries++;
+        lastTick = Date.now();
+        if (forced > 0) forced--;
+        timer = setTimeout(() => {
+            timer = null;
+            measure();
+            // A measurement that lands UNCHANGED may not re-run the effect
+            // below (same value, nothing to notify), so the loop keeps itself
+            // alive for the conditions a rect change cannot show: forced
+            // ticks and `unsettled()`. A change re-arms it through the effect.
+            if (timer === null && (forced > 0 || (options.unsettled?.() ?? false)) && tries < budget) schedule();
+        }, interval);
+    };
+    effect(() => {
+        const value = read();
+        const rects = Array.isArray(value) ? value as ReadonlyArray<ElementLayout | null> : [value as ElementLayout | null];
+        const unsettled = options.unsettled?.() ?? false;
+        if (!rects[0]) return;
+        const prev = last;
+        const changed = !prev || prev.length !== rects.length || rects.some((r, i) => {
+            const p = prev[i];
+            return !r || !p ? r !== p : !sameRect(p, r);
+        });
+        const moving = changed || unsettled || forced > 0;
+        last = rects;
+        // A new burst (the rect moved again long after it settled) gets a
+        // fresh budget.
+        if (Date.now() - lastTick > interval * 3) tries = 0;
+        if (!moving || timer !== null || tries >= budget) return;
+        schedule();
+    });
+    onUnmounted(() => {
+        if (timer !== null) clearTimeout(timer);
+        timer = null;
+    });
+    return {
+        kick() {
+            forced = kickTicks;
+            tries = 0;
+            measure();
+            if (timer === null) schedule();
+        },
+    };
 }
 
 export type LynxPlacement =
@@ -330,6 +463,16 @@ export interface LynxAnchorPosition {
     anchorLayoutChange: (event: LayoutChangeEvent) => void;
     /** Wire on the FLOATING element (inside the overlay outlet). */
     floatingLayoutChange: (event: LayoutChangeEvent) => void;
+    /**
+     * Re-measure the anchor (and the outlet): wire on an open popup's
+     * light-dismiss surface as `bindtouchstart`/`bindtouchmove`/
+     * `bindtouchend`/`bindtouchcancel`. A pan beside the popup scrolls the
+     * page (#1190), and a scroll fires no layout event, so the surface's
+     * touch stream is what says "the anchor may be moving"; each event kicks
+     * the settle loop, which follows the fling's momentum after the finger
+     * lifts until the anchor holds still.
+     */
+    track: () => void;
     /** The resolved position in OUTLET coordinates, or null until both nodes have measured. */
     position(): ResolvedPosition | null;
     /** The absolute inline style for the floating element. */
@@ -353,6 +496,28 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
     // raised keyboard is its own problem).
     const screen = useScreen();
     const origin = useOverlayOriginInjectable();
+    // The anchor rides its screen's transform; the popup, in the fixed
+    // outlet, does not. Measured mid push-transition, the anchor sits up to
+    // a screen width to the right and nothing re-fires once the slide
+    // settles — so keep measuring until it stops moving (#1181).
+    // A short interval: this also follows a page scrolled under an open
+    // popup (`track`), where 100 ms steps read as a stutter.
+    //
+    // The loop watches the safe frame too, and counts a frame that pokes out
+    // of the outlet as moving: that is a push slide pending or under way, and
+    // two anchor measurements taken before the slide STARTS agree, which
+    // would otherwise end the loop with the anchor a screen width off.
+    const settle = settleRect(() => [anchor.rect.value, origin.frame()], () => {
+        anchor.measure();
+        origin.measure();
+    }, {
+        interval: 32,
+        budget: 120,
+        unsettled: () => {
+            const frame = origin.frame();
+            return !!frame && !containedFrame(origin.rect(), frame);
+        },
+    });
 
     /** The resolved placement, in OUTLET coordinates. */
     const position = (): ResolvedPosition | null => {
@@ -383,13 +548,19 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
             floating.measure();
             origin.measure();
         },
+        track: () => settle.kick(),
         position,
         style: () => {
             const p = position();
+            // `height: max-content`: the outlet layer is 0×0 (#1190), and lynx
+            // bounds an absolute child's auto height by its containing block —
+            // without it the popup's rows collapse onto one line. Stated on
+            // the off-glass spelling too, so the first measurement (which
+            // drives the flip) is the real size.
             // Off-glass until measured: painting at 0,0 for one frame reads
             // as a flash in the corner; off-glass reads as "not open yet".
-            if (!p) return { position: 'absolute', top: '-10000px', left: '-10000px' };
-            return { position: 'absolute', top: `${p.top}px`, left: `${p.left}px` };
+            const at = p ? { top: `${p.top}px`, left: `${p.left}px` } : { top: '-10000px', left: '-10000px' };
+            return { position: 'absolute', ...at, height: 'max-content' };
         },
     };
 }

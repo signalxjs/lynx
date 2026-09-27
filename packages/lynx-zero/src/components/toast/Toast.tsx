@@ -22,7 +22,7 @@ import type { ForcedFlags, VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideForcedFlags, provideVariantAxes, useVariantAxes } from '../../contract/axes-context.js';
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
-import { useOverlayInsets } from '../../behaviors/position.js';
+import { useOutletRect, useOverlayInsets } from '../../behaviors/position.js';
 import { OVERLAY_ROOT_STYLE, PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.toast;
@@ -319,16 +319,33 @@ const ToastViewport = component<ToastViewportProps>(({ props }) => {
     // SAFE FRAME instead — clear of the status bar and home indicator — while
     // a card's shadow is free to paint into the inset below it.
     const insets = useOverlayInsets();
+    const outlet = useOutletRect();
     const edge = (): Record<string, string | number> => {
         const inset = insets();
         // `OVERLAY_ROOT_STYLE`: the strip takes its own touches under the
         // pass-through outlet layer (#1180) — the page outside it still does.
         const style: Record<string, string | number> = {
             ...OVERLAY_ROOT_STYLE,
-            position: 'absolute', left: `${inset.left}px`, right: `${inset.right}px`, transform: 'none', display: 'flex',
+            position: 'absolute', left: `${inset.left}px`, transform: 'none', display: 'flex',
+            // Lynx bounds an absolute child's auto height by its containing
+            // block, and the layer is 0×0: size the strip to its cards.
+            height: 'max-content',
         };
+        // The layer is 0×0 (#1190), so edges against it mean nothing. With
+        // the window's size known the strip states its width and pins by its
+        // TOP: a bottom strip sits at the frame's bottom edge and lifts itself
+        // by its own height (`translateY(-100%)`, which also cancels the
+        // skin's web centering transform). Before that, the edge spelling.
+        const box = outlet();
+        const w = box?.width ?? 0;
+        const h = box?.height ?? 0;
+        if (w > 0) style['width'] = `${Math.max(0, w - inset.left - inset.right)}px`;
+        else style['right'] = `${inset.right}px`;
         if (placement().startsWith('top')) style['top'] = `${inset.top}px`;
-        else style['bottom'] = `${inset.bottom}px`;
+        else if (h > 0) {
+            style['top'] = `${h - inset.bottom}px`;
+            style['transform'] = 'translateY(-100%)';
+        } else style['bottom'] = `${inset.bottom}px`;
         return style;
     };
 

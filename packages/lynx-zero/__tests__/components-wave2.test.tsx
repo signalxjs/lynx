@@ -116,8 +116,11 @@ describe('Popover', () => {
         expectClassGrammar(container as never, anatomies.popover);
         // Unmeasured → parked off-glass, never a 0,0 flash.
         expect(popup._style['top']).toBe('-10000px');
-        // Tap the transparent outside surface (the popup's parent).
-        await act(() => fireEvent.tap(popup.parent as never));
+        // Tap the transparent outside surface (the popup's sibling, out of
+        // native hit-testing so a pan scrolls the page — #1190).
+        const surface = popup.parent!.children.find((n) => n.props['native-interaction-enabled'] === false);
+        expect(surface).toBeDefined();
+        await act(() => fireEvent.tap(surface as never));
         await act(() => {});
         expect(byPart(container, 'popover', 'popup')).toBeNull();
     });

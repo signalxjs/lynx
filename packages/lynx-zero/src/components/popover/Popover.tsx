@@ -21,7 +21,7 @@ import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
 import type { LynxAnchorPosition, LynxPlacement } from '../../behaviors/position.js';
-import { createAnchorPosition } from '../../behaviors/position.js';
+import { createAnchorPosition, useOutletFill } from '../../behaviors/position.js';
 import { OVERLAY_ROOT_STYLE, PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.popover;
@@ -103,6 +103,7 @@ const PopoverPopup = component<PopupProps>(({ props, slots }) => {
     const popover = usePopoverContext();
     const axes = useVariantAxes();
     const portal = useOverlayPortal();
+    const fill = useOutletFill();
     const bridge = () => {
         defineProvide(usePopoverContext, () => popover);
         provideVariantAxes(axes);
@@ -119,15 +120,28 @@ const PopoverPopup = component<PopupProps>(({ props, slots }) => {
         if (popover?.open()) {
             unregister ??= registerDismissLayer({ dismiss: () => popover.setOpen(false) });
             portal.show(() => (
-                <view
-                    // The transparent outside surface — light dismiss lives
-                    // on the overlay itself on this platform, and it routes
-                    // through the stack so the INNERMOST layer owns the
-                    // gesture (dismiss.ts's contract). It opts back into
-                    // touches under the pass-through outlet layer (#1180).
-                    style={{ ...OVERLAY_ROOT_STYLE, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                    bindtap={() => dismissTopLayer()}
-                >
+                // A 0×0 root at the outlet's origin (`overflow: visible`):
+                // it covers nothing, so a pan beside the popup reaches the
+                // page's scroll view natively (#1190). It opts back into
+                // lynx touches under the pass-through layer (#1180).
+                <view style={{ ...OVERLAY_ROOT_STYLE, position: 'absolute', top: 0, left: 0, width: 0, height: 0, overflow: 'visible' }}>
+                    <view
+                        // The transparent outside surface — light dismiss
+                        // lives on the overlay itself on this platform, and it
+                        // routes through the stack so the INNERMOST layer owns
+                        // the gesture (dismiss.ts's contract). Out of NATIVE
+                        // hit-testing: a tap still dismisses (lynx hit-tests its
+                        // own tree), but a pan scrolls the page as on the web,
+                        // where a non-modal popover never blocks scrolling.
+                        native-interaction-enabled={false}
+                        style={fill()}
+                        bindtap={() => dismissTopLayer()}
+                        // A pan here scrolls the page: follow the anchor.
+                        bindtouchstart={popover.position.track}
+                        bindtouchmove={popover.position.track}
+                        bindtouchend={popover.position.track}
+                        bindtouchcancel={popover.position.track}
+                    />
                     <view
                         {...partBag(anatomy, 'popup', {
                             state: 'open',
@@ -166,6 +180,16 @@ const PopoverTitle = component<PartProps>(({ props, slots }) => {
     );
 }, { name: 'Popover.Title' });
 
+/** zero 0.6's `description` part: the popup's muted body line. */
+const PopoverDescription = component<PartProps>(({ props, slots }) => {
+    const axes = useVariantAxes();
+    return () => (
+        <text {...partBag(anatomy, 'description', { ...partAxes(axes()), class: props.class })}>
+            {slots.default?.()}
+        </text>
+    );
+}, { name: 'Popover.Description' });
+
 type CloseProps =
     & Define.Prop<'disabled', boolean, false>
     /** Accessible name (default "Close"). */
@@ -201,5 +225,6 @@ export const Popover = compound(PopoverRoot, {
     Trigger: PopoverTrigger,
     Popup: PopoverPopup,
     Title: PopoverTitle,
+    Description: PopoverDescription,
     Close: PopoverClose,
 });

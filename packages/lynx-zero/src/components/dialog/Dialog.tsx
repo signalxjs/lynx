@@ -27,7 +27,7 @@ import { partAxes, provideVariantAxes, useVariantAxes } from '../../contract/axe
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
-import { useOverlayInsets } from '../../behaviors/position.js';
+import { useOutletFill, useOverlayInsets } from '../../behaviors/position.js';
 import { OVERLAY_ROOT_STYLE, PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.dialog;
@@ -108,6 +108,7 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
     const axes = useVariantAxes();
     const portal = useOverlayPortal();
     const insets = useOverlayInsets();
+    const fill = useOutletFill();
     // Slot content mounts under the OUTLET — re-provide what it needs.
     const bridge = () => {
         defineProvide(useDialogContext, () => dialog);
@@ -144,10 +145,12 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
                     // reaches every edge while the panel centers in the
                     // content box (never under a status bar or a header).
                     // It opts back into touches under the pass-through
-                    // outlet layer (#1180) — the panel and the dim both.
+                    // outlet layer (#1180) — the panel and the dim both. The
+                    // layer is 0×0, so the fill states the window's size
+                    // (#1190); a modal backdrop DOES hold native pans.
                     style={{
                         ...OVERLAY_ROOT_STYLE,
-                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                        ...fill(),
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                         paddingTop: `${insets().top}px`, paddingRight: `${insets().right}px`,
                         paddingBottom: `${insets().bottom}px`, paddingLeft: `${insets().left}px`,
