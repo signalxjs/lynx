@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-09-27
+
 ### Added
 
 - **`@sigx/lynx-zero`: `useOverlayInsets()`**, with the pure `computeOverlayInsets` and `containedFrame` ([#1169](https://github.com/signalxjs/lynx/issues/1169)). It returns the per-edge insets of the host's safe frame inside the full-window overlay outlet (see Fixed), for a custom overlay that should dim the whole window but keep its content clear of the status bar, the home indicator and any header. `provideOverlayOrigin` takes the frame as an optional third argument.
@@ -12,16 +14,12 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 - **`@sigx/lynx-zero`: overlays cover the whole window** ([#1169](https://github.com/signalxjs/lynx/issues/1169)). The overlay outlet used to be the `ZeroRoot` host itself, so inside a `SafeAreaView` a dialog backdrop left the status-bar and home-indicator strips undimmed, and a bottom toast's shadow was cut at the inset. The outlet is now a `position: fixed` layer, which lynx attaches to the page root, so no clipping ancestor (a navigation stack, safe-area padding) confines it. It mounts only while something is open and is `pointer-events: none`, so a touch that misses every overlay still reaches the page. The host's own box is the safe frame the content respects: the dialog panel centers in it, toast viewports pin to its edges, and Popover and Select flip and clamp against it. A frame measured mid-transform is ignored until it is re-measured. The outlet no longer rides a screen transform, so an open overlay stays put while its screen slides. The showcase gallery adds `dialog/nested`: a Select opened inside an open dialog.
 - **`@sigx/lynx-zero` Select popup** ([#1167](https://github.com/signalxjs/lynx/issues/1167), [#1168](https://github.com/signalxjs/lynx/issues/1168)). The popup and each group are now flex columns, so item rows and the group separator span the popup: the pressed wash fills the row and the separator rule shows. Every portalled part carries the root's colour axis, and a regression test covers it. The skin half, which restates `--select-accent` on the popup and moves the width bounds onto the root so the clear-trigger stays over the trigger ([#1166](https://github.com/signalxjs/lynx/issues/1166)), is [signalxjs/zero#367](https://github.com/signalxjs/zero/pull/367). It lands with the next zero bump.
+- **`@sigx/lynx-cli`: debug installs build only for the connected device's ABI** ([#1170](https://github.com/signalxjs/lynx/issues/1170)). `run:android` and the dev dashboard's installs now pass `android.injected.build.abi`, as Android Studio's Run does, so the debug APK carries one ABI's native libs instead of four. The showcase APK drops from 245 MB to 90 MB. The full APK made installs fail with "Requested internal only, but not enough space" on emulators with default-size storage. Every ABI is still packaged when the connected devices differ in CPU architecture, or when `SIGX_ANDROID_ALL_ABIS=1` is set. That install error now gets an out-of-storage hint. The hint makes clear that the space it means is the device's, not the host disk's.
 
 ### Changed
 
 - **`@sigx/zero-daisyui` 0.7.0 draws the daisy tabs underline on `Tabs.Indicator`** ([signalxjs/zero#340](https://github.com/signalxjs/zero/issues/340), [signalxjs/zero#341](https://github.com/signalxjs/zero/pull/341)). With 0.33.0 the skin kept the indicator hidden and the tab border stood in for the underline. On the 0.7.0 pin, the `border` flavor paints daisy's 3px, 80%-wide bar in the active ink on the measured indicator box, and the tab draws no border of its own. `lift` and `box` keep the indicator hidden. A `@sigx/lynx-zero-daisyui` test now holds the shipped CSS to this.
-
 - **`@sigx/zero` and `@sigx/zero-daisyui` pinned to 0.7.0** ([#1159](https://github.com/signalxjs/lynx/issues/1159)). The release carries the daisyUI lynx-fidelity fixes for button, toast, tabs, accordion, timeline, dialog, popover, select, progress, slider and switch ([signalxjs/zero#338](https://github.com/signalxjs/zero/pull/338), [signalxjs/zero#339](https://github.com/signalxjs/zero/pull/339), [signalxjs/zero#341](https://github.com/signalxjs/zero/pull/341), [signalxjs/zero#343](https://github.com/signalxjs/zero/pull/343)).
-
-### Fixed
-
-- **`@sigx/lynx-cli`: debug installs build only for the connected device's ABI** ([#1170](https://github.com/signalxjs/lynx/issues/1170)). `run:android` and the dev dashboard's installs now pass `android.injected.build.abi`, as Android Studio's Run does, so the debug APK carries one ABI's native libs instead of four. The showcase APK drops from 245 MB to 90 MB. The full APK made installs fail with "Requested internal only, but not enough space" on emulators with default-size storage. Every ABI is still packaged when the connected devices differ in CPU architecture, or when `SIGX_ANDROID_ALL_ABIS=1` is set. That install error now gets an out-of-storage hint. The hint makes clear that the space it means is the device's, not the host disk's.
 
 ## [0.33.0] - 2026-09-26
 
