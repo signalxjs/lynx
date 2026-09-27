@@ -457,6 +457,7 @@ export function sectionHeight(entry: GalleryScope, axis: GalleryAxis, values: re
  */
 export function axisPages(entry: GalleryScope, axis: GalleryAxis): string[][] {
     const values = entry.axes[axis] ?? [];
+    if (values.length === 0) return [];
     const packed: string[][] = [];
     let page: string[] = [];
     for (const value of values) {

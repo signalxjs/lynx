@@ -63,6 +63,12 @@ describe('zero gallery layout', () => {
         });
     });
 
+    it('gives an empty axis no pages', () => {
+        const entry: GalleryScope = { ...GALLERY_SCOPES.switch, axes: { color: [] } };
+        expect(axisPages(entry, 'color')).toEqual([]);
+        expect(axisPages(entry, 'size')).toEqual([]);
+    });
+
     it('splits the #1192 overflows into more pages', () => {
         // accordion/color-1 cut its neutral row; select/size-1 its md row.
         const accordion = GALLERY_SCOPES.accordion;
