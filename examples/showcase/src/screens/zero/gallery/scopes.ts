@@ -142,6 +142,9 @@ function fieldTrigger(label: string) {
 export const COLORS = ['primary', 'secondary', 'accent', 'neutral', 'info', 'success', 'warning', 'error'] as const;
 export const SIZES = ['xs', 'sm', 'md', 'lg', 'xl'] as const;
 
+/** The fixed width a text-field cell gives its (fluid) field — `ZeroGallery.tsx` renders it. */
+export const TEXT_FIELD_WIDTH = 150;
+
 const DEFAULT: GalleryState = { id: 'default', label: 'default' };
 const PRESSED: GalleryState = { id: 'pressed', label: 'pressed', flags: { pressed: true } };
 const FOCUS: GalleryState = { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true } };
@@ -404,6 +407,77 @@ export const GALLERY_SCOPES = {
             return {
                 width: 2 * px + Math.max(textWidth('Saved', font) + 1.75 * font, textWidth('Changes stored.', description)),
                 height: 2 * py + lineHeight(font) + lineHeight(description) + 4 + 2 * 2 + lineHeight(12) + 2 * BORDER,
+            };
+        },
+    },
+    // ── Wave 2, text fields (W2C #1205) ──────────────────────────────────
+    // Cells are fixed-width fields (`TEXT_FIELD_WIDTH`): a text field is
+    // fluid, so the cell gives it its width. Colour reaches only the focus
+    // ring (daisy's field chrome is neutral), so every colour row keeps the
+    // `focus` state beside the rest.
+    input: {
+        title: 'Input',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'placeholder', label: 'placeholder' },
+            { id: 'value', label: 'value+clear', props: { value: 'hello' } },
+            { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true }, parts: ['control'], props: { value: 'hello' } },
+            { id: 'clear-pressed', label: 'clear held', flags: { pressed: true }, parts: ['clear-trigger'], props: { value: 'hello' } },
+            { id: 'invalid', label: 'invalid', props: { invalid: true, value: 'nope' } },
+            { id: 'disabled', label: 'disabled', props: { disabled: true, value: 'hello' } },
+            { id: 'readonly', label: 'readonly', props: { readonly: true, value: 'hello' } },
+            { id: 'adorned', label: 'adornments', props: { adornment: true } },
+            { id: 'password', label: 'password', props: { password: true, value: 'secret' } },
+            { id: 'shown', label: 'shown·held', flags: { pressed: true }, parts: ['visibility-trigger'], props: { password: true, visible: true, value: 'secret' } },
+        ],
+        // `affordances`: start + end adornments, clear and visibility
+        // triggers together, the triggers focused one at a time (#1163's
+        // one-ring-per-cell rule), and a forced focus ring per colour.
+        extras: ['affordances'],
+        cellWidth: 163,
+        // The control is `--size-field * 8…16` tall (the shared field ramp).
+        cell: (size) => ({ width: TEXT_FIELD_WIDTH, height: FIELD_H[size] }),
+    },
+    textarea: {
+        title: 'Textarea',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'placeholder', label: 'placeholder' },
+            { id: 'value', label: 'value', props: { value: 'Two lines\nof text' } },
+            { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true }, props: { value: 'Two lines\nof text' } },
+            { id: 'invalid', label: 'invalid', props: { invalid: true } },
+            { id: 'disabled', label: 'disabled', props: { disabled: true, value: 'Two lines\nof text' } },
+            { id: 'readonly', label: 'readonly', props: { readonly: true, value: 'Two lines\nof text' } },
+        ],
+        // `autosize`: minRows/maxRows fields holding 1, 3 and 8 lines.
+        extras: ['autosize'],
+        cellWidth: 163,
+        // daisy's floor: `min-height: calc(fieldHeight * 2)`.
+        cell: (size) => ({ width: TEXT_FIELD_WIDTH, height: 2 * FIELD_H[size] }),
+    },
+    field: {
+        title: 'Field',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            { id: 'required', label: 'required', props: { required: true } },
+            { id: 'invalid', label: 'invalid+error', props: { invalid: true } },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+            { id: 'readonly', label: 'readonly', props: { readonly: true } },
+            { id: 'focus', label: 'control focus', flags: { 'focus-visible': true }, parts: ['control'] },
+        ],
+        // `controls`: one Field each around a Textarea, a Switch and a
+        // Select — every control adopts the field's flags and size.
+        extras: ['controls'],
+        cellWidth: 163,
+        // Label, the Input control, then the description (or error), with
+        // the root's `--space-sm` gap between them.
+        cell: (size) => {
+            const label = ramp(12, 12, 14, 16, 18)[size];
+            const note = ramp(12, 12, 12, 14, 16)[size];
+            return {
+                width: TEXT_FIELD_WIDTH,
+                height: lineHeight(label) + 6 + FIELD_H[size] + 6 + lineHeight(note),
             };
         },
     },

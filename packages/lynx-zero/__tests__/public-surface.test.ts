@@ -142,6 +142,10 @@ describe('public runtime exports', () => {
                 'Checkbox',
                 'CheckboxGroup',
                 'RadioGroup',
+                // ── components (zero wave 2 — text fields, W2C #1205) ──
+                'Field',
+                'Input',
+                'Textarea',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',

@@ -29,12 +29,13 @@ import {
     Switch, Tabs, Timeline, Toast, Toggle, ToggleGroup, ZeroRoot, createToaster, getTheme,
 } from '@sigx/lynx-zero';
 import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
+import { Field, Input, Textarea } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
 import {
-    BLOCK_GAP, CELL_PAD, FRAME_PADDING, GALLERY_SCOPES, LABEL_GAP, LABEL_WIDTH, LINE_GAP, SIZES,
-    gallerySections, matrixOf, parseSection,
+    BLOCK_GAP, CELL_PAD, COLORS, FRAME_PADDING, GALLERY_SCOPES, LABEL_GAP, LABEL_WIDTH, LINE_GAP, SIZES,
+    TEXT_FIELD_WIDTH, gallerySections, matrixOf, parseSection,
 } from './scopes.js';
 
 /** What one matrix cell renders: the swept axis value plus the state's props. */
@@ -62,6 +63,10 @@ const FRUIT = [
 const SELECT_ITEMS = [...FRUIT, { value: 'dragonfruit', label: 'Dragon fruit, yellow', group: 'Fruit' }];
 
 const bool = (value: unknown): boolean => value === true;
+const str = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
+
+/** A text field is fluid: its cell gives it a fixed width (`TEXT_FIELD_WIDTH`). */
+const FIELD_BOX = { width: `${TEXT_FIELD_WIDTH}px` };
 
 /** The radio-group `labelled` extra's data: one plan disabled. */
 const PLANS = [
@@ -656,6 +661,142 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     <RadioGroup.Item value="md">Medium</RadioGroup.Item>
                     <RadioGroup.Item value="lg">Large</RadioGroup.Item>
                 </RadioGroup.Root>
+            ),
+        },
+    },
+    input: {
+        cell: (c) => (
+            <view style={FIELD_BOX}>
+                <Input.Root
+                    color={c.color}
+                    size={c.size}
+                    type={bool(c.props['password']) ? 'password' : 'text'}
+                    defaultValue={str(c.props['value'])}
+                    defaultVisible={bool(c.props['visible'])}
+                    invalid={bool(c.props['invalid'])}
+                    disabled={bool(c.props['disabled'])}
+                    readonly={bool(c.props['readonly'])}
+                    label="Email"
+                >
+                    <Input.Control>
+                        {bool(c.props['adornment']) ? <Input.Adornment placement="start"><text>@</text></Input.Adornment> : null}
+                        <Input.Input placeholder="Email" />
+                        {bool(c.props['adornment']) ? <Input.Adornment placement="end"><text>.com</text></Input.Adornment> : null}
+                        {bool(c.props['password']) ? <Input.VisibilityTrigger /> : <Input.ClearTrigger />}
+                    </Input.Control>
+                </Input.Root>
+            </view>
+        ),
+        extras: {
+            affordances: () => (
+                <Col gap={10}>
+                    <Input.Root defaultValue="someone" label="User">
+                        <Input.Label>Every affordance</Input.Label>
+                        <Input.Control>
+                            <Input.Adornment placement="start"><text>@</text></Input.Adornment>
+                            <Input.Input placeholder="username" />
+                            <Input.Adornment placement="end"><text>.dev</text></Input.Adornment>
+                            <Input.ClearTrigger />
+                        </Input.Control>
+                    </Input.Root>
+                    <ForceStates flags={{ 'focus-visible': true }} parts={['clear-trigger']}>
+                        <Input.Root defaultValue="clear focused" label="Clear focus">
+                            <Input.Control><Input.Input /><Input.ClearTrigger /></Input.Control>
+                        </Input.Root>
+                    </ForceStates>
+                    <ForceStates flags={{ 'focus-visible': true }} parts={['visibility-trigger']}>
+                        <Input.Root type="password" defaultValue="hunter2" defaultVisible label="Password">
+                            <Input.Control><Input.Input /><Input.VisibilityTrigger /></Input.Control>
+                        </Input.Root>
+                    </ForceStates>
+                    <view style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '8px' }}>
+                        {COLORS.map((color) => (
+                            <view key={color} style={{ width: '84px' }}>
+                                <ForceStates flags={{ 'focus-visible': true }} parts={['control']}>
+                                    <Input.Root color={color} size="sm" label={color}>
+                                        <Input.Control><Input.Input placeholder={color} /></Input.Control>
+                                    </Input.Root>
+                                </ForceStates>
+                            </view>
+                        ))}
+                    </view>
+                </Col>
+            ),
+        },
+    },
+    textarea: {
+        cell: (c) => (
+            <view style={FIELD_BOX}>
+                <Textarea.Root
+                    color={c.color}
+                    size={c.size}
+                    defaultValue={str(c.props['value'])}
+                    invalid={bool(c.props['invalid'])}
+                    disabled={bool(c.props['disabled'])}
+                    readonly={bool(c.props['readonly'])}
+                    label="Notes"
+                >
+                    <Textarea.Textarea placeholder="Notes" />
+                </Textarea.Root>
+            </view>
+        ),
+        extras: {
+            autosize: () => (
+                <Col gap={10}>
+                    {(['One line', 'Three\nshort\nlines', '1\n2\n3\n4\n5\n6\n7\n8']).map((text) => (
+                        <Textarea.Root key={text} defaultValue={text} minRows={1} maxRows={5} label="Autosize">
+                            <Textarea.Label>{`minRows 1 · maxRows 5 · ${text.split('\n').length} line(s)`}</Textarea.Label>
+                            <Textarea.Textarea />
+                        </Textarea.Root>
+                    ))}
+                </Col>
+            ),
+        },
+    },
+    field: {
+        cell: (c) => (
+            <view style={FIELD_BOX}>
+                <Field.Root
+                    color={c.color}
+                    size={c.size}
+                    required={bool(c.props['required'])}
+                    invalid={bool(c.props['invalid'])}
+                    disabled={bool(c.props['disabled'])}
+                    readonly={bool(c.props['readonly'])}
+                >
+                    <Field.Label>Email</Field.Label>
+                    <Input.Root defaultValue="a@b.co" label="Email">
+                        <Input.Control><Input.Input /></Input.Control>
+                    </Input.Root>
+                    {bool(c.props['invalid'])
+                        ? <Field.Error>Enter a valid email.</Field.Error>
+                        : <Field.Description>Never shared.</Field.Description>}
+                </Field.Root>
+            </view>
+        ),
+        extras: {
+            controls: () => (
+                <Col gap={14}>
+                    <Field.Root required>
+                        <Field.Label>Bio (Textarea)</Field.Label>
+                        <Textarea.Root defaultValue="Hello" label="Bio"><Textarea.Textarea /></Textarea.Root>
+                        <Field.Description>Adopts required.</Field.Description>
+                    </Field.Root>
+                    <Field.Root readonly>
+                        <Field.Label>Alerts (Switch)</Field.Label>
+                        <Switch defaultChecked />
+                        <Field.Description>Readonly — taps refused.</Field.Description>
+                    </Field.Root>
+                    <Field.Root invalid size="sm">
+                        <Field.Label>Fruit (Select)</Field.Label>
+                        <Select.Root items={FRUIT} itemValue={(o) => o.value} placeholder="Pick" />
+                        <Field.Error>Pick one.</Field.Error>
+                    </Field.Root>
+                    <Field.Root disabled size="lg">
+                        <Field.Label>Name (Input, lg)</Field.Label>
+                        <Input.Root defaultValue="Ada" label="Name"><Input.Control><Input.Input /></Input.Control></Input.Root>
+                    </Field.Root>
+                </Col>
             ),
         },
     },

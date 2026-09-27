@@ -116,3 +116,13 @@ export type {
     RadioGroupItemProps, RadioGroupLabelProps, RadioGroupRoot, RadioGroupRootProps,
 } from './components/radio-group/RadioGroup.js';
 export { RadioGroup } from './components/radio-group/RadioGroup.js';
+// ── Components (zero wave 2 — text fields, W2C #1205) ───────────────────
+export type { FieldLabelProps, FieldPartProps, FieldRootProps } from './components/field/Field.js';
+export { Field } from './components/field/Field.js';
+export type {
+    EnterKeyHint, InputAdornmentProps, InputClearTriggerProps, InputControlProps, InputInputProps, InputLabelProps,
+    InputMode, InputRootProps, InputType, InputVisibilityTriggerProps,
+} from './components/input/Input.js';
+export { Input } from './components/input/Input.js';
+export type { TextareaLabelProps, TextareaRootProps, TextareaTextareaProps } from './components/textarea/Textarea.js';
+export { Textarea } from './components/textarea/Textarea.js';
