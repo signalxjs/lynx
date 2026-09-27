@@ -156,6 +156,13 @@ describe('applyViewportRect (#1200)', () => {
         expect(env.value).toBe(first);
     });
 
+    it('publishes when only an edge the engine reports changed', () => {
+        const env: { value: ViewportRect | null } = { value: r(0, 0, 10, 10) };
+        const corrected = { ...r(0, 0, 10, 10), right: 11 };
+        applyViewportRect(env, corrected);
+        expect(env.value).toBe(corrected);
+    });
+
     it('keeps the last good rect when a measurement fails', () => {
         const first = r(0, 0, 10, 10);
         const env: { value: ViewportRect | null } = { value: first };

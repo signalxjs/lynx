@@ -171,6 +171,8 @@ export function applyViewportRect(
         && prev.top === measured.top
         && prev.width === measured.width
         && prev.height === measured.height
+        && prev.right === measured.right
+        && prev.bottom === measured.bottom
     ) return;
     target.value = measured;
 }
