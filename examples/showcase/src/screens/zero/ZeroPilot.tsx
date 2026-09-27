@@ -112,7 +112,7 @@ export const ZeroPilot = component(() => {
                         <Col gap={6}>
                             <ProbeBar probe="zxp-token" label="skin token · var(--color-primary)" />
                             <ProbeBar probe="zxp-chain" label="var → var chain · how every solid button paints" />
-                            <ProbeBar probe="zxp-rem" label="rem control · 10rem, resolved = 160px wide" />
+                            <ProbeBar probe="zxp-rem" label="rem control · 10rem = 140px on lynx (1rem = 14px, #1183)" />
                             <ProbeBar probe="zxp-calc" label="calc(var(--radius-box) * 20) · resolved = 160px wide" />
                             <ProbeBar probe="zxp-dangling" label="out-of-scope var(--btn-ink) · expected unpainted" />
                         </Col>

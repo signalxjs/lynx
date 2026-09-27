@@ -92,6 +92,10 @@ themeController.followSystem();
   px inline on the host (`registerTextRamp` supplies the unscaled values —
   the design-system package registers them beside its themes).
   `--text-fixed-*` — control chrome — is untouched by construction.
+  Only `px` ramp entries scale. zero-kit's lynx target emits every length
+  as `px` (it rewrites `rem` at 16px/rem, because lynx's own `rem` is 14px,
+  [#1183](https://github.com/signalxjs/lynx/issues/1183)), so a zero skin's
+  ramp arrives in px.
 - `useScreenTheme(name)` (`@sigx/lynx-zero/screen-theme`, optional
   `@sigx/lynx-navigation` peer) pins the global theme while a route is
   focused.
