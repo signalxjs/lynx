@@ -83,10 +83,12 @@
   background-color: var(--zxp-accent);
 }
 
-/* `rem`, on its own. EVERY length in the skin's token block is a rem, and the
- * calc bar below is a rem too — without this control a pink calc bar would be
- * ambiguous between "calc(var()) failed" and "rem failed". Resolved = 160px
- * wide (10rem at the 16px default). */
+/* `rem`, on its own: the control for the calc bar below, so a pink calc bar
+ * reads as "calc(var()) failed" and not "rem failed". Lynx resolves rem
+ * against its 14px default page font size (#1183), so this bar is 140px wide,
+ * not 160. zero-kit's lynx emitter rewrites the skin's rems to px at
+ * 16px/rem, so the calc bar is 160px once the skin carries that rewrite. This
+ * bar is authored here, outside the skin, and keeps showing the engine's rem. */
 .zxp-rem {
   width: 10rem;
   background-color: var(--color-primary);

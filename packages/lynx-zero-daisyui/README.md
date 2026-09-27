@@ -51,6 +51,26 @@ daisyUI declares no scalable `--text-*` ramp, so `setFontScale` re-emission
 is a no-op under this skin (documented, not a bug); the ramp constant is
 generated empty and will fill in if the skin ever declares one.
 
+## Sizes: the skin's `rem` is compiled to px at 16px/rem
+
+Lynx resolves `rem` against its 14px default page font size, not the web's
+16px, so a skin written in `rem` draws 12.5% small on device (the md button
+measured 35pt instead of 40). zero-kit's lynx emitter now rewrites every
+`rem` length in the compiled CSS to `px` at 16px/rem: tokens, declarations,
+`calc()` operands and keyframes. The CSS this package copies then sizes
+components the way the web does (xs–xl buttons 24/32/40/48/56). The rewrite
+ships with the `@sigx/zero-daisyui` release after 0.9.0
+([signalxjs/zero#381](https://github.com/signalxjs/zero/issues/381),
+[#1183](https://github.com/signalxjs/lynx/issues/1183)); until then the
+copied CSS still carries `rem`.
+
+Your own app CSS is not rewritten. A `rem` in it still resolves at 14px on
+lynx, so write `px` for sizes that must match the skin.
+
+The px sizes take part in the OS text size the same way any px does: the
+engine scales px on font-relevant properties (font-size, line-height) only,
+so text follows the OS setting and control boxes keep their size.
+
 ## Focus rings on lynx
 
 Lynx's `outline` ignores `border-radius`, and lynx has no `outline-offset`,

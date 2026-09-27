@@ -15,7 +15,9 @@
  * values its compiled `tokens.css` carries, so what the scaler multiplies is
  * exactly what the stylesheet declared. Only px entries scale (the engine's
  * arithmetic over other units is not proven); a non-px entry is re-emitted
- * verbatim.
+ * verbatim. zero-kit's lynx target rewrites `rem` to `px` at 16px/rem,
+ * since lynx's own rem is its 14px default page font size
+ * (signalxjs/lynx#1183), so a compiled skin's rem-based ramp arrives in px.
  */
 
 let ramp: Record<string, string> = {};
