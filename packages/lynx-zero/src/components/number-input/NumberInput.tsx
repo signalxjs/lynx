@@ -162,6 +162,8 @@ const NumberInputRoot = component<NumberInputRootProps>(({ props, slots, emit })
         const text = local.draft;
         if (text === null) return;
         local.draft = null;
+        // Went disabled/read-only mid-edit: the draft is dropped, never written.
+        if (disabled() || readonly()) return;
         const trimmed = text.trim();
         if (trimmed === '') {
             state.value = null;
@@ -360,7 +362,7 @@ export type NumberInputTriggerProps =
 
 type TouchHandler = (event?: unknown) => void;
 
-/** Chain two handler bags so a key both define runs both, in order. */
+/** Merge two handler bags; when both define the same key, both handlers run, `a`'s first. */
 function chainHandlers(a: Record<string, unknown>, b: Record<string, TouchHandler>): Record<string, unknown> {
     const out: Record<string, unknown> = { ...a };
     for (const [key, fn] of Object.entries(b)) {

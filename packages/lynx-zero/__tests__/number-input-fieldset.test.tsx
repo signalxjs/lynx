@@ -173,6 +173,22 @@ describe('NumberInput', () => {
         expect(nip(container, 'input').props['value']).toBe('');
     });
 
+    it('a draft is dropped, not committed, when the control goes read-only mid-edit', async () => {
+        const state = signal({ locked: false });
+        const changes: Array<number | null> = [];
+        const Host = component(() => () => (
+            <Full defaultValue={3} readonly={state.locked} onValueChange={(v: number | null) => changes.push(v)} />
+        ));
+        const { container } = render(<Host />);
+        await act(() => type(nip(container, 'input'), '8'));
+        await act(() => {
+            state.locked = true;
+        });
+        await act(() => fire(nip(container, 'input'), 'bindblur'));
+        expect(changes).toEqual([]);
+        expect(nip(container, 'input').props['value']).toBe('3');
+    });
+
     it('a trigger commits a pending draft before stepping', async () => {
         const changes: Array<number | null> = [];
         const { container } = render(<Full defaultValue={1} onValueChange={(v: number | null) => changes.push(v)} />);
