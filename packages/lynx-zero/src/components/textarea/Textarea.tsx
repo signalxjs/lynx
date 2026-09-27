@@ -203,8 +203,8 @@ const TextareaLabel = component<TextareaLabelProps>(({ props, slots }) => {
  * change anyway): the part's view owns background, border, radius, ring
  * and padding, so the face zeroes them and fills the view.
  */
-const FACE_STYLE: Record<string, string> = {
-    flexGrow: '1',
+const FACE_STYLE: Record<string, string | number> = {
+    flexGrow: 1,
     width: '100%',
     minHeight: '0px',
     backgroundColor: 'transparent',

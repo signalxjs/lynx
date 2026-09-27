@@ -75,7 +75,8 @@ export function nativeTextAttrs(o: NativeTextOptions): Record<string, unknown> {
         readonly: o.readonly,
     };
     if (o.placeholder != null) attrs['placeholder'] = o.placeholder;
-    if (o.maxlength != null && Number.isFinite(o.maxlength)) attrs['maxlength'] = o.maxlength;
+    // A whole, non-negative count — the native bridge takes nothing else.
+    if (o.maxlength != null && Number.isFinite(o.maxlength)) attrs['maxlength'] = Math.max(0, Math.floor(o.maxlength));
     const confirm = CONFIRM_TYPES[o.enterkeyhint ?? (o.type === 'search' ? 'search' : 'enter')];
     if (confirm) attrs['confirm-type'] = confirm;
     if (o.spellcheck != null) attrs['ios-spell-check'] = o.spellcheck;

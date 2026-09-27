@@ -205,6 +205,9 @@ describe('Input — model and native field', () => {
         expect('confirm-type' in nativeTextAttrs({ enterkeyhint: 'enter', disabled: false, readonly: false })).toBe(false);
         expect(nativeTextAttrs({ autocorrect: 'off', spellcheck: false, autofocus: true, maxlength: 4, disabled: false, readonly: false }))
             .toMatchObject({ 'ios-auto-correct': false, 'ios-spell-check': false, focus: true, maxlength: 4 });
+        expect(nativeTextAttrs({ maxlength: 7.9, disabled: false, readonly: false })['maxlength']).toBe(7);
+        expect(nativeTextAttrs({ maxlength: -3, disabled: false, readonly: false })['maxlength']).toBe(0);
+        expect('maxlength' in nativeTextAttrs({ maxlength: Number.NaN, disabled: false, readonly: false })).toBe(false);
     });
 
     it('a tap on the control or the label focuses the field through its UI method', async () => {
