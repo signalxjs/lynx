@@ -88,6 +88,7 @@ describe('public runtime exports', () => {
                 'computeOverlayInsets',
                 'containedFrame',
                 'createAnchorPosition',
+                'fixedOutletRect',
                 'provideOverlayOrigin',
                 'toOutletCoordinates',
                 'useOverlayInsets',
@@ -134,6 +135,7 @@ describe('public runtime exports', () => {
                 // ── components (zero#94 — a part that re-carries an axis) ──
                 'Timeline',
                 // ── overlays ──
+                'OVERLAY_ROOT_STYLE',
                 'OverlayHost',
                 'PortalScope',
                 'ZeroRoot',

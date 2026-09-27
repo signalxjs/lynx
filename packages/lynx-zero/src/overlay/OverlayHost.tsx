@@ -12,7 +12,9 @@
  * root, after everything already there — so a backdrop dims the whole
  * screen even when the host itself sits inside safe-area padding, below a
  * header, or under a clipping navigation stack; the host's own box stays
- * the safe frame content respects (`useOverlayInsets`). Overlay components register a
+ * the safe frame content respects (`useOverlayInsets`). The layer is
+ * `pointer-events: none` and the root of every overlay opts back in with
+ * `OVERLAY_ROOT_STYLE` (#1180). Overlay components register a
  * render closure through `useOverlayPortal()`; the outlet maps the stack in
  * registration order — later registration paints on top, which matches the
  * dismiss stack's innermost-first order by construction.
@@ -29,9 +31,9 @@
  * failure is loud and names the fix (wrap the app in `<ZeroRoot>`), rather
  * than an overlay silently z-fighting in place.
  */
-import type { Define } from '@sigx/lynx';
-import { component, createLogger, defineInjectable, defineProvide, onUnmounted, signal, useViewportRect } from '@sigx/lynx';
-import { provideOverlayOrigin } from '../behaviors/position.js';
+import type { Define, LayoutChangeEvent } from '@sigx/lynx';
+import { component, createLogger, defineInjectable, defineProvide, onUnmounted, signal, useScreen, useViewportRect } from '@sigx/lynx';
+import { fixedOutletRect, provideOverlayOrigin } from '../behaviors/position.js';
 import type { ThemeProviderProps } from '../theme/ThemeProvider.js';
 import { ThemeProvider } from '../theme/ThemeProvider.js';
 
@@ -119,10 +121,15 @@ export interface OverlayPortal {
  * ```tsx
  * const portal = useOverlayPortal();
  * effect(() => {
- *     if (open()) portal.show(() => <view {...partBag(...)}>…</view>);
+ *     if (open()) portal.show(() => <view {...partBag(...)} style={{ ...OVERLAY_ROOT_STYLE, … }}>…</view>);
  *     else portal.hide();
  * });
  * ```
+ */
+/*
+ * The closure's ROOT must carry `OVERLAY_ROOT_STYLE` (`pointer-events: auto`):
+ * the outlet layer is `pointer-events: none`, lynx inherits the value, and a
+ * root without its own would pass every touch to the page below (#1180).
  */
 export function useOverlayPortal(): OverlayPortal {
     const registry = useOverlayRegistry();
@@ -162,6 +169,12 @@ type OverlayHostProps = Define.Slot<'default'>;
  * The outlet layer: the whole window, above everything (fixed nodes attach
  * to the page root, after the page's own content), transparent to touches
  * that land on the layer itself.
+ *
+ * The layer is ALWAYS mounted (#1181): it is inserted once, with the page,
+ * and only toggles `display` as overlays come and go. Mounting and
+ * unmounting a fixed node re-parents it to and from the page root every
+ * time, and on iOS that churn left a second, stale copy of the last popup
+ * painting over the page. A style flip never moves the node.
  */
 const OUTLET_LAYER_STYLE = {
     position: 'fixed',
@@ -173,43 +186,76 @@ const OUTLET_LAYER_STYLE = {
 } as const;
 
 /**
+ * The hit-testing contract of the outlet (#1180). Both engines INHERIT
+ * `pointer-events`: an element with no value of its own reports its
+ * parent's (`LynxUI.pointerEvents` on iOS, `LynxBaseUI.pointerEvents()` on
+ * Android). Under the layer's `none`, every overlay would report `none` too
+ * and each tap would fall through to the page below — a Select item picking
+ * the button under it, a dialog that cannot be closed. So the ROOT of every
+ * portal closure states `pointer-events: auto` explicitly (lynx always
+ * flushes an explicit `auto` to the platform): the overlay takes its own
+ * touches, and a touch that misses every overlay lands on the bare layer,
+ * which is `none`, and both engines retry it on the page underneath.
+ *
+ * Spread it into the root's inline style:
+ * `style={{ ...OVERLAY_ROOT_STYLE, position: 'absolute', … }}`.
+ */
+export const OVERLAY_ROOT_STYLE = { pointerEvents: 'auto' } as const;
+
+/**
  * The bare host: provides the registry, renders content first and the
  * outlet last. Use `ZeroRoot` unless the theme host already exists.
  */
 export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     const registry = makeRegistry();
     defineProvide(useOverlayRegistry, () => registry);
-    // Two measured rects (#1169). The OUTLET is a full-window layer: the host
-    // is laid out inside whatever the app gives it — a SafeAreaView's padding,
-    // below a navigation header, inside a Stack that clips its screens — and
-    // an outlet confined to that box left a modal backdrop's inset strips
+    // Two rects (#1169). The OUTLET is a full-window layer: the host is laid
+    // out inside whatever the app gives it — a SafeAreaView's padding, below
+    // a navigation header, inside a Stack that clips its screens — and an
+    // outlet confined to that box left a modal backdrop's inset strips
     // undimmed and cut a bottom toast's shadow at the home indicator. The
     // layer is `position: fixed`, which lynx attaches to the page root: it
     // escapes every clipping ancestor and fills the window. The host's own
     // box is the SAFE FRAME content respects (the dialog panel centers in
     // it, toasts pin to it, anchored popups clamp to it — #1086).
     //
-    // Anchored popups measure in viewport coordinates, so they shift into the
-    // outlet's measured rect and re-measure both rects with their own
-    // (#1146): layout events never fire for a transform.
-    const outlet = useViewportRect();
+    // The outlet's rect is NOT measured (#1181/#1182): a fixed layer pinned
+    // to all four edges sits at the page root's origin by definition, and
+    // the root is the space viewport rects are reported in. Measuring it on
+    // iOS returned a shifted rect, which rejected the safe frame (toasts
+    // under the status bar) and pushed anchored popups into the right-edge
+    // clamp. Its size comes from its own layout (the screen until then).
+    //
+    // Anchored popups measure in viewport coordinates and re-measure the
+    // frame with their own rects (#1146): layout events never fire for a
+    // transform.
     const frame = useViewportRect();
-    const measure = (): void => {
-        outlet.measure();
+    const screen = useScreen();
+    const outletSize = signal<{ value: { width: number; height: number } | null }>({ value: null });
+    provideOverlayOrigin(
+        () => fixedOutletRect(outletSize.value, screen.value),
+        () => frame.measure(),
+        () => frame.rect.value,
+    );
+    const onOutletLayout = (e: LayoutChangeEvent): void => {
+        const d = e?.detail ?? e?.params;
+        if (d && d.width > 0 && d.height > 0) {
+            const prev = outletSize.value;
+            if (!prev || prev.width !== d.width || prev.height !== d.height) {
+                outletSize.value = { width: d.width, height: d.height };
+            }
+        }
         frame.measure();
     };
-    provideOverlayOrigin(() => outlet.rect.value, measure, () => frame.rect.value);
     // `display: flex` is load-bearing, not decoration: a lynx `<view>` defaults
     // to `display: linear`, which ignores its children's flex properties — the
     // app content below would size to itself and a `<ScrollView flex={1}>`
     // would never scroll (#1064).
     //
-    // The layer exists only while something is open, and it is
-    // `pointer-events: none`: a full-window view would otherwise take every
-    // touch meant for the page under a non-modal overlay (a toast, a popover).
-    // Its own children keep the default `auto`, so a backdrop or a toast
-    // still receives its taps; lynx falls through to the page for a touch
-    // that lands on the layer itself.
+    // The layer is `display: none` while nothing is open, and
+    // `pointer-events: none` always: a full-window view would otherwise take
+    // every touch meant for the page under a non-modal overlay (a toast). Each
+    // overlay's root opts back in with `OVERLAY_ROOT_STYLE` (see there).
     return () => {
         const entries = registry.entries();
         return (
@@ -227,19 +273,14 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
                 }}
             >
                 {slots.default?.()}
-                {entries.length > 0
-                    ? (
-                        <view
-                            main-thread:ref={outlet.ref}
-                            bindlayoutchange={measure}
-                            style={OUTLET_LAYER_STYLE}
-                        >
-                            {entries.map((entry) => (
-                                <OverlayEntryBoundary key={entry.id} render={entry.render} />
-                            ))}
-                        </view>
-                    )
-                    : null}
+                <view
+                    bindlayoutchange={onOutletLayout}
+                    style={{ ...OUTLET_LAYER_STYLE, display: entries.length > 0 ? 'flex' : 'none' }}
+                >
+                    {entries.map((entry) => (
+                        <OverlayEntryBoundary key={entry.id} render={entry.render} />
+                    ))}
+                </view>
             </view>
         );
     };

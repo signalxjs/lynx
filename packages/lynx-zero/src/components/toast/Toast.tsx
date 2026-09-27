@@ -23,7 +23,7 @@ import { partAxes, provideForcedFlags, provideVariantAxes, useVariantAxes } from
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { useOverlayInsets } from '../../behaviors/position.js';
-import { PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
+import { OVERLAY_ROOT_STYLE, PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.toast;
 
@@ -321,7 +321,10 @@ const ToastViewport = component<ToastViewportProps>(({ props }) => {
     const insets = useOverlayInsets();
     const edge = (): Record<string, string | number> => {
         const inset = insets();
+        // `OVERLAY_ROOT_STYLE`: the strip takes its own touches under the
+        // pass-through outlet layer (#1180) — the page outside it still does.
         const style: Record<string, string | number> = {
+            ...OVERLAY_ROOT_STYLE,
             position: 'absolute', left: `${inset.left}px`, right: `${inset.right}px`, transform: 'none', display: 'flex',
         };
         if (placement().startsWith('top')) style['top'] = `${inset.top}px`;
