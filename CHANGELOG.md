@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- **daisyUI focus rings on lynx follow the part's radius** ([#1163](https://github.com/signalxjs/lynx/issues/1163), [#1164](https://github.com/signalxjs/lynx/issues/1164)). Lynx's `outline` ignores `border-radius` and lynx has no `outline-offset`, so every forced focus ring painted as a square box flush on the part. The fix is in the skin upstream ([signalxjs/zero#365](https://github.com/signalxjs/zero/issues/365)) and takes effect here with the next `@sigx/zero-daisyui` bump; until then the pinned 0.7.0 still paints the outline. With the bump, the rings will be two spread box-shadows, a 2px surface gap then 2px of ink, which follow the radius. The Accordion trigger's ring will be inset, because the item card clipped it away, and the Slider ring will be on the thumb only. The showcase gallery adds Select's `focus-visible` and `clear focus` states.
+
 ## [0.33.1] - 2026-09-27
 
 ### Added
