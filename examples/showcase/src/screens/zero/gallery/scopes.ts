@@ -203,6 +203,9 @@ export const GALLERY_SCOPES = {
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
             { id: 'readonly', label: 'readonly', props: { value: 'apple', readonly: true } },
             { id: 'clearable', label: 'clearable', props: { value: 'apple', clearable: true } },
+            // A value longer than the cell: it clips with an ellipsis before
+            // the × chip instead of running under it (#1191).
+            { id: 'clearable-long', label: 'clearable long', props: { value: 'dragonfruit', clearable: true } },
             // Each focus state forces the ring on one part only: the
             // clear-trigger sits inside the trigger, so forcing both at once
             // would overlap the two rings (#1163).
