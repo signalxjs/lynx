@@ -392,6 +392,20 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     />
                 </ForceStates>
             ),
+            'open-color': () => (
+                <Select.Root
+                    defaultOpen
+                    clearable
+                    groupSeparators
+                    color="secondary"
+                    items={FRUIT}
+                    itemValue={(o) => o.value}
+                    itemGroup={(o) => o.group}
+                    defaultValue="banana"
+                    placeholder="Pick a fruit"
+                    label="Fruit"
+                />
+            ),
         },
     },
     toast: {

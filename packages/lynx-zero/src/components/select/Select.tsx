@@ -54,6 +54,16 @@ import { useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.select;
 
+/**
+ * The web popup and group are block boxes, so their rows (and the
+ * separator, which has no width of its own) span the list. A lynx `<view>`
+ * defaults to `display: linear` and shrink-wraps them — a pressed item's
+ * wash hugged its label and the separator collapsed to nothing (#1167).
+ * A flex column stretches its children the way block flow does. Structural,
+ * not skin: every design system's list needs it on this platform.
+ */
+const LIST_FLOW = { display: 'flex', flexDirection: 'column' } as const;
+
 type SelectItemProps =
     & Define.Prop<'label', string, true>
     & Define.Prop<'selected', boolean, true>
@@ -220,7 +230,11 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                             placement: position.position()?.placement ?? props.placement ?? 'bottom-start',
                             ...partAxes(axes()),
                         })}
-                        style={position.style()}
+                        // The list's block flow, spelled for lynx: a bare
+                        // `<view>` is `display: linear`, where rows and the
+                        // separator shrink to their content instead of
+                        // filling the popup (#1167).
+                        style={{ ...LIST_FLOW, ...position.style() }}
                         main-thread:ref={position.floatingRef}
                         bindlayoutchange={position.floatingLayoutChange}
                         catchtap={() => {}}
@@ -231,7 +245,7 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                                 : null,
                             segment.group !== undefined
                                 ? (
-                                    <view key={`g-${segment.group}`} {...partBag(anatomy, 'group', { ...partAxes(axes()) })}>
+                                    <view key={`g-${segment.group}`} {...partBag(anatomy, 'group', { ...partAxes(axes()) })} style={LIST_FLOW}>
                                         <text {...partBag(anatomy, 'group-label', { ...partAxes(axes()) })}>
                                             {segment.group}
                                         </text>

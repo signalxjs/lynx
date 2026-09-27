@@ -192,7 +192,12 @@ The platform spellings to know:
   `groupSeparators` draws a `separator` between runs of options.
   `readonly` (or the Field's) keeps the value and the popup shut. The
   default glyphs zero's web parts render (`▾`, `✓`, `×`) render as `<text>`
-  here — lynx has no pseudo-elements.
+  here — lynx has no pseudo-elements. The popup renders in the overlay
+  outlet, outside the root, so nothing inherits across the portal: every
+  popup part stamps the root's axis classes (a skin re-scopes its accent on
+  the popup's own compound), and the popup and each group are flex columns
+  (the lynx spelling of the web's block flow) so rows and separators span
+  the list.
 
   ```tsx
   <Select.Root items={fruits} itemValue={(f) => f.value} itemGroup={(f) => f.group}
