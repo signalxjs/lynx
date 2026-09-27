@@ -64,6 +64,6 @@ after 0.7.0 ([signalxjs/zero#365](https://github.com/signalxjs/zero/issues/365),
 [#1163](https://github.com/signalxjs/lynx/issues/1163),
 [#1164](https://github.com/signalxjs/lynx/issues/1164)).
 
-On lynx the ring shows when the `focus-visible` flag is set. lynx-zero has
-no keyboard-focus detection yet, so today that is only through
+On lynx the ring shows when the `focus-visible` flag is set. `@sigx/lynx-zero`
+has no keyboard-focus detection yet, so today that is only through
 `ForceStates` (`@sigx/lynx-zero/testing`).

@@ -195,8 +195,9 @@ export const GALLERY_SCOPES = {
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
             { id: 'readonly', label: 'readonly', props: { value: 'apple', readonly: true } },
             { id: 'clearable', label: 'clearable', props: { value: 'apple', clearable: true } },
-            // The rings one part at a time: the clear-trigger sits inside
-            // the trigger, so forcing both would overlap them (#1163).
+            // Each focus state forces the ring on one part only: the
+            // clear-trigger sits inside the trigger, so forcing both at once
+            // would overlap the two rings (#1163).
             { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true }, parts: ['trigger'], props: { value: 'apple' } },
             { id: 'clear-focus', label: 'clear focus', flags: { 'focus-visible': true }, parts: ['clear-trigger'], props: { value: 'apple', clearable: true } },
         ],
