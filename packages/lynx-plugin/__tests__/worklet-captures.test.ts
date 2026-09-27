@@ -17,10 +17,15 @@
  * writes never reach the next one (EdgeBackHandle's `startPageX` / velocity).
  * Cross-worklet state belongs in a `useMainThreadRef`.
  *
+ * The third is calling a method on a captured object. The transform copies
+ * just the members a worklet touches — `ARR.indexOf(x)` captures
+ * `{ ARR: { indexOf: ARR.indexOf } }` — and the method is dropped on the wire,
+ * so it throws `not a function` (device-verified on iOS, #1201).
+ *
  * This runs the real BG worklet loader over every workspace package's source,
  * reads each placeholder's `_c`, resolves every captured name back to its
  * declaration (following imports and re-exports across the workspace), and
- * fails on either hazard.
+ * fails on any of these hazards.
  */
 
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -74,26 +79,31 @@ function parse(file: string, text = readFileSync(file, 'utf8')): ts.SourceFile {
     return sf;
 }
 
-/** `./x.js` / `@sigx/lynx-core` → a workspace source file, or null (external). */
-function resolveModule(fromFile: string, spec: string): string | null {
+/**
+ * `./x.js` / `@sigx/lynx-core` / `@sigx/lynx-zero/testing` → a workspace
+ * source file. `null` for a module outside the workspace (`@sigx/reactivity`,
+ * `@lynx-js/*`, …); `'missing'` for a workspace package path that should
+ * resolve but doesn't — reported, so the audit never skips a name silently.
+ */
+function resolveModule(fromFile: string, spec: string): string | null | 'missing' {
     let base: string;
     if (spec.startsWith('.')) {
-        base = resolve(dirname(fromFile), spec).replace(/\.js$/, '');
+        base = resolve(dirname(fromFile), spec).replace(/\.(js|ts|tsx)$/, '');
     } else {
-        const m = /^@sigx\/([^/]+)$/.exec(spec);
-        if (!m) return null;
-        base = join(PACKAGES, m[1]!, 'src', 'index');
+        const m = /^@sigx\/([^/]+)(?:\/(.+))?$/.exec(spec);
+        if (!m || !existsSync(join(PACKAGES, m[1]!, 'src'))) return null;
+        base = join(PACKAGES, m[1]!, 'src', (m[2] ?? 'index').replace(/\.(js|ts|tsx)$/, ''));
     }
     for (const cand of [`${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
         if (existsSync(cand)) return cand;
     }
-    return null;
+    return 'missing';
 }
 
 type Decl =
     | { kind: 'function'; worklet: boolean; where: string }
     | { kind: 'other' }
-    | { kind: 'unresolved' };
+    | { kind: 'unresolved'; missing?: string };
 
 function isWorkletBody(body: ts.Node | undefined): boolean {
     if (!body || !ts.isBlock(body)) return false;
@@ -132,6 +142,7 @@ function resolveLocal(file: string, name: string, seen: Set<string>): Decl | nul
                 for (const el of bindings.elements) {
                     if (el.name.text !== name) continue;
                     const target = resolveModule(file, st.moduleSpecifier.text);
+                    if (target === 'missing') return { kind: 'unresolved', missing: st.moduleSpecifier.text };
                     if (!target) return { kind: 'unresolved' };
                     return resolveExport(target, (el.propertyName ?? el.name).text, seen);
                 }
@@ -159,6 +170,7 @@ function resolveExport(file: string, name: string, seen = new Set<string>()): De
                     const orig = (el.propertyName ?? el.name).text;
                     if (from) {
                         const target = resolveModule(file, from);
+                        if (target === 'missing') return { kind: 'unresolved', missing: from };
                         return target ? resolveExport(target, orig, seen) : { kind: 'unresolved' };
                     }
                     return resolveLocal(file, orig, seen) ?? { kind: 'unresolved' };
@@ -171,14 +183,31 @@ function resolveExport(file: string, name: string, seen = new Set<string>()): De
     }
     for (const from of stars) {
         const target = resolveModule(file, from);
-        if (!target) continue;
+        if (!target || target === 'missing') continue;
         const d = resolveExport(target, name, seen);
         if (d.kind !== 'unresolved') return d;
     }
     return { kind: 'unresolved' };
 }
 
-interface Capture { name: string; copiedObject: boolean }
+interface Capture {
+    name: string;
+    copiedObject: boolean;
+    /** Dotted paths the transform copied member-by-member (`KINDS.indexOf`). */
+    members: string[];
+}
+
+/** Leaf paths of a copied-object capture: `{ a: { b: X.a.b } }` → `['a.b']`. */
+function leafPaths(obj: ts.ObjectLiteralExpression, prefix = ''): string[] {
+    const out: string[] = [];
+    for (const p of obj.properties) {
+        if (!ts.isPropertyAssignment(p) || !ts.isIdentifier(p.name)) continue;
+        const path = prefix ? `${prefix}.${p.name.text}` : p.name.text;
+        if (ts.isObjectLiteralExpression(p.initializer)) out.push(...leafPaths(p.initializer, path));
+        else out.push(path);
+    }
+    return out;
+}
 
 /** Every `_c` entry of every `{ _wkltId }` placeholder in a BG output. */
 function captures(file: string, bg: string): Capture[] {
@@ -191,9 +220,15 @@ function captures(file: string, bg: string): Capture[] {
                 ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && p.name.text === '_c');
             if (isPlaceholder && c && ts.isObjectLiteralExpression(c.initializer)) {
                 for (const p of c.initializer.properties) {
-                    if (ts.isShorthandPropertyAssignment(p)) out.push({ name: p.name.text, copiedObject: false });
-                    else if (ts.isPropertyAssignment(p) && ts.isIdentifier(p.name)) {
-                        out.push({ name: p.name.text, copiedObject: ts.isObjectLiteralExpression(p.initializer) });
+                    if (ts.isShorthandPropertyAssignment(p)) {
+                        out.push({ name: p.name.text, copiedObject: false, members: [] });
+                    } else if (ts.isPropertyAssignment(p) && ts.isIdentifier(p.name)) {
+                        const copied = ts.isObjectLiteralExpression(p.initializer);
+                        out.push({
+                            name: p.name.text,
+                            copiedObject: copied,
+                            members: copied ? leafPaths(p.initializer as ts.ObjectLiteralExpression) : [],
+                        });
                     }
                 }
             }
@@ -215,6 +250,20 @@ function audit(files: string[]): Finding[] {
         const seenNames = new Set<string>();
         for (const cap of captures(file, bgTransform(file, source))) {
             if (cap.copiedObject) {
+                // The transform copies only the members a worklet touches, as
+                // `{ indexOf: KINDS.indexOf }` — so a member the worklet CALLS
+                // is a function in `_c`, dropped on the wire: `KINDS.indexOf`
+                // threw `not a function` on iOS (#1201), and the same goes
+                // for any method on a captured object.
+                for (const m of cap.members) {
+                    const call = new RegExp(`\\b${cap.name}\\.${m.replace(/\./g, '\\.')}\\s*\\(`);
+                    const key = `call:${cap.name}.${m}`;
+                    if (call.test(source) && !seenNames.has(key)) {
+                        seenNames.add(key);
+                        findings.push({ file: rel, name: `${cap.name}.${m}`,
+                            problem: 'calls a method of a captured object — the method is dropped on the way to MT; use a \'main thread\' function or inline it' });
+                    }
+                }
                 // A plain object captured by value: fine if read-only, wrong if
                 // any worklet writes to it (each worklet has its own copy).
                 const write = new RegExp(`\\b${cap.name}\\.[A-Za-z_$][\\w$]*\\s*(?:[-+*/]?=(?!=)|\\+\\+|--)`);
@@ -231,6 +280,9 @@ function audit(files: string[]): Finding[] {
             if (decl?.kind === 'function' && !decl.worklet) {
                 findings.push({ file: rel, name: cap.name,
                     problem: `captures plain function (declared in ${decl.where}) — mark it 'main thread'` });
+            } else if (decl?.kind === 'unresolved' && decl.missing) {
+                findings.push({ file: rel, name: cap.name,
+                    problem: `cannot resolve workspace import '${decl.missing}' — the audit would skip this capture` });
             }
         }
     }
@@ -244,22 +296,25 @@ describe('worklet capture audit (#1201)', () => {
         const dir = mkdtempSync(join(tmpdir(), 'sigx-wklt-audit-'));
         try {
             writeFileSync(join(dir, 'helper.ts'), 'export function plainWidth(): number { return 400; }\n'
-                + "export function mtWidth(): number { 'main thread'; return 400; }\n");
+                + "export function mtWidth(): number { 'main thread'; return 400; }\n"
+                + "export const KINDS = ['a', 'b'] as const;\n");
             const fixture = join(dir, 'Edge.tsx');
             writeFileSync(fixture, `
                 import { Gesture } from '@sigx/lynx';
-                import { plainWidth, mtWidth } from './helper.js';
+                import { plainWidth, mtWidth, KINDS } from './helper.js';
                 export function make() {
                     const state = { start: 0 };
                     return Gesture.Pan()
                         .onStart((e: any) => { 'main thread'; state.start = e.x; })
-                        .onUpdate((e: any) => { 'main thread'; return (e.x - state.start) / plainWidth() / mtWidth(); });
+                        .onUpdate((e: any) => { 'main thread'; return (e.x - state.start) / plainWidth() / mtWidth(); })
+                        .onEnd((e: any) => { 'main thread'; return KINDS.indexOf(e.kind); });
                 }
             `);
             const found = audit([fixture]).map((f) => `${f.name}: ${f.problem.split(' — ')[0]}`);
             expect(found).toEqual([
                 'state: plain object mutated in a worklet is copied per worklet',
                 expect.stringMatching(/^plainWidth: captures plain function/),
+                expect.stringMatching(/^KINDS\.indexOf: calls a method of a captured object/),
             ]);
         } finally {
             rmSync(dir, { recursive: true, force: true });

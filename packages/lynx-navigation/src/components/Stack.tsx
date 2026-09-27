@@ -37,7 +37,7 @@ import {
 } from '../internal/sheet-detents.js';
 import { screenHeight } from '../internal/screen-width.js';
 import { GRABBER_HEIGHT } from '@sigx/lynx-sheet';
-import { EdgeBackHandle } from './EdgeBackHandle.js';
+import { EdgeBackHandle, createEdgeBackState, type EdgeBackState } from './EdgeBackHandle.js';
 import { Layer } from './Layer.js';
 import { SheetBackdrop } from './SheetBackdrop.js';
 import { SheetDragAdapter } from './SheetDragAdapter.js';
@@ -327,6 +327,12 @@ export const Stack = component<StackProps>(({ props, slots }) => {
 
     let nav: Nav;
     let internals: NavInternals;
+
+    // Edge-back gesture state, owned by the Stack rather than by
+    // <EdgeBackHandle>: the handle unmounts the moment `beginBackGesture`
+    // opens a transition, which releases any MT ref it owns while the
+    // native pan is still delivering onUpdate/onEnd (#1201).
+    const edgeBackState = useMainThreadRef<EdgeBackState>(createEdgeBackState());
 
     if (isNested) {
         if (!routes[initialName]) {
@@ -668,7 +674,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
             && !nav.transition
             && !isOverlayPresentation(top.presentation)
         )
-            ? <EdgeBackHandle key="edge-back" />
+            ? <EdgeBackHandle key="edge-back" state={edgeBackState} />
             : null;
 
         const body = (

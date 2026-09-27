@@ -4,7 +4,9 @@ import {
     runOnBackground,
     useGestureDetector,
     useMainThreadRef,
+    type Define,
     type MainThread,
+    type MainThreadRef,
 } from '@sigx/lynx';
 import { withTiming } from '@sigx/lynx-motion';
 import { useNavInternals } from '../hooks/use-nav-internal.js';
@@ -61,30 +63,38 @@ const SNAP_DURATION_SEC = 0.18;
  */
 const SNAP_DURATION_MS = Math.round(SNAP_DURATION_SEC * 1000);
 
-/** Per-gesture MT state (see the `useMainThreadRef` note below). */
-interface EdgeBackState {
+/** Per-gesture MT state, held in a `MainThreadRef` the owning `<Stack>` creates. */
+export interface EdgeBackState {
     startPageX: number;
     prevPageX: number;
     prevTime: number;
     velocity: number;
 }
 
-export const EdgeBackHandle = component(() => {
+/** Initial {@link EdgeBackState} — `onStart` resets every field anyway. */
+export function createEdgeBackState(): EdgeBackState {
+    return { startPageX: 0, prevPageX: 0, prevTime: 0, velocity: 0 };
+}
+
+export type EdgeBackHandleProps = Define.Prop<'state', MainThreadRef<EdgeBackState>, true>;
+
+export const EdgeBackHandle = component<EdgeBackHandleProps>(({ props }) => {
     const ref = useMainThreadRef<MainThread.Element | null>(null);
     // Per-gesture transient state, shared by reference across the handlers.
     // Each `Gesture.Pan()` callback is its OWN worklet with its own `_c`
     // capture, so a plain closure object would be copied into each one:
     // onStart's `startPageX` never reached onUpdate/onEnd (drag distance
     // was measured from x=0), and onUpdate's velocity never reached onEnd
-    // (a fast flick could not commit). A `useMainThreadRef` crosses as a
-    // ref the worklet runtime resolves to one MT object — the Draggable
-    // pattern (#1201).
-    const state = useMainThreadRef<EdgeBackState>({
-        startPageX: 0,
-        prevPageX: 0,
-        prevTime: 0,
-        velocity: 0,
-    });
+    // (a fast flick could not commit). A `MainThreadRef` crosses as a ref
+    // the worklet runtime resolves to one MT object — the Draggable pattern.
+    //
+    // The ref comes from the owning <Stack>, not from a `useMainThreadRef`
+    // here: `beginBackGesture()` (onStart) opens a transition, and the Stack
+    // unmounts this handle as soon as `nav.transition` is set. A ref this
+    // component owned would be released with it while the native pan keeps
+    // firing onUpdate/onEnd — `cannot read property 'current' of undefined`
+    // on iOS (#1201).
+    const state = props.state;
 
     const internals = useNavInternals();
     const progress = internals.progress;

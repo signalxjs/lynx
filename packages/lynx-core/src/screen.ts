@@ -298,7 +298,11 @@ declare const SystemInfo: SystemInfoLike | undefined;
  * and calling it throws `TypeError: not a function` on MT. So this body
  * inlines {@link readGlobalScreen} / `resolveScreen` rather than calling
  * them, and touches only globals and plain-data module constants (which
- * serialize). The result is the same as `resolveScreen()`:
+ * serialize). It calls no method on a captured object either: the transform
+ * captures `ORIENTATIONS.indexOf(x)` as `{ ORIENTATIONS: { indexOf: … } }`,
+ * the method is dropped the same way, and that threw `not a function` on iOS
+ * — so the orientation check is spelled out. The result is the same as
+ * `resolveScreen()`:
  * `__globalProps.screen` → `SystemInfo` → typical-phone constants.
  *
  * Call it from `'main thread'` code only — in an app bundle the BG-side
@@ -325,16 +329,17 @@ export function useScreenMT(): ScreenMetrics {
     const rw = raw && typeof raw === 'object' ? raw.width : undefined;
     const rh = raw && typeof raw === 'object' ? raw.height : undefined;
     if (
-        typeof rw === 'number' && Number.isFinite(rw) && rw > 0
-        && typeof rh === 'number' && Number.isFinite(rh) && rh > 0
+        typeof rw === 'number' && rw > 0 && rw < Infinity
+        && typeof rh === 'number' && rh > 0 && rh < Infinity
     ) {
         // Published map — mirrors parseScreen(raw, 1).
         const rs = (raw as RawScreenProps).scale;
         const ro = (raw as RawScreenProps).orientation;
         width = rw;
         height = rh;
-        scale = typeof rs === 'number' && Number.isFinite(rs) && rs > 0 ? rs : 1;
-        orientation = typeof ro === 'string' && ORIENTATIONS.indexOf(ro) >= 0 ? ro : '';
+        scale = typeof rs === 'number' && rs > 0 && rs < Infinity ? rs : 1;
+        orientation = ro === 'portrait' || ro === 'portrait-upside-down'
+            || ro === 'landscape-left' || ro === 'landscape-right' ? ro : '';
     } else {
         // SystemInfo snapshot, then typical-phone constants — mirrors resolveScreen().
         const pw = sys && typeof sys.pixelWidth === 'number' ? sys.pixelWidth : 0;
