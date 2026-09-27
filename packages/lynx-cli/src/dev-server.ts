@@ -16,7 +16,7 @@ import { getAllLanIPs } from './network.js';
 import { generateQR } from '@sigx/terminal';
 import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, iosDerivedDataPath, adbReverse, adbReverseRemove, forceStopApp, getDeviceCpuAbi, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
-import { runGradleWithDx } from './android-run.js';
+import { debugInstallGradleArgs, runGradleWithDx } from './android-run.js';
 import { spawnCommand } from './util/spawn-command.js';
 import { androidDirName, iosDirName } from './config/paths.js';
 import type { Logger } from '@sigx/cli/plugin';
@@ -526,7 +526,7 @@ function createDevActions(opts: DevControlOpts): DevActions {
                     if (hasCustomApp && !row.hasApp) {
                         hooks.onPhase('building', 'gradle installDebug');
                         const androidDir = join(opts.cwd, androidDirName(opts.variant));
-                        await runGradleWithDx(['installDebug'], {
+                        await runGradleWithDx(debugInstallGradleArgs(), {
                             cwd: androidDir,
                             logger: { log: sink },
                             applicationId: opts.appId,
@@ -658,7 +658,7 @@ function createDevActions(opts: DevControlOpts): DevActions {
                     opts.onBuildState?.('gradle installDebug');
                     const androidDir = join(opts.cwd, androidDirName(opts.variant));
                     try {
-                        await runGradleWithDx(['installDebug'], {
+                        await runGradleWithDx(debugInstallGradleArgs(), {
                             cwd: androidDir,
                             logger: opts.logger,
                             applicationId: opts.appId,

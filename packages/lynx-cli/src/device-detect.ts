@@ -353,6 +353,43 @@ export function getDeviceCpuAbi(deviceId: string): string | null {
 }
 
 /**
+ * A device's supported ABIs, most preferred first (`ro.product.cpu.abilist`
+ * — e.g. `arm64-v8a,armeabi-v7a,armeabi`). Falls back to the primary ABI on
+ * devices that don't expose the list. Null when the query fails.
+ */
+export function getDeviceAbiList(deviceId: string): string[] | null {
+    const res = execDevice(`"${adbCmd()}" -s ${deviceId} shell getprop ro.product.cpu.abilist`, deviceId);
+    const list = res.ok ? parseAbiList(res.stdout) : [];
+    if (list.length > 0) return list;
+    const primary = getDeviceCpuAbi(deviceId);
+    return primary ? [primary] : null;
+}
+
+export function parseAbiList(raw: string): string[] {
+    return raw.split(',').map((a) => a.trim()).filter((a) => a.length > 0);
+}
+
+/**
+ * The value for AGP's `android.injected.build.abi` (what Android Studio
+ * passes on Run) so a debug build packages only the ABI the device will
+ * load, instead of native libs for all four (#1170 — ~245 MB vs ~60 MB with
+ * Lynx + primjs + Fresco, enough to fail installs with "not enough space").
+ *
+ * `installDebug` installs on every connected device, so this is only safe
+ * when they all share a primary ABI. Null (package everything) otherwise,
+ * or when any device's ABI list can't be read.
+ */
+export function injectedBuildAbi(abiLists: ReadonlyArray<ReadonlyArray<string> | null>): string | null {
+    if (abiLists.length === 0) return null;
+    const [first] = abiLists;
+    if (!first || first.length === 0) return null;
+    for (const list of abiLists) {
+        if (!list || list[0] !== first[0]) return null;
+    }
+    return first.join(',');
+}
+
+/**
  * Check if sigx-lynx-go is installed on a specific device.
  */
 export function isLynxGoInstalled(deviceId: string): boolean {

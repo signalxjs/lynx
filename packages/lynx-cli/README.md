@@ -141,10 +141,19 @@ can also use it in CI.
 
 - **Android build fails.** The error names Gradle's reason and, for known
   causes, the fix: JDK out of range, SDK not found, SDK licenses not accepted,
-  NDK missing, no device, signature mismatch, out of memory, network. Re-run
+  NDK missing, no device, signature mismatch, device out of storage, out of
+  memory, network. Re-run
   with `--verbose` to see the full Gradle output.
 - **`run:android` with nothing connected.** sigx boots your most recently used
   emulator. If none exists, it tells you how to create one.
+- **Install fails with "not enough space".** The device's own storage is full,
+  not your computer's disk. An emulator has a fixed-size virtual disk, 2–6 GB by
+  default, however much space the host has. Wipe the emulator (Device Manager →
+  ⋮ → Wipe Data) or raise its Internal Storage (Edit → Advanced Settings). Debug
+  installs package only the connected device's ABI, as Android Studio does. This
+  keeps the APK at about a third of its size with all four ABIs. If the connected
+  devices differ in CPU architecture, the APK carries every ABI.
+  `SIGX_ANDROID_ALL_ABIS=1` forces the full APK.
 - **"Your installed @sigx packages are out of step with each other"** (or a
   bare `does not provide an export named …` from an older CLI). Your app's
   `@sigx/runtime-core` / `@sigx/reactivity` / `@sigx/cli` don't match the

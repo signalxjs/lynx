@@ -12,7 +12,14 @@ import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
 import { androidDirName } from './config/paths.js';
 import { runPrebuild } from './prebuild.js';
-import { resolveAdb, isAppInstalled, pingDevice } from './device-detect.js';
+import {
+    resolveAdb,
+    isAppInstalled,
+    pingDevice,
+    listAndroidDevices,
+    getDeviceAbiList,
+    injectedBuildAbi,
+} from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
 import { defaultAndroidSdkRoots } from './util/android-sdk.js';
 import { describeJdkFallback, describeNoSupportedJdk, jdkEnv, resolveJdk } from './util/jdk.js';
@@ -151,6 +158,20 @@ export async function runGradleWithDx(
     }
 }
 
+/**
+ * Gradle args for a debug install onto the connected device(s): targets the
+ * devices' ABI the way Android Studio's Run does, so the APK carries one
+ * ABI's native libs instead of four (#1170). Falls back to a plain
+ * `installDebug` when devices disagree or can't be queried.
+ * `SIGX_ANDROID_ALL_ABIS=1` opts out.
+ */
+export function debugInstallGradleArgs(): string[] {
+    if (process.env.SIGX_ANDROID_ALL_ABIS === '1') return ['installDebug'];
+    const devices = listAndroidDevices();
+    const abi = injectedBuildAbi(devices.map((d) => getDeviceAbiList(d.id)));
+    return abi ? ['installDebug', `-Pandroid.injected.build.abi=${abi}`] : ['installDebug'];
+}
+
 export interface EnsureAndroidBuiltOptions {
     cwd: string;
     logger: Logger;
@@ -222,7 +243,7 @@ export async function ensureAndroidBuilt(opts: EnsureAndroidBuiltOptions): Promi
     }
 
     logger.log('Building Android (debug)...');
-    await runGradleWithDx(['installDebug'], {
+    await runGradleWithDx(debugInstallGradleArgs(), {
         cwd: androidDir,
         logger,
         applicationId,

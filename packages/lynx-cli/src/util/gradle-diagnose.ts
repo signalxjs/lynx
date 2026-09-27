@@ -95,8 +95,15 @@ const RULES: Rule[] = [
             '  SDK Tools → "NDK (Side by side)", then re-run.',
     },
     {
-        test: (_r, output) => /INSTALL_FAILED_INSUFFICIENT_STORAGE/i.test(output),
-        hint: () => 'The device is out of storage. Free up space, or wipe the emulator (Device Manager → Wipe Data).',
+        // Newer package managers word it "Requested internal only, but not
+        // enough space" (a ParcelableException) instead of the error code.
+        test: (_r, output) => /INSTALL_FAILED_INSUFFICIENT_STORAGE|not enough space/i.test(output),
+        hint: () =>
+            'The device is out of storage — installing needs roughly 2-3x the APK size free.\n' +
+            '  This is the device\'s own /data partition, not your computer\'s disk: an emulator has a\n' +
+            '  fixed-size virtual disk (2-6 GB by default) however much space the host has.\n' +
+            '  Free up space on the device, or for an emulator: Device Manager → ⋮ → Wipe Data, or\n' +
+            '  Edit → Advanced Settings → raise "Internal Storage" (e.g. 8 GB), then cold boot.',
     },
     {
         test: (_r, output) => /Gradle build daemon disappeared|OutOfMemoryError|Java heap space|Metaspace/i.test(output),
