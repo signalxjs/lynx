@@ -44,7 +44,7 @@
  *   turns on for a committed value outside `[min, max]`.
  */
 import type { Define } from '@sigx/lynx';
-import { component, compound, defineInjectable, defineProvide, signal } from '@sigx/lynx';
+import { component, compound, defineInjectable, defineProvide, effect, signal } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import { createControllableState, createFormControl } from '@sigx/zero/behaviors/core';
 import type { ControllableState } from '@sigx/zero/behaviors/core';
@@ -360,23 +360,6 @@ export type NumberInputTriggerProps =
     /** Replaces the default `+` / `−` glyph. */
     & Define.Slot<'default'>;
 
-type TouchHandler = (event?: unknown) => void;
-
-/** Merge two handler bags; when both define the same key, both handlers run, `a`'s first. */
-function chainHandlers(a: Record<string, unknown>, b: Record<string, TouchHandler>): Record<string, unknown> {
-    const out: Record<string, unknown> = { ...a };
-    for (const [key, fn] of Object.entries(b)) {
-        const prev = out[key];
-        out[key] = typeof prev === 'function'
-            ? (event?: unknown) => {
-                (prev as TouchHandler)(event);
-                fn(event);
-            }
-            : fn;
-    }
-    return out;
-}
-
 function makeTrigger(direction: 1 | -1, part: 'increment-trigger' | 'decrement-trigger', name: string) {
     return component<NumberInputTriggerProps>(({ props, slots, onUnmounted }) => {
         const ctx = useNumberInputContext();
@@ -385,7 +368,11 @@ function makeTrigger(direction: 1 | -1, part: 'increment-trigger' | 'decrement-t
         const press = createPressFeedback({ isDisabled: inert });
 
         // Long-press spin: the tap steps once; a long press repeats until
-        // the touch ends, and swallows the tap that may follow it.
+        // the touch ends, and swallows the tap that may follow it. The touch
+        // edges come from the press behavior's `pressed` signal rather than
+        // touch handlers of our own: with the main-thread feel on, the press
+        // owns the element's touch events as worklets, and a background
+        // handler for the same event would compete with them.
         let timer: ReturnType<typeof setInterval> | null = null;
         let spun = false;
         const stop = (): void => {
@@ -393,13 +380,15 @@ function makeTrigger(direction: 1 | -1, part: 'increment-trigger' | 'decrement-t
             timer = null;
         };
         onUnmounted(stop);
-        const spin: Record<string, TouchHandler> = {
-            bindtouchstart: () => {
-                spun = false;
-            },
-            bindtouchend: stop,
-            bindtouchcancel: stop,
-        };
+        let wasPressed = false;
+        effect(() => {
+            const now = press.pressed();
+            if (now === wasPressed) return;
+            wasPressed = now;
+            // A new touch starts clean; the end of one stops the repeat.
+            if (now) spun = false;
+            else stop();
+        });
 
         return () => {
             const disabled = inert();
@@ -435,7 +424,7 @@ function makeTrigger(direction: 1 | -1, part: 'increment-trigger' | 'decrement-t
                             ctx.stepBy(direction);
                         }, ctx.spinInterval());
                     }}
-                    {...chainHandlers(press.handlers as unknown as Record<string, unknown>, spin)}
+                    {...press.handlers}
                 >
                     {slots.default ? slots.default() : <text>{direction > 0 ? '+' : '−'}</text>}
                 </view>
