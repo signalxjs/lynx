@@ -274,12 +274,86 @@ export function useOrientation(): Computed<CoarseOrientation> {
     return orientationComputed;
 }
 
+/** `SystemInfo` fields the MT fallback reads. */
+interface SystemInfoLike {
+    pixelRatio?: number;
+    pixelWidth?: number;
+    pixelHeight?: number;
+}
+
+// MT exposes `SystemInfo` as a global (lynx-runtime-main/entry-main.ts); BG
+// has it on `lynx.SystemInfo`. Ambient — resolved at call time.
+declare const SystemInfo: SystemInfoLike | undefined;
+
 /**
  * MT-thread synchronous screen metrics. For use inside `'main thread'`-marked
  * worklet bodies. Reads `lynx.__globalProps` directly — no subscription, so
  * callers re-evaluate per worklet invocation (which is what you want: a
  * gesture handler should measure against the CURRENT viewport).
+ *
+ * It is itself a `'main thread'` function, and its body is self-contained on
+ * purpose (#1201). A worklet reaches every module-level binding it names
+ * through its `_c` capture, which crosses to MT as JSON: a `'main thread'`
+ * function crosses as a callable worklet ref, but a plain function is dropped
+ * and calling it throws `TypeError: not a function` on MT. So this body
+ * inlines {@link readGlobalScreen} / `resolveScreen` rather than calling
+ * them, and touches only globals and plain-data module constants (which
+ * serialize). It calls no method on a captured object either: the transform
+ * captures `ORIENTATIONS.indexOf(x)` as `{ ORIENTATIONS: { indexOf: … } }`,
+ * the method is dropped the same way, and that threw `not a function` on iOS
+ * — so the orientation check is spelled out. The result is the same as
+ * `resolveScreen()`:
+ * `__globalProps.screen` → `SystemInfo` → typical-phone constants.
+ *
+ * Call it from `'main thread'` code only — in an app bundle the BG-side
+ * binding is a worklet ref, not a function.
  */
 export function useScreenMT(): ScreenMetrics {
-    return resolveScreen();
+    'main thread';
+    const lynxObj = typeof lynx !== 'undefined'
+        ? (lynx as LynxLike & { SystemInfo?: SystemInfoLike })
+        : undefined;
+    const globalProps = lynxObj && lynxObj.__globalProps;
+    const raw = (globalProps && globalProps[SCREEN_GLOBAL_KEY]) as RawScreenProps | undefined;
+    const sys = typeof SystemInfo !== 'undefined' && SystemInfo
+        ? SystemInfo
+        : lynxObj && lynxObj.SystemInfo;
+    const sysScale = sys && typeof sys.pixelRatio === 'number' && sys.pixelRatio > 0
+        ? sys.pixelRatio
+        : 1;
+
+    let width = 0;
+    let height = 0;
+    let scale = 1;
+    let orientation = '';
+    const rw = raw && typeof raw === 'object' ? raw.width : undefined;
+    const rh = raw && typeof raw === 'object' ? raw.height : undefined;
+    if (
+        typeof rw === 'number' && rw > 0 && rw < Infinity
+        && typeof rh === 'number' && rh > 0 && rh < Infinity
+    ) {
+        // Published map — mirrors parseScreen(raw, 1).
+        const rs = (raw as RawScreenProps).scale;
+        const ro = (raw as RawScreenProps).orientation;
+        width = rw;
+        height = rh;
+        scale = typeof rs === 'number' && rs > 0 && rs < Infinity ? rs : 1;
+        orientation = ro === 'portrait' || ro === 'portrait-upside-down'
+            || ro === 'landscape-left' || ro === 'landscape-right' ? ro : '';
+    } else {
+        // SystemInfo snapshot, then typical-phone constants — mirrors resolveScreen().
+        const pw = sys && typeof sys.pixelWidth === 'number' ? sys.pixelWidth : 0;
+        const ph = sys && typeof sys.pixelHeight === 'number' ? sys.pixelHeight : 0;
+        width = pw > 0 ? Math.round(pw / sysScale) : FALLBACK_WIDTH;
+        height = ph > 0 ? Math.round(ph / sysScale) : FALLBACK_HEIGHT;
+        scale = sysScale;
+    }
+    if (!orientation) orientation = width > height ? 'landscape-left' : 'portrait';
+    return {
+        width,
+        height,
+        scale,
+        orientation: orientation as ScreenOrientation,
+        isLandscape: orientation === 'landscape-left' || orientation === 'landscape-right',
+    };
 }

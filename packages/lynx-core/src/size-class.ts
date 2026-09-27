@@ -1,5 +1,5 @@
 import { computed, type Computed } from '@sigx/reactivity';
-import { useScreen, useScreenMT, type ScreenMetrics } from './screen.js';
+import { useScreen, useScreenMT } from './screen.js';
 
 /**
  * Window size classes — the coarse "how much room do I have" reads layout
@@ -175,16 +175,32 @@ export function useHeightAtLeast(dp: number): Computed<boolean> {
  * bodies. Reads `lynx.__globalProps` directly — no subscription, so it
  * re-evaluates per worklet invocation against the current viewport.
  *
+ * A `'main thread'` function itself, so a worklet can capture it (#1201). The
+ * bucketing is inlined rather than delegated to {@link widthClassOf}: that is
+ * a plain function, which a worklet capture would drop on the way to MT. Keep
+ * the two in step.
+ *
  * There is deliberately no `useWidthAtLeastMT(dp)`: a worklet already has the
  * number, so write `useScreenMT().width >= Breakpoint.WIDTH_EXPANDED`.
  */
 export function useWidthClassMT(): WidthClass {
-    const metrics: ScreenMetrics = useScreenMT();
-    return widthClassOf(metrics.width);
+    'main thread';
+    const width = useScreenMT().width;
+    if (width >= Breakpoint.WIDTH_XLARGE) return 'xlarge';
+    if (width >= Breakpoint.WIDTH_LARGE) return 'large';
+    if (width >= Breakpoint.WIDTH_EXPANDED) return 'expanded';
+    if (width >= Breakpoint.WIDTH_MEDIUM) return 'medium';
+    return 'compact';
 }
 
-/** MT-thread synchronous height bucket. See {@link useWidthClassMT}. */
+/**
+ * MT-thread synchronous height bucket. See {@link useWidthClassMT}; inlines
+ * {@link heightClassOf} for the same reason.
+ */
 export function useHeightClassMT(): HeightClass {
-    const metrics: ScreenMetrics = useScreenMT();
-    return heightClassOf(metrics.height);
+    'main thread';
+    const height = useScreenMT().height;
+    if (height >= Breakpoint.HEIGHT_EXPANDED) return 'expanded';
+    if (height >= Breakpoint.HEIGHT_MEDIUM) return 'medium';
+    return 'compact';
 }

@@ -126,6 +126,32 @@ describe('useScreenMT', () => {
         });
     });
 
+    it('falls back to the SystemInfo snapshot when nothing is published', async () => {
+        const api = await freshApi();
+        (globalThis as { SystemInfo?: unknown }).SystemInfo = {
+            pixelRatio: 3, pixelWidth: 1179, pixelHeight: 2556,
+        };
+        try {
+            expect(api.useScreenMT()).toEqual({
+                width: 393, height: 852, scale: 3,
+                orientation: 'portrait', isLandscape: false,
+            });
+        } finally {
+            delete (globalThis as { SystemInfo?: unknown }).SystemInfo;
+        }
+    });
+
+    it('matches readGlobalScreen for a published map, deriving a missing orientation', async () => {
+        const api = await freshApi();
+        installMockLynx({ width: 900, height: 400 });
+        expect(api.useScreenMT()).toEqual(api.readGlobalScreen());
+        expect(api.useScreenMT()).toMatchObject({ scale: 1, orientation: 'landscape-left', isLandscape: true });
+        installMockLynx(LANDSCAPE);
+        expect(api.useScreenMT()).toEqual(api.readGlobalScreen());
+        installMockLynx({ width: 0, height: 800 });
+        expect(api.useScreenMT().width).toBe(400); // garbage publish → fallback
+    });
+
     it('reads __globalProps directly on every call — no subscription', async () => {
         const api = await freshApi();
         installMockLynx(PORTRAIT);
