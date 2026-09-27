@@ -35,6 +35,11 @@ mis-placed floating UI:
 | Sees transforms / scroll / `fixed` ancestors | ❌ | ✅ |
 | Cost | free (already an event) | async MT round-trip |
 
+A `useViewportRect` measurement that comes back equal to the current rect is
+not published: `rect.value` keeps its object and no bridge event is sent. So
+re-measuring a box that held still is cheap, and a loop that re-measures
+until something stops moving does not flood the engine's event limit.
+
 Layout events tell you an element's **size** and that **something moved**. They
 cannot tell you where an element ended up: a main-thread transform
 (`useAnimatedStyle` — a bottom sheet riding the keyboard, a screen mid-

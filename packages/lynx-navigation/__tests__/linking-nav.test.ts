@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Href } from '../src/href';
 import type { Nav } from '../src/hooks/use-nav';
 import type { RouteMap } from '../src/types';
-import { _navigateToHref, _stripPrefix } from '../src/hooks/use-linking-nav';
+import { _isRedelivery, _navigateToHref, _stripPrefix } from '../src/hooks/use-linking-nav';
 
 describe('_stripPrefix', () => {
     it('returns the URL unchanged when no prefixes are provided', () => {
@@ -134,5 +134,23 @@ describe('_navigateToHref', () => {
         expect(() => _navigateToHref(nav, routes, href as unknown as Href, 'push')).not.toThrow();
         expect(pushCalls).toEqual([]);
         expect(replaceCalls).toEqual([]);
+    });
+});
+
+describe('_isRedelivery (#1181)', () => {
+    it('drops a second delivery of the last link while its screen is on top', () => {
+        const last = { url: 'showcase://zero-gallery/popover/open', key: 'k2' };
+        expect(_isRedelivery(last, 'showcase://zero-gallery/popover/open', 'k2')).toBe(true);
+    });
+
+    it('routes the same URL again once the user has navigated away', () => {
+        const last = { url: 'showcase://zero-gallery/popover/open', key: 'k2' };
+        expect(_isRedelivery(last, 'showcase://zero-gallery/popover/open', 'k3')).toBe(false);
+    });
+
+    it('routes a different URL, and anything before a first link', () => {
+        const last = { url: 'showcase://a', key: 'k2' };
+        expect(_isRedelivery(last, 'showcase://b', 'k2')).toBe(false);
+        expect(_isRedelivery(null, 'showcase://a', 'k2')).toBe(false);
     });
 });

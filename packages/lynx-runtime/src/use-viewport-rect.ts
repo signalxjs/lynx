@@ -146,6 +146,35 @@ export function measureViewportRect(
     apply(normalize(result));
 }
 
+/**
+ * Publish a measurement into a rect SharedValue's envelope (main thread).
+ *
+ * A failed measurement (`null`) keeps the last good rect: a stale anchor
+ * still places better than none. An UNCHANGED rect is not written either:
+ * every measurement is a fresh object and the bridge dedupes by identity, so
+ * each re-measure of a box that held still used to cost one
+ * `Lynx.Sigx.AvPublish` event — a screen of anchors re-measuring through a
+ * push slide flooded the engine's per-window event limit (#1200).
+ *
+ * @internal
+ */
+export function applyViewportRect(
+    target: { value: ViewportRect | null },
+    measured: ViewportRect | null,
+): void {
+    'main thread';
+    if (!measured) return;
+    const prev = target.value;
+    if (
+        prev
+        && prev.left === measured.left
+        && prev.top === measured.top
+        && prev.width === measured.width
+        && prev.height === measured.height
+    ) return;
+    target.value = measured;
+}
+
 export interface UseViewportRectResult {
     /** Bind on the element to measure: `main-thread:ref={ref}`. */
     ref: MainThreadRef<MainThread.Element | null>;
@@ -179,9 +208,7 @@ export function useViewportRect(): UseViewportRectResult {
     const dispatch = runOnMainThread(() => {
         'main thread';
         measureViewportRect(ref.current, (measured: ViewportRect | null) => {
-            // A failed measurement keeps the last good rect: a stale anchor
-            // still places better than none.
-            if (measured) rect.current.value = measured;
+            applyViewportRect(rect.current, measured);
         });
     });
 

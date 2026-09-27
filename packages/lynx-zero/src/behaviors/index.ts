@@ -48,7 +48,7 @@ export type {
 export { PRESSED_OPACITY, PRESSED_SCALE, createPressFeedback } from './press.js';
 export type { LynxDismissLayer } from './dismiss.js';
 export { clearDismissLayers, dismissTopLayer, openLayerCount, registerDismissLayer } from './dismiss.js';
-export type { AnchorPositionOptions, LynxAnchorPosition, LynxPlacement, OverlayInsets, ResolvedPosition } from './position.js';
+export type { AnchorPositionOptions, CreateAnchorPositionOptions, LynxAnchorPosition, LynxPlacement, OverlayInsets, ResolvedPosition } from './position.js';
 export {
     computeAnchorPosition, computeOutletPosition, computeOverlayInsets, containedFrame, createAnchorPosition, fixedOutletRect, provideOverlayOrigin,
     toOutletCoordinates, useOutletFill, useOverlayInsets,

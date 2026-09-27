@@ -196,6 +196,7 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
     const position = createAnchorPosition({
         placement: props.placement ?? 'bottom-start',
         offset: props.offset,
+        isOpen: () => open.value,
     });
     const portal = useOverlayPortal();
     const fill = useOutletFill();

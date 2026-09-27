@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { measureViewportRect, useViewportRect, type ViewportRect } from '../src/use-viewport-rect';
+import { applyViewportRect, measureViewportRect, useViewportRect, type ViewportRect } from '../src/use-viewport-rect';
 import type { MainThread } from '../src/jsx';
 
 /** Minimal main-thread element stub: only `invoke` is exercised. */
@@ -125,5 +125,41 @@ describe('useViewportRect', () => {
         measure();
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(() => measure()).not.toThrow();
+    });
+});
+
+describe('applyViewportRect (#1200)', () => {
+    const r = (left: number, top: number, width: number, height: number): ViewportRect => ({
+        left, top, width, height, right: left + width, bottom: top + height,
+    });
+
+    it('publishes the first measurement and every real change', () => {
+        const env: { value: ViewportRect | null } = { value: null };
+        const first = r(0, 0, 10, 10);
+        applyViewportRect(env, first);
+        expect(env.value).toBe(first);
+        const moved = r(4, 0, 10, 10);
+        applyViewportRect(env, moved);
+        expect(env.value).toBe(moved);
+    });
+
+    it('does not write an equal rect: the bridge dedupes by identity, so a fresh equal object would publish', () => {
+        const first = r(12, 98, 320, 48);
+        let writes = 0;
+        let stored: ViewportRect | null = first;
+        const env = {
+            get value() { return stored; },
+            set value(v: ViewportRect | null) { writes++; stored = v; },
+        };
+        applyViewportRect(env, r(12, 98, 320, 48));
+        expect(writes).toBe(0);
+        expect(env.value).toBe(first);
+    });
+
+    it('keeps the last good rect when a measurement fails', () => {
+        const first = r(0, 0, 10, 10);
+        const env: { value: ViewportRect | null } = { value: first };
+        applyViewportRect(env, null);
+        expect(env.value).toBe(first);
     });
 });

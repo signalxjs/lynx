@@ -20,7 +20,7 @@ import { act, render } from '@sigx/lynx-testing';
 import type { TestNode } from '@sigx/lynx-testing';
 import { Dialog, OverlayHost, Popover, Select, clearDismissLayers, provideOverlayOrigin } from '../src/index';
 import type { SettleHandle } from '../src/behaviors/position';
-import { computeFramedPosition, outletFill, sameRect, settleRect } from '../src/behaviors/position';
+import { computeFramedPosition, outletFill, pendingSettleTicks, sameRect, settleRect } from '../src/behaviors/position';
 
 const rect = (top: number, left: number, width: number, height: number): ElementLayout => ({
     top, left, width, height, right: left + width, bottom: top + height,
@@ -148,13 +148,18 @@ describe('settleRect — measure until it holds still', () => {
         expect(h.measure).toHaveBeenCalledTimes(2);
     });
 
-    it('kick() measures now and forces ticks through agreeing measurements (a fling after the finger lifts)', () => {
+    it('kick() measures on the next frame and forces ticks through agreeing measurements (a fling after the finger lifts)', () => {
         const h = harness([rect(0, 0, 10, 10)], { interval: 32, kickTicks: 5 });
         h.current.value = rect(0, 0, 10, 10);
         vi.advanceTimersByTime(32);
         vi.advanceTimersByTime(1000);
         const settled = h.measure.mock.calls.length;
+        // A touch stream kicks on every move: kicks within a frame coalesce.
         h.handle().kick();
+        h.handle().kick();
+        h.handle().kick();
+        expect(h.measure).toHaveBeenCalledTimes(settled);
+        vi.advanceTimersByTime(0);
         expect(h.measure).toHaveBeenCalledTimes(settled + 1);
         vi.advanceTimersByTime(32 * 10);
         // The kick's own measurement plus the forced ticks, then it settles.
@@ -164,12 +169,105 @@ describe('settleRect — measure until it holds still', () => {
         expect(h.measure).toHaveBeenCalledTimes(after);
     });
 
+    it('is off while `read` returns null (a closed popup), and a reactivation counts as a change', () => {
+        const open = signal({ value: true });
+        const current = signal<{ value: ElementLayout | null }>({ value: null });
+        const measure = vi.fn(() => {
+            current.value = rect(0, 0, 10, 10);
+        });
+        const Probe = component(() => {
+            settleRect(() => (open.value ? current.value : null), measure, { interval: 100 });
+            return () => <text>probe</text>;
+        });
+        render(<Probe />);
+        current.value = rect(0, 50, 10, 10); // moving
+        open.value = false; // closes before the tick
+        vi.advanceTimersByTime(1000);
+        expect(measure).not.toHaveBeenCalled();
+        expect(pendingSettleTicks()).toBe(0);
+        open.value = true; // reopens: one verifying measurement, then it agrees
+        vi.advanceTimersByTime(1000);
+        expect(measure).toHaveBeenCalledTimes(2);
+    });
+
     it('clears the pending re-measure on unmount', () => {
         const h = harness([rect(0, 5, 10, 10)], { interval: 100 });
         h.current.value = rect(0, 0, 10, 10);
         h.view.unmount();
         vi.advanceTimersByTime(1000);
         expect(h.measure).not.toHaveBeenCalled();
+    });
+});
+
+describe('the shared settle clock (#1200)', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('loops due in the same frame measure in ONE batch, and a shared measure runs once per batch', () => {
+        const frameMeasure = vi.fn();
+        const anchors = Array.from({ length: 24 }, () => ({
+            rect: signal<{ value: ElementLayout | null }>({ value: null }),
+            measure: vi.fn(),
+        }));
+        const Probe = component(() => {
+            for (const a of anchors) settleRect(() => a.rect.value, [a.measure, frameMeasure], { interval: 32 });
+            return () => <text>probe</text>;
+        });
+        const view = render(<Probe />);
+        // Two dozen anchors land their first rects within a few ms of each
+        // other (a heavy screen mounting).
+        anchors.forEach((a, i) => {
+            if (i === 12) vi.advanceTimersByTime(5);
+            a.rect.value = rect(0, 400, 100, 40);
+        });
+        const timers = vi.getTimerCount();
+        expect(timers).toBe(1); // one clock, not one timer per loop
+        vi.advanceTimersByTime(40);
+        for (const a of anchors) expect(a.measure).toHaveBeenCalledTimes(1);
+        expect(frameMeasure).toHaveBeenCalledTimes(1);
+        view.unmount();
+        expect(pendingSettleTicks()).toBe(0);
+    });
+
+});
+
+describe('closed popups are inert (#1200)', () => {
+    it('closed popups under a host measure nothing: no layout-event measurement, no settle loop', async () => {
+        const measured: string[] = [];
+        const FakeOrigin = component(({ slots }) => {
+            provideOverlayOrigin(() => WINDOW, () => measured.push('frame'), () => SAFE);
+            return () => slots.default?.() as never;
+        });
+        const { container } = render(
+            <OverlayHost>
+                <FakeOrigin>
+                    {Array.from({ length: 8 }, (_, i) => (
+                        <Popover.Root key={i}>
+                            <Popover.Trigger><text>{`T${i}`}</text></Popover.Trigger>
+                            <Popover.Popup><Popover.Title>P</Popover.Title></Popover.Popup>
+                        </Popover.Root>
+                    ))}
+                </FakeOrigin>
+            </OverlayHost>,
+        );
+        await act(() => {});
+        // Layout events on every closed trigger measure nothing.
+        const triggers: TestNode[] = [];
+        const walk = (n: TestNode): void => {
+            if (n.props['data-scope'] === 'popover' && n.props['data-part'] === 'trigger') triggers.push(n);
+            n.children.forEach(walk);
+        };
+        walk(container);
+        expect(triggers).toHaveLength(8);
+        for (const t of triggers) (t.props['bindlayoutchange'] as (e: unknown) => void)({});
+        await new Promise((r) => setTimeout(r, 150));
+        expect(measured).toEqual([]);
+        expect(pendingSettleTicks()).toBe(0);
+        clearDismissLayers();
     });
 });
 

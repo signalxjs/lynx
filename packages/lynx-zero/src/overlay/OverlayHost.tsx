@@ -262,14 +262,18 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     const screen = useScreen();
     const outletSize = signal<{ value: { width: number; height: number } | null }>({ value: null });
     const outletRect = () => fixedOutletRect(outletSize.value, screen.value);
-    provideOverlayOrigin(outletRect, () => frame.measure(), () => frame.rect.value);
+    // ONE function for every frame measurement: the settle clock dedupes a
+    // batch by function identity, so this host's loop and every anchored
+    // popup under it measure the frame once per batch (#1200).
+    const measureFrame = (): void => frame.measure();
+    provideOverlayOrigin(outletRect, measureFrame, () => frame.rect.value);
     // The frame is measured on LAYOUT, and a push transition is a transform:
     // the host inside a screen sliding in measures a screen width to the
     // right, pokes out of the outlet, and `containedFrame` drops it — every
     // toast lost its insets, and anchored popups their clamp box, because
     // nothing measured again once the slide settled (#1181, #1182). Keep
     // measuring until the frame holds still inside the outlet.
-    settleRect(() => frame.rect.value, () => frame.measure(), {
+    settleRect(() => frame.rect.value, measureFrame, {
         unsettled: () => !containedFrame(outletRect(), frame.rect.value),
     });
     const onOutletLayout = (e: LayoutChangeEvent): void => {

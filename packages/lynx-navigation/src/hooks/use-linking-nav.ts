@@ -53,6 +53,9 @@ export interface UseLinkingNavOptions {
  *     present, dispatched (replacing the initial route by default).
  *   - **warm start** — `Linking.addEventListener('url', ...)` subscribes for
  *     URLs delivered while the app is already running; each one is pushed.
+ *     A second delivery of the link routed last, while the screen it opened
+ *     is still on top, is dropped — a cold-start link that also arrives as
+ *     an event opens its screen once, not twice.
  *
  * URL → route dispatch goes through `parseHref`, which matches the URL's
  * pathname against the route registry seeded by `<NavigationRoot>`. Routes
@@ -80,6 +83,8 @@ export interface UseLinkingNavOptions {
 export function useLinkingNav(opts: UseLinkingNavOptions = {}): void {
     const nav = useNav();
     const routes = useNavRoutes();
+    // The last link this hook routed, and the entry it left on top.
+    let last: HandledLink | null = null;
 
     const dispatch = (url: string, kind: 'push' | 'replace'): void => {
         if (opts.onURL) {
@@ -93,6 +98,7 @@ export function useLinkingNav(opts: UseLinkingNavOptions = {}): void {
             return;
         }
         _navigateToHref(nav, routes, href, kind);
+        last = { url, key: nav.current.key };
     };
 
     onMounted(() => {
@@ -101,8 +107,35 @@ export function useLinkingNav(opts: UseLinkingNavOptions = {}): void {
             dispatch(initial, opts.replaceInitial === false ? 'push' : 'replace');
         }
         // C7: a plain `() => void`, directly usable as the effect cleanup.
-        return Linking.addEventListener('url', (e) => dispatch(e.url, 'push'));
+        return Linking.addEventListener('url', (e) => {
+            // A cold-start link can arrive on BOTH channels: the host writes
+            // it into `initialURL` and also fires `urlReceived` (an iOS
+            // scene app forwards `onOpenURL` after the view exists, so the
+            // event races the bundle's first read). Routing it twice stacked
+            // a second copy of the screen over the first (#1181).
+            if (_isRedelivery(last, e.url, nav.current.key)) return;
+            dispatch(e.url, 'push');
+        });
     });
+}
+
+/** A link `useLinkingNav` routed, and the stack entry it left on top. */
+export interface HandledLink {
+    url: string;
+    key: string;
+}
+
+/**
+ * Whether an incoming `url` event is a second delivery of the link routed
+ * last: the same URL, with the entry that link produced still on top. The
+ * user has not moved since, so routing it again would only stack a duplicate
+ * of the screen already showing. Once they navigate anywhere (the top entry
+ * changes), the same URL routes again as usual.
+ *
+ * Exported for unit testing — not part of the package public API.
+ */
+export function _isRedelivery(last: HandledLink | null, url: string, currentKey: string): boolean {
+    return !!last && last.url === url && last.key === currentKey;
 }
 
 /**
