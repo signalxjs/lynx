@@ -206,6 +206,18 @@ const onTap = () => {
 };
 ```
 
+`useScreenMT()` is itself a `'main thread'` function, so a worklet can capture
+and call it. Call it from `'main thread'` code only: in an app bundle its
+background-thread binding is a worklet reference, not a function. The same
+holds for `useWidthClassMT()` / `useHeightClassMT()`.
+
+> **Calling helpers from a worklet.** A worklet reaches the module-level
+> functions it names through its capture, which crosses to the main thread as
+> JSON. A `'main thread'` function crosses as a callable reference; a plain
+> function is dropped, and calling it throws `TypeError: not a function` on the
+> main thread ([#1201](https://github.com/signalxjs/lynx/issues/1201)). Mark
+> any helper a worklet calls with `'main thread'`.
+
 `readGlobalScreen()` is the raw synchronous read (`ScreenMetrics | null`). It
 works on **both** threads — `lynx.SystemInfo` is empty on the background thread,
 `__globalProps` is not — which makes it the BG-safe screen-size accessor.

@@ -11,6 +11,7 @@
  * plan-build time. `'main thread'` worklet bodies can't reach the BG signal and
  * use {@link screenWidthMT} / {@link screenHeightMT}, which read
  * `__globalProps` synchronously — same value, same source, no subscription.
+ * Those two are `'main thread'` functions: call them from worklet code only.
  *
  * Used by:
  *   - `<ScreenContainer>` for the slide-from-right (translateX) and
@@ -33,12 +34,22 @@ export function screenHeight(): number {
     return useScreen().value.height;
 }
 
-/** Current logical screen width (dp), readable inside a `'main thread'` worklet. */
+/**
+ * Current logical screen width (dp), readable inside a `'main thread'` worklet.
+ *
+ * Must stay a `'main thread'` function (#1201): a worklet that captures a
+ * plain function gets `undefined` on MT (the capture crosses as JSON) and
+ * throws `TypeError: not a function` — which is what broke every iOS
+ * edge-swipe back. As a worklet it crosses as a callable ref, and so does the
+ * `useScreenMT` it calls.
+ */
 export function screenWidthMT(): number {
+    'main thread';
     return useScreenMT().width;
 }
 
-/** Current logical screen height (dp), readable inside a `'main thread'` worklet. */
+/** Current logical screen height (dp), readable inside a `'main thread'` worklet. See {@link screenWidthMT}. */
 export function screenHeightMT(): number {
+    'main thread';
     return useScreenMT().height;
 }

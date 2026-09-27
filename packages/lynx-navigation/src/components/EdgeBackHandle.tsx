@@ -61,23 +61,30 @@ const SNAP_DURATION_SEC = 0.18;
  */
 const SNAP_DURATION_MS = Math.round(SNAP_DURATION_SEC * 1000);
 
+/** Per-gesture MT state (see the `useMainThreadRef` note below). */
+interface EdgeBackState {
+    startPageX: number;
+    prevPageX: number;
+    prevTime: number;
+    velocity: number;
+}
+
 export const EdgeBackHandle = component(() => {
     const ref = useMainThreadRef<MainThread.Element | null>(null);
-    // Per-gesture transient state — captured as a plain closure object
-    // rather than a `useMainThreadRef`. Lynx's SWC worklet transform deep-
-    // copies plain objects into `_c` once at register time; mutations on MT
-    // persist across calls because the same `_c` is bound for the lifetime
-    // of the gesture registration. Using a `useMainThreadRef` here was
-    // crashing on iOS with `cannot read property 'current' of undefined`
-    // — the resolved-ref capture path looked up an empty
-    // `_workletRefMap` entry under a race I haven't fully tracked down.
-    // Plain object avoids that path entirely.
-    const state = {
+    // Per-gesture transient state, shared by reference across the handlers.
+    // Each `Gesture.Pan()` callback is its OWN worklet with its own `_c`
+    // capture, so a plain closure object would be copied into each one:
+    // onStart's `startPageX` never reached onUpdate/onEnd (drag distance
+    // was measured from x=0), and onUpdate's velocity never reached onEnd
+    // (a fast flick could not commit). A `useMainThreadRef` crosses as a
+    // ref the worklet runtime resolves to one MT object — the Draggable
+    // pattern (#1201).
+    const state = useMainThreadRef<EdgeBackState>({
         startPageX: 0,
         prevPageX: 0,
         prevTime: 0,
         velocity: 0,
-    };
+    });
 
     const internals = useNavInternals();
     const progress = internals.progress;
@@ -94,10 +101,10 @@ export const EdgeBackHandle = component(() => {
             'main thread';
             const p = e && e.params;
             const pageX = (p && p.pageX) || 0;
-            state.startPageX = pageX;
-            state.prevPageX = pageX;
-            state.prevTime = Date.now();
-            state.velocity = 0;
+            state.current.startPageX = pageX;
+            state.current.prevPageX = pageX;
+            state.current.prevTime = Date.now();
+            state.current.velocity = 0;
             runOnBackground(() => {
                 beginBackGesture();
             })();
@@ -107,29 +114,29 @@ export const EdgeBackHandle = component(() => {
             if (!progress) return;
             const p = e && e.params;
             const pageX = (p && p.pageX) || 0;
-            const dx = pageX - state.startPageX;
+            const dx = pageX - state.current.startPageX;
             const prog = Math.max(0, Math.min(1, dx / screenWidthMT()));
             progress.current.value = prog;
 
             const now = Date.now();
-            const dt = now - state.prevTime;
+            const dt = now - state.current.prevTime;
             if (dt > 0) {
-                state.velocity =
-                    ((pageX - state.prevPageX) / dt) * 1000;
+                state.current.velocity =
+                    ((pageX - state.current.prevPageX) / dt) * 1000;
             }
-            state.prevPageX = pageX;
-            state.prevTime = now;
+            state.current.prevPageX = pageX;
+            state.current.prevTime = now;
         })
         .onEnd((e: any) => {
             'main thread';
             if (!progress) return;
             const p = e && e.params;
             const pageX = (p && p.pageX) || 0;
-            const dx = pageX - state.startPageX;
+            const dx = pageX - state.current.startPageX;
             const fraction = dx / screenWidthMT();
             const commit =
                 fraction > COMMIT_TRANSLATION ||
-                state.velocity > COMMIT_VELOCITY;
+                state.current.velocity > COMMIT_VELOCITY;
 
             if (commit) {
                 withTiming(progress, 1, { duration: SNAP_DURATION_SEC });

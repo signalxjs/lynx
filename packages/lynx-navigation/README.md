@@ -78,6 +78,8 @@ Animated transitions **pre-stage** the work they'd otherwise compete with: a pus
 
 Transition geometry follows **device rotation** ([#856](https://github.com/signalxjs/lynx/issues/856)): the card/modal slide distances, the route-sheet detents and the edge-back commit threshold all read the live screen size (`useScreen()` / `useScreenMT()` from `@sigx/lynx`) at plan-build time, rather than a value snapshotted when the bundle loaded. A push while the device is in landscape slides the full landscape width.
 
+The iOS-style **edge-swipe back** (a 20px strip on the left edge of a card screen; opt out with `<NavigationRoot edgeSwipeEnabled={false}>`) follows the finger and, on release, commits when the drag passed a third of the screen width *or* the flick was faster than 300 px/s. Otherwise it springs back.
+
 ## Errors
 
 Everything this package throws is a `SigxError` from `@sigx/lynx-core`, with the message `[@sigx/lynx-navigation] <action> failed: <detail>` and a stable `code` — branch on the code, never on the message:
