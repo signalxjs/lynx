@@ -24,6 +24,11 @@ export interface PartA11yOptions {
      * readers phrase it.
      */
     checked?: boolean;
+    /**
+     * A tri-state control in its mixed state (an indeterminate checkbox):
+     * announced as `mixed` in place of checked/unchecked.
+     */
+    mixed?: boolean;
     selected?: boolean;
     /** A disclosure's state (an accordion trigger): `expanded` / `collapsed`. */
     expanded?: boolean;
@@ -45,7 +50,8 @@ export function partA11y(options: PartA11yOptions): Record<string, unknown> {
     if (options.trait) props['accessibility-trait'] = options.trait;
     if (options.label) props['accessibility-label'] = options.label;
     const status: string[] = [];
-    if (options.checked !== undefined) status.push(options.checked ? 'checked' : 'unchecked');
+    if (options.mixed) status.push('mixed');
+    else if (options.checked !== undefined) status.push(options.checked ? 'checked' : 'unchecked');
     if (options.selected) status.push('selected');
     if (options.expanded !== undefined) status.push(options.expanded ? 'expanded' : 'collapsed');
     if (options.disabled) status.push('disabled');

@@ -106,3 +106,13 @@ export type { ToggleRootProps } from './components/toggle/Toggle.js';
 export { Toggle } from './components/toggle/Toggle.js';
 export type { ToggleGroupItemProps, ToggleGroupRoot, ToggleGroupRootProps } from './components/toggle-group/ToggleGroup.js';
 export { ToggleGroup } from './components/toggle-group/ToggleGroup.js';
+
+// ── Components (zero wave 2 — forms: checkbox, checkbox-group, radio-group, #1203) ──
+export type { CheckboxRootProps } from './components/checkbox/Checkbox.js';
+export { Checkbox } from './components/checkbox/Checkbox.js';
+export type { CheckboxGroupLabelProps, CheckboxGroupRootProps } from './components/checkbox-group/CheckboxGroup.js';
+export { CheckboxGroup } from './components/checkbox-group/CheckboxGroup.js';
+export type {
+    RadioGroupItemProps, RadioGroupLabelProps, RadioGroupRoot, RadioGroupRootProps,
+} from './components/radio-group/RadioGroup.js';
+export { RadioGroup } from './components/radio-group/RadioGroup.js';

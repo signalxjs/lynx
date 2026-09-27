@@ -468,6 +468,85 @@ export const GALLERY_SCOPES = {
             };
         },
     },
+    // ── Wave 2 / W2A: checkbox, checkbox-group, radio-group (#1203) ──
+    // Selector boxes: `--size-selector * 4…8` (the SELECTOR ramp), the row
+    // gap `--space-md`, a label in `--text-xs…lg`.
+    checkbox: {
+        title: 'Checkbox',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'off', label: 'off' },
+            { id: 'on', label: 'on', props: { checked: true } },
+            { id: 'mixed', label: 'mixed', props: { indeterminate: true } },
+            { id: 'pressed', label: 'held', flags: { pressed: true }, props: { checked: true } },
+            { id: 'focus', label: 'focus', flags: { 'focus-visible': true }, props: { checked: true } },
+            { id: 'disabled', label: 'dis', props: { disabled: true } },
+            { id: 'disabled-on', label: 'dis·on', props: { disabled: true, checked: true } },
+            { id: 'readonly-on', label: 'ro·on', props: { readonly: true, checked: true } },
+            { id: 'invalid', label: 'invalid', props: { invalid: true } },
+        ],
+        // `labelled`: the label part at every size, and hideLabel.
+        extras: ['labelled'],
+        cellWidth: 44,
+        // The bare box (no label): daisy's `.checkbox` square.
+        cell: (size) => ({ width: SELECTOR[size], height: SELECTOR[size] }),
+    },
+    'checkbox-group': {
+        title: 'CheckboxGroup',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            { id: 'pressed', label: 'held', flags: { pressed: true } },
+            { id: 'focus', label: 'focus', flags: { 'focus-visible': true } },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+            { id: 'readonly', label: 'readonly', props: { readonly: true } },
+            { id: 'invalid', label: 'inv·req', props: { invalid: true, required: true } },
+        ],
+        // `parent`: the tri-state select-all box over three children (some
+        // checked → indeterminate). `horizontal`: orientation="horizontal".
+        extras: ['parent', 'horizontal'],
+        cellWidth: 58,
+        // The group label, then two boxed rows "A" / "B". The label ramps
+        // `--text-xs, xs, sm, md, lg`; the root gap is `--space-md`
+        // (`--space-sm` at xs, `--space-lg` at xl); the boxes take the
+        // group's size.
+        cell: (size) => {
+            const box = SELECTOR[size];
+            const labelFont = ramp(12, 12, 14, 16, 18)[size];
+            const boxFont = ramp(12, 14, 14, 16, 18)[size];
+            const gap = ramp(6, 8, 8, 8, 12)[size];
+            return {
+                width: Math.max(textWidth('Pick', labelFont), box + 8 + textWidth('A', boxFont)),
+                height: lineHeight(labelFont) + 2 * gap + 2 * Math.max(box, lineHeight(boxFont)),
+            };
+        },
+    },
+    'radio-group': {
+        title: 'RadioGroup',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            { id: 'pressed', label: 'held', flags: { pressed: true } },
+            { id: 'focus', label: 'focus', flags: { 'focus-visible': true } },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+            { id: 'readonly', label: 'readonly', props: { readonly: true } },
+            { id: 'invalid', label: 'invalid', props: { invalid: true } },
+        ],
+        // `labelled`: RadioGroup.Label + data mode (`items`) with a disabled
+        // item. `horizontal`: orientation="horizontal".
+        extras: ['labelled', 'horizontal'],
+        cellWidth: 58,
+        // Two items "A" (checked) / "B": the round control beside its
+        // label, rows `--space-md` apart.
+        cell: (size) => {
+            const box = SELECTOR[size];
+            const font = ramp(12, 14, 14, 16, 18)[size];
+            return {
+                width: box + 8 + textWidth('A', font),
+                height: 2 * Math.max(box, lineHeight(font)) + 8,
+            };
+        },
+    },
 } as const satisfies Record<string, GalleryScope>;
 
 export type GalleryScopeId = keyof typeof GALLERY_SCOPES;
