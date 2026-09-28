@@ -316,7 +316,13 @@ The platform spellings to know:
   (`horizontal` by default) and the root's axes are stamped on every item.
   `disabled` on the root disables every item. `invalid` and `required`
   (the props or the Field's) are root flags. There is no keyboard, so no
-  roving focus: items need no registration. There is no form, so no
+  roving focus. Lynx has no `:first-child` or `:last-child`, so the root
+  tracks its items in mount order and stamps the end items with the
+  `first` and `last` modifiers (`zx-m-first` / `zx-m-last`,
+  `data-mod-first` / `data-mod-last`). The skin uses them to round the
+  join's outer corners on the end items and to drop the first item's
+  leading seam. An item mounted later, such as a conditional one, joins
+  the end of that order wherever it sits in the row. There is no form, so no
   `hidden-input` part. There is no group role: the root carries no
   accessibility props, because an accessible root would hide its items
   from the reader on iOS. Each item is a `button`, `selected` while on,

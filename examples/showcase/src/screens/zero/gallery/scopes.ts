@@ -446,6 +446,9 @@ export const GALLERY_SCOPES = {
             { id: 'value', label: 'value', props: { value: 'Two lines\nof text' } },
             { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true }, props: { value: 'Two lines\nof text' } },
             { id: 'invalid', label: 'invalid', props: { invalid: true } },
+            // The ring's hairline takes the error edge (#1220); empty, so the
+            // floor holds under the ring too (#1219).
+            { id: 'invalid-focus', label: 'invalid·focus', flags: { 'focus-visible': true }, props: { invalid: true } },
             { id: 'disabled', label: 'disabled', props: { disabled: true, value: 'Two lines\nof text' } },
             { id: 'readonly', label: 'readonly', props: { readonly: true, value: 'Two lines\nof text' } },
         ],
@@ -519,13 +522,16 @@ export const GALLERY_SCOPES = {
         states: [
             { id: 'default', label: 'A on' },
             { id: 'none', label: 'none on', props: { value: '' } },
+            // The trailing end filled: the last item's own corners (#1218).
+            { id: 'last', label: 'C on', props: { value: 'c' } },
             { id: 'pressed', label: 'pressed (all)', flags: { pressed: true } },
             { id: 'focus', label: 'focus (all)', flags: { 'focus-visible': true } },
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
             { id: 'item-disabled', label: 'B disabled', props: { itemDisabled: true } },
             { id: 'invalid', label: 'invalid', props: { invalid: true } },
         ],
-        // `vertical`: the column join (seams on the block axis) per size.
+        // `vertical`: the column join (seams on the block axis) per size,
+        // then the ends filled — Top on, End on, and held (#1218).
         // `multiple`: an array model with two items on, and a live group.
         extras: ['vertical', 'multiple'],
         cellWidth: 163,
