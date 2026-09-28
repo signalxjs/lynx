@@ -639,6 +639,87 @@ How it behaves on lynx:
   CheckboxGroup, RadioGroup, Toggle, ToggleGroup) do not read the Fieldset
   yet ([#1208](https://github.com/signalxjs/lynx/issues/1208)).
 
+## Divider, Stats and EmptyState (zero wave 3, display)
+
+Three display components on zero's anatomies. None of them has a machine
+state or an interaction flag: they are styled containers, so the skin's
+`color` / `size` axes and the orientation are all they take.
+
+```tsx
+import { Divider, EmptyState, Stats } from '@sigx/lynx-zero';
+
+<Divider />
+<Divider.Root color="primary">
+    <Divider.Label>or</Divider.Label>
+</Divider.Root>
+
+<Stats.Root>
+    <Stats.Item>
+        <Stats.Figure><Avatar /></Stats.Figure>
+        <Stats.Title>Downloads</Stats.Title>
+        <Stats.Value>31K</Stats.Value>
+        <Stats.Desc>Jan 1 – Feb 1</Stats.Desc>
+    </Stats.Item>
+    <Stats.Item color="warning">
+        <Stats.Title>Refunds</Stats.Title>
+        <Stats.Value>31</Stats.Value>
+    </Stats.Item>
+</Stats.Root>
+
+<EmptyState.Root color="error">
+    <EmptyState.Icon><text>⚠</text></EmptyState.Icon>
+    <EmptyState.Title>Could not load your projects</EmptyState.Title>
+    <EmptyState.Description>The server did not answer. Your work is saved.</EmptyState.Description>
+    <EmptyState.Actions>
+        <Button.Root onPress={retry}><text>Try again</text></Button.Root>
+    </EmptyState.Actions>
+</EmptyState.Root>
+```
+
+| Part | Prop | Type | Default | Notes |
+|---|---|---|---|---|
+| `Divider.Root` | `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | A vertical rule stretches to its row's height. |
+| `Divider.Root` | `color` / `size` | skin axes | skin default | The ink and the thickness. |
+| `Divider.Root` | `decorative` | `boolean` | `false` | Zero parity. Lynx has no separator role to drop, so it changes nothing. |
+| `Divider.Label` | `placement` | `'start' \| 'end'` | centred | The edge the label sits flush against. |
+| `Stats.Root` | `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Mirrored onto every item. |
+| `Stats.Root` / `Stats.Item` | `color` | skin axis | skin default | The item re-carries `color`: its own value outranks the root's, for it and its bands. |
+| `Stats.Root` | `size` | skin axis | skin default | Steps the value's type size. |
+| `EmptyState.Root` | `color` / `size` | skin axes | skin default | The tone (icon ink and surface tint) and the padding/type ramp. |
+
+Every part also takes `class`.
+
+How they behave on lynx:
+
+- **Text parts are `<text>`.** `Divider.Label`, `Stats.Title` / `Value` /
+  `Desc` and `EmptyState.Title` / `Description` render as lynx `text`, so
+  they take a plain string. `Stats.Figure`, `EmptyState.Icon` and
+  `EmptyState.Actions` are views: put a `<text>` glyph, an icon or buttons
+  in them.
+- **The divider is the line.** An unlabelled `Divider.Root` is itself the
+  rule, and it is not an accessibility element. The web draws a labelled
+  divider as `::before`/`::after` segments, which lynx does not have. So
+  while a `Divider.Label` is mounted, the root draws a segment view on each
+  side of it. Each segment carries the root's own line classes plus
+  `zx-m-segment`, so it has the same ink and thickness. A `placement`
+  leaves out the segment on that side. The root is stamped `labelled`
+  (`zx-m-labelled`) and stops painting a line itself. A labelled divider is
+  read through its label's text.
+- **Stats seams and figure.** The web draws the seam between items with
+  `item + item` and places the figure in a grid column. Lynx has neither a
+  sibling selector nor grid. So the root tracks its items in mount order and
+  stamps the first one `first` (`zx-m-first`), and the skin draws every
+  other item's leading seam. An item holding a `Stats.Figure` is stamped
+  `figure` (`zx-m-figure`), and the skin pins the figure to the item's end
+  edge and keeps room for it. The room fits a 32pt figure, like daisyUI's
+  `size-8`.
+- **The label and figure stamps are set a microtask after mount.** A child
+  mounts while its parent is still rendering, so the parent only sees the
+  new child on its next render. The first frame of a labelled divider can
+  paint as a bare line.
+- **Not carried:** `asChild` on `Stats.Root` and `EmptyState.Title` (lynx has
+  no `<dl>` or heading elements to swap in).
+
 ## Alert and Card (zero wave 3)
 
 `Alert` is a message the user can dismiss: `root` / `icon` / `title` /

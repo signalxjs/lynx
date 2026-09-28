@@ -682,6 +682,80 @@ export const GALLERY_SCOPES = {
             };
         },
     },
+    // W3D (#1236): the lynx divider root IS the line (zero#375); a Label
+    // gets lynx-zero's drawn segments, and its placement drops the segment on
+    // its side. No flags or machine states in the anatomy: the states are
+    // the label forms. `vertical`: vertical rules between items, bare and
+    // labelled.
+    divider: {
+        title: 'Divider',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            { id: 'label', label: 'label', props: { label: 'or' } },
+            { id: 'start', label: 'label start', props: { label: 'or', placement: 'start' } },
+            { id: 'end', label: 'label end', props: { label: 'or', placement: 'end' } },
+        ],
+        extras: ['vertical'],
+        cellWidth: 80,
+        // A fixed 70pt rule; a Label is one --text-sm line (the rule is
+        // 1…3pt, well inside it).
+        cell: () => ({ width: 70, height: lineHeight(14) }),
+    },
+    // W3D (#1236): one stat per cell. `figure`: the lynx figure pinned to
+    // the item's end edge (no grid on lynx); `item=error`: the item
+    // re-carries color over the root's. `row` / `column`: a multi-item
+    // Stats, so the between-item seams (the `first` stamp) are seen.
+    stats: {
+        title: 'Stats',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            { id: 'figure', label: 'figure', props: { figure: true } },
+            { id: 'item', label: 'item=error', props: { itemColor: 'error' } },
+        ],
+        extras: ['row', 'column'],
+        cellWidth: 163,
+        // Item padding `--space-lg` × `--space-xl`, inside the root's
+        // border; title and desc --text-xs lines around the value
+        // (--text-lg…3xl). With a figure, the item keeps `--space-xl +
+        // --space-md + 32pt` clear at its end.
+        cell: (size) => {
+            const value = ramp(18, 20, 24, 30, 30)[size];
+            const text = Math.max(textWidth('Sales', 12), textWidth('129', value));
+            return {
+                width: 2 * BORDER + 16 + text + 16 + 8 + 32,
+                height: 2 * BORDER + 2 * 12 + 2 * lineHeight(12) + lineHeight(value),
+            };
+        },
+    },
+    // W3D (#1236): icon, title and description; `actions` adds the way-out
+    // band with an xs Button. No flags or machine states in the anatomy.
+    'empty-state': {
+        title: 'EmptyState',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            { id: 'actions', label: 'actions', props: { actions: true } },
+        ],
+        cellWidth: 163,
+        // The root's padding and gap and the parts' text sizes step with the
+        // ramp; the icon is --text-xl…2xl at leading 1 with a `--space-xs`
+        // bottom margin, the actions band a `--space-sm` top margin over an
+        // xs Button (24pt).
+        cell: (size) => {
+            const py = ramp(8, 12, 20, 30, 40)[size];
+            const px = ramp(8, 12, 16, 20, 20)[size];
+            const gap = ramp(2, 4, 6, 8, 12)[size];
+            const icon = ramp(20, 24, 24, 24, 24)[size];
+            const title = ramp(14, 16, 18, 20, 24)[size];
+            const desc = ramp(12, 12, 14, 16, 16)[size];
+            return {
+                width: 2 * px + Math.max(textWidth('Nothing yet', desc), textWidth('No items', title)),
+                height: 2 * py + icon + 4 + lineHeight(title) + lineHeight(desc) + 3 * gap + 6 + 24,
+            };
+        },
+    },
     // ── Wave 3, display (W3B #1235) ──────────────────────────────────────
     // Cells are whole alerts — icon, title, description, close — so the
     // forced states reach the close button (the one interactive part).
