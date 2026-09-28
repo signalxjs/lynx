@@ -524,15 +524,44 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
         ),
         extras: {
             vertical: () => (
-                <Row gap={12} align="flex-start">
-                    {SIZES.map((size) => (
-                        <ToggleGroup.Root key={size} orientation="vertical" size={size} defaultValue="b">
+                <Col gap={12}>
+                    <Row gap={12} align="flex-start">
+                        {SIZES.map((size) => (
+                            <ToggleGroup.Root key={size} orientation="vertical" size={size} defaultValue="b">
+                                <ToggleGroup.Item value="a"><text>Top</text></ToggleGroup.Item>
+                                <ToggleGroup.Item value="b"><text>Mid</text></ToggleGroup.Item>
+                                <ToggleGroup.Item value="c"><text>End</text></ToggleGroup.Item>
+                            </ToggleGroup.Root>
+                        ))}
+                    </Row>
+                    {/* The ends filled (#1218): the first and last items round their own corners. */}
+                    <Row gap={12} align="flex-start">
+                        <ToggleGroup.Root orientation="vertical" defaultValue="a">
                             <ToggleGroup.Item value="a"><text>Top</text></ToggleGroup.Item>
                             <ToggleGroup.Item value="b"><text>Mid</text></ToggleGroup.Item>
                             <ToggleGroup.Item value="c"><text>End</text></ToggleGroup.Item>
                         </ToggleGroup.Root>
-                    ))}
-                </Row>
+                        <ToggleGroup.Root orientation="vertical" defaultValue="c" color="secondary">
+                            <ToggleGroup.Item value="a"><text>Top</text></ToggleGroup.Item>
+                            <ToggleGroup.Item value="b"><text>Mid</text></ToggleGroup.Item>
+                            <ToggleGroup.Item value="c"><text>End</text></ToggleGroup.Item>
+                        </ToggleGroup.Root>
+                        <ForceStates flags={{ pressed: true }}>
+                            <ToggleGroup.Root orientation="vertical" defaultValue="a" color="accent">
+                                <ToggleGroup.Item value="a"><text>Top</text></ToggleGroup.Item>
+                                <ToggleGroup.Item value="b"><text>Mid</text></ToggleGroup.Item>
+                                <ToggleGroup.Item value="c"><text>End</text></ToggleGroup.Item>
+                            </ToggleGroup.Root>
+                        </ForceStates>
+                        <ForceStates flags={{ 'focus-visible': true }}>
+                            <ToggleGroup.Root orientation="vertical" defaultValue="c">
+                                <ToggleGroup.Item value="a"><text>Top</text></ToggleGroup.Item>
+                                <ToggleGroup.Item value="b"><text>Mid</text></ToggleGroup.Item>
+                                <ToggleGroup.Item value="c"><text>End</text></ToggleGroup.Item>
+                            </ToggleGroup.Root>
+                        </ForceStates>
+                    </Row>
+                </Col>
             ),
             multiple: () => (
                 <Col gap={12}>

@@ -26,6 +26,13 @@
  *   accessible element would hide its items from the reader on iOS, so the
  *   root carries no accessibility props and each item is announced as a
  *   `button`, `selected` while on.
+ * - **The join's ends are stamped.** lynx has no `:first-child` or
+ *   `:last-child`, so the root tracks its items in mount order and stamps
+ *   the end items `first` / `last` (the `zx-m-first` / `zx-m-last`
+ *   modifier classes, `data-mod-first` / `data-mod-last`): the skin rounds
+ *   their outer corners and drops the first item's leading seam
+ *   (signalxjs/lynx#1218). An item mounted later (a conditional one) joins
+ *   the END of that order, whatever its position in the row.
  *
  * Each item owns its own press feedback (a shared instance would light every
  * item at once), tier 2 by default: the touched item scales on the main
@@ -38,7 +45,7 @@
  * and deliberately has no `value` prop (`model` / `defaultValue` instead).
  */
 import type { Define, JSXElement } from '@sigx/lynx';
-import { component, compound, defineInjectable, defineProvide } from '@sigx/lynx';
+import { component, compound, defineInjectable, defineProvide, signal } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import { createControllableState, useFieldContext } from '@sigx/zero/behaviors/core';
 import type { FactoryBrands, JsxProps } from '@sigx/zero/contract/core';
@@ -60,6 +67,16 @@ interface ToggleGroupContext {
     orientation(): Orientation;
     disabled(): boolean;
     toggle(value: string): void;
+    /** Join the group's item order (mount order); returns the leave function. */
+    register(id: number): () => void;
+    /** Whether item `id` is at the join's start / end. */
+    ends(id: number): JoinEnds;
+}
+
+/** An item's place at the ends of the join — both for an only item. */
+export interface JoinEnds {
+    first: boolean;
+    last: boolean;
 }
 
 const makeInert = (): ToggleGroupContext => ({
@@ -68,7 +85,20 @@ const makeInert = (): ToggleGroupContext => ({
     orientation: () => 'horizontal',
     disabled: () => false,
     toggle: () => {},
+    register: () => () => {},
+    ends: () => ({ first: false, last: false }),
 });
+
+/** Item ids, unique across every group (only compared, never shown). */
+let nextItemId = 0;
+
+/**
+ * Where `id` sits at the ends of `order` — the pure half of the root's
+ * item tracking. An id not in the order is at neither end.
+ */
+export function toggleGroupEnds(order: readonly number[], id: number): JoinEnds {
+    return { first: order.length > 0 && order[0] === id, last: order.length > 0 && order[order.length - 1] === id };
+}
 
 const useToggleGroupContext = defineInjectable<ToggleGroupContext>(makeInert);
 
@@ -138,6 +168,9 @@ const ToggleGroupRootImpl = component<ToggleGroupRootProps>(({ props, slots, emi
     const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, {
         color: props.color, size: props.size ?? field.size(),
     }));
+    // The items in mount order, replaced (never mutated) so a join or a
+    // leave re-renders the end items.
+    const items = signal({ order: [] as number[] });
 
     const ctx: ToggleGroupContext = {
         selected,
@@ -151,6 +184,13 @@ const ToggleGroupRootImpl = component<ToggleGroupRootProps>(({ props, slots, emi
                 deselectable: props.deselectable ?? true,
             });
         },
+        register: (id) => {
+            items.order = [...items.order, id];
+            return () => {
+                items.order = items.order.filter((other) => other !== id);
+            };
+        },
+        ends: (id) => toggleGroupEnds(items.order, id),
     };
     defineProvide(useToggleGroupContext, () => ctx);
 
@@ -189,7 +229,7 @@ export type ToggleGroupItemProps =
     & Define.Prop<'label', string, false>
     & Define.Slot<'default'>;
 
-const ToggleGroupItem = component<ToggleGroupItemProps>(({ props, slots }) => {
+const ToggleGroupItem = component<ToggleGroupItemProps>(({ props, slots, onUnmounted }) => {
     const group = useToggleGroupContext();
     const axes = useVariantAxes();
     // '' is the single-mode model's "nothing pressed": an item carrying it
@@ -200,25 +240,32 @@ const ToggleGroupItem = component<ToggleGroupItemProps>(({ props, slots }) => {
     const disabled = (): boolean => !!props.disabled || group.disabled();
     const press = createPressFeedback({ isDisabled: disabled, feel: props.pressFeel !== false });
     const isOn = (): boolean => group.selected().includes(props.value);
+    const id = ++nextItemId;
+    onUnmounted(group.register(id));
 
-    return () => (
-        <view
-            {...partBag(anatomy, 'item', {
-                state: isOn() ? 'on' : 'off',
-                flags: { disabled: disabled(), selected: isOn(), pressed: press.pressed() },
-                orientation: group.orientation(),
-                ...partAxes(axes()),
-                class: props.class,
-            })}
-            {...partA11y({ trait: 'button', label: props.label, selected: isOn(), disabled: disabled() })}
-            bindtap={() => {
-                if (!disabled()) group.toggle(props.value);
-            }}
-            {...press.handlers}
-        >
-            {slots.default?.()}
-        </view>
-    );
+    return () => {
+        const ends = group.ends(id);
+        const onAxes = partAxes(axes());
+        return (
+            <view
+                {...partBag(anatomy, 'item', {
+                    state: isOn() ? 'on' : 'off',
+                    flags: { disabled: disabled(), selected: isOn(), pressed: press.pressed() },
+                    orientation: group.orientation(),
+                    ...onAxes,
+                    mods: { ...onAxes.mods, first: ends.first, last: ends.last },
+                    class: props.class,
+                })}
+                {...partA11y({ trait: 'button', label: props.label, selected: isOn(), disabled: disabled() })}
+                bindtap={() => {
+                    if (!disabled()) group.toggle(props.value);
+                }}
+                {...press.handlers}
+            >
+                {slots.default?.()}
+            </view>
+        );
+    };
 }, { name: 'ToggleGroup.Item' });
 
 export const ToggleGroup = compound(ToggleGroupRoot, {

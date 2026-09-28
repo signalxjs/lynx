@@ -12,7 +12,7 @@ import { component } from '@sigx/lynx';
 import type { Define } from '@sigx/lynx';
 import { signal } from '@sigx/lynx';
 import { Toggle, ToggleGroup } from '../src/index';
-import { toggleGroupNext, toggleGroupSelection } from '../src/components/toggle-group/ToggleGroup';
+import { toggleGroupEnds, toggleGroupNext, toggleGroupSelection } from '../src/components/toggle-group/ToggleGroup';
 import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
 
 const conforms = (container: unknown, scope: keyof typeof anatomies): void => {
@@ -309,6 +309,86 @@ describe('ToggleGroup', () => {
             expect(item._class).toContain('zx-f-pressed');
             expect(item._class).toContain('zx-f-focus-visible');
         }
+        conforms(container, 'toggle-group');
+    });
+
+    it('toggleGroupEnds: the first and last ids of the order, both for an only one', () => {
+        expect(toggleGroupEnds([4, 5, 6], 4)).toEqual({ first: true, last: false });
+        expect(toggleGroupEnds([4, 5, 6], 5)).toEqual({ first: false, last: false });
+        expect(toggleGroupEnds([4, 5, 6], 6)).toEqual({ first: false, last: true });
+        expect(toggleGroupEnds([7], 7)).toEqual({ first: true, last: true });
+        expect(toggleGroupEnds([], 1)).toEqual({ first: false, last: false });
+        expect(toggleGroupEnds([4, 5], 9)).toEqual({ first: false, last: false });
+    });
+
+    it('stamps the join\'s end items first / last, in both orientations (#1218)', () => {
+        for (const orientation of ['horizontal', 'vertical'] as const) {
+            const { container } = render(
+                <ToggleGroup.Root orientation={orientation}>
+                    <ToggleGroup.Item value="a"><text>A</text></ToggleGroup.Item>
+                    <ToggleGroup.Item value="b"><text>B</text></ToggleGroup.Item>
+                    <ToggleGroup.Item value="c"><text>C</text></ToggleGroup.Item>
+                </ToggleGroup.Root>,
+            );
+            const [a, b, c] = items(container);
+            expect(a!._class, orientation).toContain('zx-m-first');
+            expect(a!.props['data-mod-first']).toBe('');
+            expect(a!._class).not.toContain('zx-m-last');
+            expect(b!._class).not.toContain('zx-m-first');
+            expect(b!._class).not.toContain('zx-m-last');
+            expect(b!.props['data-mod-first']).toBeUndefined();
+            expect(c!._class).toContain('zx-m-last');
+            expect(c!.props['data-mod-last']).toBe('');
+            expect(c!._class).not.toContain('zx-m-first');
+            for (const item of [a, b, c]) expect(item!._class).toContain(`zx-o-${orientation}`);
+            conforms(container, 'toggle-group');
+        }
+    });
+
+    it('an only item is both ends; the ends move when an end item leaves', async () => {
+        const solo = render(
+            <ToggleGroup.Root>
+                <ToggleGroup.Item value="a"><text>A</text></ToggleGroup.Item>
+            </ToggleGroup.Root>,
+        );
+        const only = items(solo.container)[0]!;
+        expect(only._class).toContain('zx-m-first');
+        expect(only._class).toContain('zx-m-last');
+        conforms(solo.container, 'toggle-group');
+
+        const state = signal({ showFirst: true, showLast: true });
+        const Host = component(() => () => (
+            <ToggleGroup.Root>
+                {state.showFirst ? <ToggleGroup.Item value="a"><text>A</text></ToggleGroup.Item> : null}
+                <ToggleGroup.Item value="b"><text>B</text></ToggleGroup.Item>
+                <ToggleGroup.Item value="c"><text>C</text></ToggleGroup.Item>
+                {state.showLast ? <ToggleGroup.Item value="d"><text>D</text></ToggleGroup.Item> : null}
+            </ToggleGroup.Root>
+        ));
+        const { container } = render(<Host />);
+        const mods = () => items(container).map((n) => [n._class!.includes('zx-m-first'), n._class!.includes('zx-m-last')]);
+        expect(mods()).toEqual([[true, false], [false, false], [false, false], [false, true]]);
+        await act(() => { state.showFirst = false; });
+        await act(() => { state.showLast = false; });
+        expect(items(container).map((n) => n.props['data-mod-first'] !== undefined)).toEqual([true, false]);
+        expect(mods()).toEqual([[true, false], [false, true]]);
+        conforms(container, 'toggle-group');
+    });
+
+    it('forced states keep the end stamps and conform', () => {
+        const { container } = render(
+            <ForceStates flags={{ pressed: true, 'focus-visible': true }}>
+                <ToggleGroup.Root defaultValue="a">
+                    <ToggleGroup.Item value="a"><text>A</text></ToggleGroup.Item>
+                    <ToggleGroup.Item value="b"><text>B</text></ToggleGroup.Item>
+                </ToggleGroup.Root>
+            </ForceStates>,
+        );
+        const [a, b] = items(container);
+        expect(a!._class).toContain('zx-m-first');
+        expect(a!._class).toContain('zx-f-pressed');
+        expect(b!._class).toContain('zx-m-last');
+        expect(b!._class).toContain('zx-f-focus-visible');
         conforms(container, 'toggle-group');
     });
 
