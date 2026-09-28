@@ -175,7 +175,9 @@ const PaginationRoot = component<PaginationRootProps>(({ props, emit }) => {
         select: (value: number): void => {
             if (disabled()) return;
             const next = Math.min(intAtLeast(value, 1), count());
-            if (next !== state.value) state.value = next;
+            // Against the page on screen, not the raw model: an out-of-range
+            // or NaN model renders clamped, and tapping that page is no change.
+            if (next !== page()) state.value = next;
         },
         pressFeel: () => props.pressFeel !== false,
     }));

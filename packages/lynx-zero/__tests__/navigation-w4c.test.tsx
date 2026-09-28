@@ -166,6 +166,9 @@ describe('Pagination', () => {
         expect(active.textContent()).toBe('5');
         expect(active.props['accessibility-label']).toBe('Sida 5');
         expect(byPart(container, 'pagination', 'next-trigger')!.props['accessibility-label']).toBe('Nästa');
+        // Tapping the clamped page on screen is not a change.
+        await tap(active);
+        expect(page.value).toBe(99);
         await act(() => { page.value = 2; });
         expect(allParts(container, 'pagination', 'item').find((i) => i.props['data-state'] === 'active')!.textContent()).toBe('2');
         await tap(byPart(container, 'pagination', 'next-trigger')!);
