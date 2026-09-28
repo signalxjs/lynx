@@ -8,6 +8,11 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 - **`@sigx/zero` and `@sigx/zero-daisyui` pinned to 0.14.0** ([#1248](https://github.com/signalxjs/lynx/issues/1248)). 0.14.0 carries the Wave 3 (#1140) daisy lynx targets that the 0.34.0 `@sigx/lynx-zero` display scopes were waiting on: alert and card ([signalxjs/zero#431](https://github.com/signalxjs/zero/pull/431)), badge, status and kbd ([signalxjs/zero#430](https://github.com/signalxjs/zero/pull/430)), divider, stats and empty-state ([signalxjs/zero#433](https://github.com/signalxjs/zero/pull/433)), and avatar, avatar-group, skeleton, spinner and the toast indicator ([signalxjs/zero#434](https://github.com/signalxjs/zero/pull/434)). It also keeps the textarea focus ring's base-100 gap on Android ([signalxjs/zero#435](https://github.com/signalxjs/zero/pull/435)).
 
+### Fixed
+
+- **An image that fails to load no longer raises the dev client's red error screen** ([#1252](https://github.com/signalxjs/lynx/issues/1252)). On iOS every cold load of an avatar section with a dead image URL opened the full-screen error overlay (`Error when loading image`, `error_code` 399), although Avatar handled the failure and showed its fallback. `@sigx/lynx-dev-client` now treats a Lynx image resource error (code 301, or a 3xx resource error with resource type `image`) as recoverable on iOS and Android: it logs it to the `sigx dev` terminal as a warning and keeps it off the overlay. Every other error still raises the overlay. The device-error endpoint in `@sigx/lynx-plugin` accepts `level: 'warn'` for this. On the iOS simulator, `avatar/color` now paints with no overlay, and the terminal prints the image failures as `WARN`.
+- **`@sigx/lynx-zero` Dialog: a focused full-width field's ring is no longer clipped at the sides** ([#1255](https://github.com/signalxjs/lynx/issues/1255)). The dialog body has always been a `scroll-view` since #1232, and a scroll-view clips its children, so the ring, which is a box-shadow outside the field, lost its left and right bands. The body now reaches 4px (the skin's widest ring) into the panel's padding and gives it back to its content, so the content stays where it was and the ring paints on all four sides. The showcase gallery adds `dialog/field-focus`, with the field's ring forced on.
+
 ## [0.34.0] - 2026-09-28
 
 ### Added
