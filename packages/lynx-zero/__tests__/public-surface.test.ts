@@ -175,6 +175,9 @@ describe('public runtime exports', () => {
                 // ── components (zero wave 4 — navigation, W4A #1259) ──
                 'Menu',
                 'NavList',
+                // ── components (zero wave 4 — navigation, W4C #1258) ──
+                'Pagination',
+                'Steps',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',

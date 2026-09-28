@@ -36,6 +36,7 @@ import { Divider, EmptyState, Stats } from '@sigx/lynx-zero';
 import { Avatar, AvatarGroup, Skeleton, Spinner } from '@sigx/lynx-zero';
 import { Breadcrumbs, Navbar } from '@sigx/lynx-zero';
 import { Menu, NavList } from '@sigx/lynx-zero';
+import { Pagination, Steps } from '@sigx/lynx-zero';
 import { TreeView } from '@sigx/lynx-zero';
 import type { ToastItem, ToastStatus } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
@@ -43,7 +44,7 @@ import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
 import {
     BLOCK_GAP, CELL_PAD, COLORS, FRAME_PADDING, GALLERY_SCOPES, LABEL_GAP, LABEL_WIDTH, LINE_GAP, SIZES,
-    NAV_CELL_WIDTH, NAVBAR_CELL_WIDTH, TEXT_FIELD_WIDTH, gallerySections, matrixOf, parseSection,
+    NAV_CELL_WIDTH, NAVBAR_CELL_WIDTH, STEPS_RAIL_WIDTH, TEXT_FIELD_WIDTH, gallerySections, matrixOf, parseSection,
 } from './scopes.js';
 
 /** What one matrix cell renders: the swept axis value plus the state's props. */
@@ -1652,6 +1653,130 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             sidebar: () => <NavSidebar />,
         },
     },
+    pagination: {
+        cell: (c) => (
+            <Pagination.Root count={3} defaultPage={2} color={c.color} size={c.size} disabled={bool(c.props['disabled'])} />
+        ),
+        extras: {
+            // The window as it walks: the bounds (a dimmed trigger), both
+            // ellipses, the edge triggers, and the sibling/boundary counts.
+            window: () => (
+                <Col gap={14}>
+                    <text class="zg-label">page 1 of 20 · prev disabled</text>
+                    <Pagination.Root count={20} defaultPage={1} size="sm" />
+                    <text class="zg-label">page 10 of 20 · both ellipses</text>
+                    <Pagination.Root count={20} defaultPage={10} size="sm" color="secondary" />
+                    <text class="zg-label">page 20 of 20 · next disabled</text>
+                    <Pagination.Root count={20} defaultPage={20} size="sm" color="accent" />
+                    <text class="zg-label">withEdges « ‹ … › » · page 10</text>
+                    <Pagination.Root count={20} defaultPage={10} size="xs" withEdges />
+                    <text class="zg-label">siblingCount 0 · boundaryCount 2</text>
+                    <Pagination.Root count={20} defaultPage={10} size="xs" siblingCount={0} boundaryCount={2} color="neutral" />
+                    <text class="zg-label">withEdges held / focus-visible</text>
+                    <ForceStates flags={{ pressed: true }}>
+                        <Pagination.Root count={4} defaultPage={2} size="xs" withEdges color="success" />
+                    </ForceStates>
+                    <ForceStates flags={{ 'focus-visible': true }}>
+                        <Pagination.Root count={4} defaultPage={2} size="xs" withEdges color="error" />
+                    </ForceStates>
+                </Col>
+            ),
+        },
+    },
+    steps: {
+        cell: (c) => (
+            <view style={{ width: `${STEPS_RAIL_WIDTH}px` }}>
+                <Steps.Root
+                    defaultStep={str(c.props['step']) ?? 'ship'}
+                    color={c.color}
+                    size={c.size}
+                    disabled={bool(c.props['disabled'])}
+                    linear={bool(c.props['linear'])}
+                >
+                    {STEP_NAMES.map((name, index) => (
+                        <Steps.Item
+                            key={name}
+                            value={name.toLowerCase()}
+                            label={name}
+                            invalid={index === 2 && bool(c.props['invalid'])}
+                        >
+                            <Steps.Indicator><text>{String(index + 1)}</text></Steps.Indicator>
+                            <Steps.Title>{name}</Steps.Title>
+                            {index < STEP_NAMES.length - 1 ? <Steps.Separator /> : null}
+                        </Steps.Item>
+                    ))}
+                </Steps.Root>
+            </view>
+        ),
+        extras: {
+            // A vertical rail: disc, then title over description, each disc
+            // joined to the next down the side.
+            vertical: () => (
+                <Row gap={12} align="flex-start">
+                    {(['md', 'xs'] as const).map((size) => (
+                        <view key={size} style={{ width: '180px' }}>
+                            <Steps.Root orientation="vertical" defaultStep="ship" size={size}>
+                                {STEP_NAMES.map((name, index) => (
+                                    <Steps.Item key={name} value={name.toLowerCase()} label={name} invalid={size === 'xs' && index === 2}>
+                                        <Steps.Indicator><text>{String(index + 1)}</text></Steps.Indicator>
+                                        <view style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <Steps.Title>{name}</Steps.Title>
+                                            <Steps.Description>{STEP_NOTES[index]!}</Steps.Description>
+                                        </view>
+                                        {index < STEP_NAMES.length - 1 ? <Steps.Separator /> : null}
+                                    </Steps.Item>
+                                ))}
+                            </Steps.Root>
+                        </view>
+                    ))}
+                </Row>
+            ),
+            // The wizard half: the active step's panel, Back (dimmed at the
+            // first step) and Next, under a linear rail — live, so a tap
+            // walks it. Below it, the held and focus-visible triggers.
+            wizard: () => (
+                <Col gap={20}>
+                    <StepsWizard />
+                    <ForceStates flags={{ pressed: true }} parts={['prev-trigger', 'next-trigger']}>
+                        <StepsWizard start="ship" />
+                    </ForceStates>
+                    <ForceStates flags={{ 'focus-visible': true }} parts={['next-trigger']}>
+                        <StepsWizard start="pay" />
+                    </ForceStates>
+                </Col>
+            ),
+            // One colour per step (the item re-carries the axis): complete
+            // steps in their own tint, the current one filled.
+            colors: () => (
+                <Col gap={16}>
+                    {(['pay', 'ship'] as const).map((step) => (
+                        <view key={step} style={{ width: '360px' }}>
+                            <Steps.Root defaultStep={step}>
+                                {(['success', 'info', 'warning', 'error'] as const).map((color, index) => (
+                                    <Steps.Item key={color} value={['cart', 'ship', 'pay', 'done'][index]!} color={color} label={color}>
+                                        <Steps.Indicator><text>{String(index + 1)}</text></Steps.Indicator>
+                                        <Steps.Title>{color}</Steps.Title>
+                                        {index < 3 ? <Steps.Separator /> : null}
+                                    </Steps.Item>
+                                ))}
+                            </Steps.Root>
+                        </view>
+                    ))}
+                    <view style={{ width: '360px' }}>
+                        <Steps.Root defaultStep="done" color="secondary">
+                            {(['cart', 'ship', 'pay', 'done'] as const).map((value, index) => (
+                                <Steps.Item key={value} value={value} label={value} color={index === 1 ? 'error' : undefined} invalid={index === 1}>
+                                    <Steps.Indicator><text>{index === 1 ? '!' : String(index + 1)}</text></Steps.Indicator>
+                                    <Steps.Title>{value}</Steps.Title>
+                                    {index < 3 ? <Steps.Separator /> : null}
+                                </Steps.Item>
+                            ))}
+                        </Steps.Root>
+                    </view>
+                </Col>
+            ),
+        },
+    },
     'tree-view': {
         cell: (c) => (
             <TreeCell
@@ -1777,6 +1902,29 @@ const NavSidebar = component(() => {
         </view>
     );
 });
+
+const STEP_NAMES = ['Cart', 'Ship', 'Pay'] as const;
+const STEP_NOTES = ['Review the items', 'Where it goes', 'Card or invoice'] as const;
+
+/** A live linear wizard for the `wizard` extra — a tap walks it. */
+const StepsWizard = component<Define.Prop<'start', string, false>>(({ props }) => () => (
+    <view style={{ width: '360px' }}>
+        <Steps.Root defaultStep={props.start ?? 'cart'} linear>
+            {STEP_NAMES.map((name, index) => (
+                <Steps.Item key={name} value={name.toLowerCase()} label={name}>
+                    <Steps.Indicator><text>{String(index + 1)}</text></Steps.Indicator>
+                    <Steps.Title>{name}</Steps.Title>
+                    {index < STEP_NAMES.length - 1 ? <Steps.Separator /> : null}
+                </Steps.Item>
+            ))}
+            {STEP_NAMES.map((name, index) => (
+                <Steps.Content key={name} value={name.toLowerCase()}><text>{`${name}: ${STEP_NOTES[index]!}.`}</text></Steps.Content>
+            ))}
+            <Steps.PrevTrigger><text>Back</text></Steps.PrevTrigger>
+            <Steps.NextTrigger><text>Next</text></Steps.NextTrigger>
+        </Steps.Root>
+    </view>
+));
 
 /** A half-width column for the side-by-side trees (a plain view: Col/Row drop `style`). */
 const TREE_BOX = { width: '180px' };

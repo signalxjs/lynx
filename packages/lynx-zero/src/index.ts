@@ -192,6 +192,15 @@ export { Menu } from './components/menu/Menu.js';
 export type { NavListLinkProps, NavListPartProps, NavListRootProps } from './components/nav-list/NavList.js';
 export { NavList } from './components/nav-list/NavList.js';
 
+// ── Components (zero wave 4 — navigation: pagination, steps, W4C #1258) ──
+export type { PaginationRootProps, PaginationRowEntry } from './components/pagination/Pagination.js';
+export { Pagination } from './components/pagination/Pagination.js';
+export type {
+    StepsContentProps, StepsEntry, StepsItemProps, StepsPartProps, StepsPhase, StepsRootProps, StepsSeparatorProps,
+    StepsTriggerProps,
+} from './components/steps/Steps.js';
+export { Steps } from './components/steps/Steps.js';
+
 // ── Components (zero wave 4 — navigation: tree-view, W4D #1256) ─────────
 export type {
     TreeViewBranchContentProps, TreeViewBranchIndicatorProps, TreeViewBranchProps, TreeViewBranchTriggerProps,
