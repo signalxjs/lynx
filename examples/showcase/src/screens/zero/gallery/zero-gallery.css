@@ -46,3 +46,20 @@
   color: var(--color-base-content);
   background-color: var(--color-base-200);
 }
+
+/* Carousel cells (W5C #1279): a horizontal scroll-view's height is set here,
+ * so every shot lays out the same whatever the engine's sizing of it. */
+.zg-carousel-viewport {
+  height: 56px;
+}
+
+.zg-carousel-viewport-wide {
+  height: 140px;
+}
+
+.zg-slide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-base-300);
+}

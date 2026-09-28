@@ -1422,6 +1422,111 @@ How they behave on lynx:
   `aria-describedby`, which lynx cannot express. Its trigger declares no
   `pressed` or `focus-visible` flag.
 
+## Carousel and Table (zero wave 5, complex)
+
+The complex scopes of [#1279](https://github.com/signalxjs/lynx/issues/1279).
+Carousel pages through slides in a horizontal scroller. Table lays data out
+in rows and columns, with sortable headers.
+
+```tsx
+import { Carousel, Table, nextTableSort } from '@sigx/lynx-zero';
+
+<Carousel.Root model={() => state.slide}>
+    <Carousel.Viewport>
+        <Carousel.Item><image src={a} /></Carousel.Item>
+        <Carousel.Item><image src={b} /></Carousel.Item>
+    </Carousel.Viewport>
+    <Carousel.PrevTrigger />
+    <Carousel.NextTrigger />
+    <Carousel.IndicatorGroup>
+        <Carousel.Indicator index={0} />
+        <Carousel.Indicator index={1} />
+    </Carousel.IndicatorGroup>
+</Carousel.Root>
+
+<Table.Root mods={{ zebra: true }} model:sort={() => state.sort}>
+    <Table.Caption>People</Table.Caption>
+    <Table.Head>
+        <Table.Row>
+            <Table.HeaderCell sortable column="name">Name</Table.HeaderCell>
+            <Table.HeaderCell>Age</Table.HeaderCell>
+        </Table.Row>
+    </Table.Head>
+    <Table.Body>
+        {sorted(rows, state.sort).map((row) => (
+            <Table.Row key={row.id} selected={row.id === state.picked}>
+                <Table.Cell>{row.name}</Table.Cell>
+                <Table.Cell>{String(row.age)}</Table.Cell>
+            </Table.Row>
+        ))}
+    </Table.Body>
+</Table.Root>
+```
+
+| Part / prop | Type | Default | Notes |
+|---|---|---|---|
+| `Carousel.Root` `model` / `defaultIndex` | `number` | `0` | The active slide, 0-based. `indexChange` fires once per move. The index is clamped to the slides that exist. |
+| `Carousel.Root` `pressFeel` / `color` / `size` | `boolean` / skin axes | — | `pressFeel={false}` keeps the pressed flag on the triggers and dots but drops the main-thread scale. |
+| `Carousel.Viewport` | — | — | The paging `<scroll-view>`. Give it a height (`class`) when the slides have none of their own. |
+| `Carousel.Item` | — | — | One slide. It takes the viewport's measured width. |
+| `Carousel.PrevTrigger` / `Carousel.NextTrigger` `label` | `string` | `"Previous slide"` / `"Next slide"` | Content defaults to a `‹` / `›` glyph. Disabled at their bound; no wrap. |
+| `Carousel.IndicatorGroup` | — | — | The dots' row. |
+| `Carousel.Indicator` `index` / `label` | `number` / `string` | — / `"Go to slide n"` | Required `index`. The active dot is announced `selected`. |
+| `Table.Root` `columns` | `TableColumn[]` | — | Per column a `key`, `label`, `width` (`number`, `'Npx'` or `'N%'`), `align` (`start`/`center`/`end`) and `sortable`. |
+| `Table.Root` `model:sort` / `defaultSort` | `TableSort \| null` | `null` | `{ column, direction }`. `sortChange` fires on change. The runtime never re-orders rows. |
+| `Table.Root` `sortCycle` | `'two' \| 'three'` | `'two'` | `three` adds a press back to unsorted. `nextTableSort` is the same rule, exported. |
+| `Table.Root` `stack` | `boolean \| 'sm' \| 'md' \| 'lg' \| 'xl' \| '2xl'` | — | The stacked mode: `true` always, a breakpoint below that screen width (640, 768, 1024, 1280, 1536). |
+| `Table.Root` `mods` / `pressFeel` / `color` / `size` | skin mods / `boolean` / skin axes | — | daisy offers `zebra` and `hover`. |
+| `Table.Caption` / `Table.Head` / `Table.Body` / `Table.Foot` | — | — | A `Table.Head` with no children renders its header row from `columns`. |
+| `Table.Row` `selected` | `boolean` | `false` | The shared `selected` flag. |
+| `Table.HeaderCell` `sortable` / `column` / `disabled` / `label` | `boolean` / `number \| string` / `boolean` / `string` | — | A sortable cell sorts under its string `column` (or the spec column's `key`). `label` names its trigger. |
+| `Table.Cell` `column` / `colSpan` | `number \| string` / `number` | its place / `1` | `column` picks the spec entry by index or key (alignment, the stacked label). |
+
+How they behave on lynx:
+
+- **The carousel viewport is a native paging scroller.** It is a
+  `<scroll-view scroll-orientation="horizontal" paging-enabled>`, the
+  primitive `Swiper` in `@sigx/lynx-gestures` uses, so a swipe snaps slide by
+  slide with the platform's physics. A horizontal scroll-view does not
+  resolve `%` widths, so each slide takes the viewport's measured width.
+- **The model follows real scroll.** The viewport rounds its scroll offset to
+  a slide. Setting the model (a trigger, a dot or the app) glides the
+  viewport there through its `scrollTo` UI method. The slides a glide passes
+  on its way are not reported. Slides and their bounds follow mount order; a
+  slide mounted later joins the end.
+- **Triggers clamp at the bounds.** Prev on the first slide and next on the
+  last stamp `disabled` and ignore taps. Each trigger and each dot has the
+  `button` trait and its own press feedback. The dot is the `indicator` part
+  itself (the web draws it on `::before`, which lynx lacks), with a widened
+  touch area (`hit-slop`).
+- **Table rows are flex rows.** Lynx has no `<table>` and no grid. Every part
+  is a `view`, and a cell takes its column's width by its place in the row:
+  a fixed width, a `%` share, or an equal share of the slack. `colSpan`
+  covers that many columns. When every column has a pixel width, the table is
+  as wide as their sum and the root scrolls horizontally.
+- **Text content is wrapped for you.** A cell, header cell or caption given a
+  plain string renders it in a `<text>`, aligned by its column's `align`.
+- **Sorting is zero's.** A `sortable` header cell renders its content in the
+  pressable `sort-trigger` with the `sort-indicator` ▲ after it (turned for
+  descending, hidden while unsorted). The web shows the unsorted mark on
+  hover and keyboard focus. Lynx shows it while the trigger is held
+  (`zx-m-held` on the indicator). The trigger's name carries the direction
+  ("Name, sorted ascending").
+- **Zebra is stamped.** Lynx has no `:nth-child`, so the body tracks its rows
+  in mount order and stamps each even, unselected row `stripe`
+  (`zx-m-stripe`, `data-mod-stripe`). A selected row keeps its own fill.
+- **`stack` is resolved in JS**, since lynx has no `@media`. A stacked table
+  stamps `stacked` (`zx-m-stacked`) on its parts: each row becomes a block,
+  each cell a line that opens with its column's label (the `cell-label`
+  part), and the head is visually hidden rather than removed.
+- **Not carried:** the table and carousel region names, and the "n of m"
+  slide groups (lynx has no region or group roles, and marking a container
+  an accessible element hides its content on iOS); the `colgroup` / `column`
+  parts and `rowSpan` (there is no table layout to size); hover (the table's
+  `hover` mod is accepted and does nothing on touch); keyboard scrolling,
+  roving focus and `prefers-reduced-motion`. `focus-visible` is reachable
+  through `ForceStates` only, as on every lynx-zero part.
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the

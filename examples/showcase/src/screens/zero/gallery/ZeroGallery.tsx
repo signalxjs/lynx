@@ -40,6 +40,8 @@ import { Pagination, Steps } from '@sigx/lynx-zero';
 import { TreeView } from '@sigx/lynx-zero';
 import { Drawer, Tooltip } from '@sigx/lynx-zero';
 import type { DrawerMeasure, DrawerPlacement } from '@sigx/lynx-zero';
+import { Carousel, Table } from '@sigx/lynx-zero';
+import type { TableColumn, TableSort, TableSortDirection } from '@sigx/lynx-zero';
 import type { ToastItem, ToastStatus } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
@@ -47,6 +49,7 @@ import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './
 import {
     BLOCK_GAP, CELL_PAD, COLORS, FRAME_PADDING, GALLERY_SCOPES, LABEL_GAP, LABEL_WIDTH, LINE_GAP, SIZES,
     NAV_CELL_WIDTH, NAVBAR_CELL_WIDTH, STEPS_RAIL_WIDTH, TEXT_FIELD_WIDTH, gallerySections, matrixOf, parseSection,
+    CAROUSEL_CELL_WIDTH, CAROUSEL_SLIDE_HEIGHT, TABLE_CELL_WIDTH,
 } from './scopes.js';
 
 /** What one matrix cell renders: the swept axis value plus the state's props. */
@@ -2038,6 +2041,127 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             ),
         },
     },
+    carousel: {
+        cell: (c) => (
+            <view style={{ width: `${CAROUSEL_CELL_WIDTH}px` }}>
+                <Carousel.Root defaultIndex={c.props['index'] as number} color={c.color} size={c.size}>
+                    <Carousel.Viewport class="zg-carousel-viewport">
+                        {['1', '2', '3'].map((n) => (
+                            <Carousel.Item key={n}>
+                                <view class="zg-slide" style={{ height: `${CAROUSEL_SLIDE_HEIGHT}px` }}><text class="zg-label">{n}</text></view>
+                            </Carousel.Item>
+                        ))}
+                    </Carousel.Viewport>
+                    <Carousel.PrevTrigger />
+                    <Carousel.NextTrigger />
+                    <Carousel.IndicatorGroup>
+                        {[0, 1, 2].map((i) => <Carousel.Indicator key={i} index={i} />)}
+                    </Carousel.IndicatorGroup>
+                </Carousel.Root>
+            </view>
+        ),
+        extras: {
+            wide: () => <CarouselWide />,
+        },
+    },
+    table: {
+        cell: (c) => {
+            const direction = str(c.props['sort']) as TableSortDirection | undefined;
+            return (
+                <view style={{ width: `${TABLE_CELL_WIDTH}px` }}>
+                    <Table.Root
+                        color={c.color}
+                        size={c.size}
+                        defaultSort={direction ? { column: 'name', direction } : null}
+                    >
+                        <Table.Head>
+                            <Table.Row>
+                                <Table.HeaderCell sortable column="name" disabled={bool(c.props['disabled'])}>Name</Table.HeaderCell>
+                                <Table.HeaderCell>Qty</Table.HeaderCell>
+                            </Table.Row>
+                        </Table.Head>
+                        <Table.Body>
+                            <Table.Row><Table.Cell>Pear</Table.Cell><Table.Cell>3</Table.Cell></Table.Row>
+                            <Table.Row><Table.Cell>Fig</Table.Cell><Table.Cell>12</Table.Cell></Table.Row>
+                        </Table.Body>
+                    </Table.Root>
+                </view>
+            );
+        },
+        extras: {
+            // Zebra stripes the even body rows; the selected row (Kiwi)
+            // keeps its own fill over the stripe it would have had; a
+            // caption above and a foot below. Then the same held.
+            zebra: () => (
+                <Col gap={12}>
+                    <text class="zg-label">zebra · 3rd row selected · caption + foot · color=primary</text>
+                    <Table.Root mods={{ zebra: true }} color="primary">
+                        <Table.Caption>Fruit stock</Table.Caption>
+                        <Table.Head>
+                            <Table.Row>
+                                <Table.HeaderCell>Name</Table.HeaderCell>
+                                <Table.HeaderCell>Origin</Table.HeaderCell>
+                                <Table.HeaderCell>Qty</Table.HeaderCell>
+                            </Table.Row>
+                        </Table.Head>
+                        <Table.Body>
+                            {FRUIT_ROWS.map((row, i) => (
+                                <Table.Row key={row.name} selected={i === 2}>
+                                    <Table.Cell>{row.name}</Table.Cell>
+                                    <Table.Cell>{row.origin}</Table.Cell>
+                                    <Table.Cell>{String(row.qty)}</Table.Cell>
+                                </Table.Row>
+                            ))}
+                        </Table.Body>
+                        <Table.Foot>
+                            <Table.Row>
+                                <Table.Cell colSpan={2}>Total</Table.Cell>
+                                <Table.Cell>{String(FRUIT_ROWS.reduce((n, r) => n + r.qty, 0))}</Table.Cell>
+                            </Table.Row>
+                        </Table.Foot>
+                    </Table.Root>
+                    <text class="zg-label">aligned columns (end) · size=sm · color=accent, sorted desc</text>
+                    <Table.Root
+                        size="sm"
+                        color="accent"
+                        mods={{ zebra: true }}
+                        columns={FRUIT_COLUMNS}
+                        defaultSort={{ column: 'qty', direction: 'descending' }}
+                    >
+                        <Table.Head />
+                        <Table.Body>
+                            {FRUIT_ROWS.map((row) => (
+                                <Table.Row key={row.name}>
+                                    <Table.Cell>{row.name}</Table.Cell>
+                                    <Table.Cell>{row.origin}</Table.Cell>
+                                    <Table.Cell>{String(row.qty)}</Table.Cell>
+                                </Table.Row>
+                            ))}
+                        </Table.Body>
+                    </Table.Root>
+                </Col>
+            ),
+            // Stacked: each row a labelled block, the head hidden.
+            stack: () => (
+                <Col gap={12}>
+                    <text class="zg-label">stack · every row a labelled block</text>
+                    <Table.Root stack columns={FRUIT_COLUMNS}>
+                        <Table.Head />
+                        <Table.Body>
+                            {FRUIT_ROWS.slice(0, 3).map((row, i) => (
+                                <Table.Row key={row.name} selected={i === 1}>
+                                    <Table.Cell>{row.name}</Table.Cell>
+                                    <Table.Cell>{row.origin}</Table.Cell>
+                                    <Table.Cell>{String(row.qty)}</Table.Cell>
+                                </Table.Row>
+                            ))}
+                        </Table.Body>
+                    </Table.Root>
+                </Col>
+            ),
+            scroll: () => <TableScroll />,
+        },
+    },
 };
 
 /** A drawer open at mount on `placement`: title, a few links, Close. */
@@ -2071,6 +2195,102 @@ const TipOpen = component<TipOpenProps>(({ props }) => () => (
         <Tooltip.Popup><text>{props.text ?? `Tooltip · ${props.placement}`}</text><Tooltip.Arrow /></Tooltip.Popup>
     </Tooltip.Root>
 ));
+
+/** The table extras' data. */
+const FRUIT_ROWS = [
+    { name: 'Apple', origin: 'Sweden', qty: 14 },
+    { name: 'Banana', origin: 'Ecuador', qty: 32 },
+    { name: 'Kiwi', origin: 'Italy', qty: 7 },
+    { name: 'Mango', origin: 'India', qty: 21 },
+] as const;
+
+const FRUIT_COLUMNS: readonly TableColumn[] = [
+    { key: 'name', label: 'Name', sortable: true },
+    { key: 'origin', label: 'Origin' },
+    { key: 'qty', label: 'Qty', align: 'end', sortable: true },
+];
+
+/** The table `scroll` extra: fixed columns wider than the screen, sorted live by a tap. */
+const TableScroll = component(() => {
+    const st = signal({ sort: { column: 'name', direction: 'ascending' } as TableSort | null });
+    const sorted = () => {
+        const sort = st.sort;
+        if (!sort) return [...FRUIT_ROWS];
+        const key = sort.column as 'name' | 'qty';
+        const out = [...FRUIT_ROWS].sort((a, b) => (a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0));
+        return sort.direction === 'descending' ? out.reverse() : out;
+    };
+    return () => (
+        <Col gap={12}>
+            <text class="zg-label">fixed widths (520pt) · the root scrolls · tap a header to sort (three-way)</text>
+            <Table.Root
+                columns={[
+                    { key: 'name', label: 'Name', width: 140, sortable: true },
+                    { key: 'origin', label: 'Origin', width: 140 },
+                    { key: 'qty', label: 'Qty', width: 100, align: 'end', sortable: true },
+                    { key: 'note', label: 'Note', width: 140 },
+                ]}
+                sortCycle="three"
+                model:sort={() => st.sort}
+            >
+                <Table.Head />
+                <Table.Body>
+                    {sorted().map((row) => (
+                        <Table.Row key={row.name}>
+                            <Table.Cell>{row.name}</Table.Cell>
+                            <Table.Cell>{row.origin}</Table.Cell>
+                            <Table.Cell>{String(row.qty)}</Table.Cell>
+                            <Table.Cell>in stock</Table.Cell>
+                        </Table.Row>
+                    ))}
+                </Table.Body>
+            </Table.Root>
+            <text class="zg-note">{`sort: ${st.sort ? `${st.sort.column} ${st.sort.direction}` : 'none'}`}</text>
+        </Col>
+    );
+});
+
+/** The carousel `wide` extra: a full-width, live carousel. */
+const CarouselWide = component(() => {
+    const st = signal({ index: 1 });
+    return () => (
+        <Col gap={12}>
+            <text class="zg-label">four slides · color=accent · size=lg · custom labels · swipe or tap</text>
+            <Carousel.Root model={() => st.index} color="accent" size="lg">
+                <Carousel.Viewport class="zg-carousel-viewport-wide">
+                    {['One', 'Two', 'Three', 'Four'].map((n) => (
+                        <Carousel.Item key={n}>
+                            <view class="zg-slide" style={{ height: '140px' }}><text class="zg-title">{n}</text></view>
+                        </Carousel.Item>
+                    ))}
+                </Carousel.Viewport>
+                <Carousel.PrevTrigger label="Previous photo" />
+                <Carousel.NextTrigger label="Next photo" />
+                <Carousel.IndicatorGroup>
+                    {[0, 1, 2, 3].map((i) => <Carousel.Indicator key={i} index={i} />)}
+                </Carousel.IndicatorGroup>
+            </Carousel.Root>
+            <text class="zg-note">{`index: ${st.index}`}</text>
+            <text class="zg-label">last slide · held (forced) · color=error</text>
+            <ForceStates flags={{ pressed: true }}>
+                <Carousel.Root defaultIndex={3} color="error">
+                    <Carousel.Viewport class="zg-carousel-viewport">
+                        {['a', 'b', 'c', 'd'].map((n) => (
+                            <Carousel.Item key={n}>
+                                <view class="zg-slide" style={{ height: `${CAROUSEL_SLIDE_HEIGHT}px` }}><text class="zg-label">{n}</text></view>
+                            </Carousel.Item>
+                        ))}
+                    </Carousel.Viewport>
+                    <Carousel.PrevTrigger />
+                    <Carousel.NextTrigger />
+                    <Carousel.IndicatorGroup>
+                        {[0, 1, 2, 3].map((i) => <Carousel.Indicator key={i} index={i} />)}
+                    </Carousel.IndicatorGroup>
+                </Carousel.Root>
+            </ForceStates>
+        </Col>
+    );
+});
 
 /** The nav-list `sidebar` extra: two groups, a live current page. */
 const NavSidebar = component(() => {

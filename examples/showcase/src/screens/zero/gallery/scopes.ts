@@ -164,6 +164,13 @@ export const TEXT_FIELD_WIDTH = 150;
 /** The fixed width of a steps cell's rail — `ZeroGallery.tsx` renders it. */
 export const STEPS_RAIL_WIDTH = 150;
 
+/** The fixed box of a carousel cell, and its slides' height — `ZeroGallery.tsx` renders them. */
+export const CAROUSEL_CELL_WIDTH = 150;
+export const CAROUSEL_SLIDE_HEIGHT = 56;
+
+/** The fixed box of a table cell — `ZeroGallery.tsx` renders it. */
+export const TABLE_CELL_WIDTH = 150;
+
 const DEFAULT: GalleryState = { id: 'default', label: 'default' };
 const PRESSED: GalleryState = { id: 'pressed', label: 'pressed', flags: { pressed: true } };
 const FOCUS: GalleryState = { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true } };
@@ -1204,6 +1211,64 @@ export const GALLERY_SCOPES = {
         extras: ['open', 'edge', 'long-press'],
         cellWidth: 100,
         cell: fieldTrigger('Tip'),
+    },
+    // ── Wave 5 / W5C: carousel, table (#1279) ──
+    // Three slides in a fixed CAROUSEL_CELL_WIDTH box, the slide
+    // `CAROUSEL_SLIDE_HEIGHT` tall, with the prev/next circles floating on
+    // its edges and the dots under it. `first`/`last` put a trigger at its
+    // bound (disabled); the held/focus states sit on the middle slide so
+    // both triggers take them.
+    carousel: {
+        title: 'Carousel',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'first', label: 'first (prev dis)', props: { index: 0 } },
+            { id: 'middle', label: 'middle', props: { index: 1 } },
+            { id: 'last', label: 'last (next dis)', props: { index: 2 } },
+            { id: 'pressed', label: 'pressed', flags: { pressed: true }, props: { index: 1 } },
+            { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true }, props: { index: 1 } },
+        ],
+        // `wide`: a full-width carousel of four slides, custom trigger
+        // labels, a colour.
+        extras: ['wide'],
+        cellWidth: CAROUSEL_CELL_WIDTH + 13,
+        // The slide, the root's `--space-sm` gap, then the dot row — a dot
+        // is `--carousel-dot` (6, 8, 10, 12, 14) square.
+        cell: (size) => ({
+            width: CAROUSEL_CELL_WIDTH,
+            height: CAROUSEL_SLIDE_HEIGHT + 6 + ramp(6, 8, 10, 12, 14)[size],
+        }),
+    },
+    // A two-column table (Name sortable, Qty) of two rows in a fixed
+    // TABLE_CELL_WIDTH box. The sort states ride the Name trigger; held and
+    // focus reveal its unsorted mark (focus also rings the root).
+    table: {
+        title: 'Table',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'default', label: 'unsorted' },
+            { id: 'asc', label: 'sorted asc', props: { sort: 'ascending' } },
+            { id: 'desc', label: 'sorted desc', props: { sort: 'descending' } },
+            { id: 'pressed', label: 'pressed', flags: { pressed: true } },
+            { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true } },
+            { id: 'disabled', label: 'sort disabled', props: { disabled: true, sort: 'ascending' } },
+        ],
+        // `zebra`: striped rows, a selected row, caption and foot. `stack`:
+        // the stacked (labelled-block) mode. `scroll`: fixed column widths
+        // wider than the screen — the root scrolls.
+        extras: ['zebra', 'stack', 'scroll'],
+        cellWidth: TABLE_CELL_WIDTH + 13,
+        // A 1pt frame around the header row (`--text-xs`) and two body rows
+        // (`--table-font`: xs xs sm md md), each padded by the size's block
+        // padding (2, 4, 6, 8, 12) and ruled by a 1pt border.
+        cell: (size) => {
+            const pad = ramp(2, 4, 6, 8, 12)[size];
+            const font = ramp(12, 12, 14, 16, 16)[size];
+            return {
+                width: TABLE_CELL_WIDTH,
+                height: 2 * BORDER + (2 * pad + lineHeight(12) + BORDER) + 2 * (2 * pad + lineHeight(font) + BORDER),
+            };
+        },
     },
 } as const satisfies Record<string, GalleryScope>;
 
