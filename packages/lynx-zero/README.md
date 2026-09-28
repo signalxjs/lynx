@@ -439,6 +439,13 @@ import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
   (required), `disabled`, `label`; tapping the checked item is a no-op.
   `invalid` / `readonly` are restated on every item and item-control.
   **RadioGroup.Label** is the visible name.
+- On the daisy skin, a lynx checkbox draws its tick as two borders on a
+  rotated box, and draws the indeterminate mark as a bar centred in the box. The tick's
+  stroke follows the `size` axis, which the indicator part carries.
+  Checkbox and radio have no noise texture on lynx: iOS cannot decode the
+  SVG image, and lynx does not apply `clip-path`
+  ([signalxjs/zero#401](https://github.com/signalxjs/zero/issues/401);
+  ships with the `@sigx/zero-daisyui` release after 0.12.0).
 - The group roots are NOT accessibility elements — on lynx that would fold
   every box into one node — so each box or item announces itself.
 - Arrow-key roving, `focus-visible` detection and form reset are web

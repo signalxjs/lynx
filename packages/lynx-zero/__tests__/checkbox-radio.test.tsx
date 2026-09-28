@@ -93,6 +93,35 @@ describe('Checkbox', () => {
         conforms(container, 'checkbox');
     });
 
+    // The lynx tick is two borders on a rotated box and the dash a centred
+    // bar (zero#401, #1216/#1217): the stroke is a length keyed on
+    // `.zx-checkbox__indicator.zx-a-size-*`, so the indicator must carry the
+    // size axis in both mark states, at every size, standalone or sized by
+    // a group (the tri-state parent box included).
+    it('the indicator carries the size axis in both mark states at every size', async () => {
+        for (const size of ['xs', 'sm', 'md', 'lg', 'xl'] as const) {
+            for (const mark of ['checked', 'indeterminate'] as const) {
+                const { container } = render(mark === 'checked'
+                    ? <Checkbox.Root size={size} defaultChecked>Box</Checkbox.Root>
+                    : <Checkbox.Root size={size} indeterminate>Box</Checkbox.Root>);
+                const indicator = byPart(container, 'checkbox', 'indicator');
+                expect(indicator.props['data-state']).toBe(mark);
+                expect(indicator._class, `${size}/${mark}`).toContain(`zx-a-size-${size}`);
+                conforms(container, 'checkbox');
+            }
+        }
+        const { container } = render(
+            <CheckboxGroup.Root size="xl" defaultValue={['a']}>
+                <Checkbox.Root parent>All</Checkbox.Root>
+                <Checkbox.Root value="a">A</Checkbox.Root>
+                <Checkbox.Root value="b">B</Checkbox.Root>
+            </CheckboxGroup.Root>,
+        );
+        await settle();
+        expect(states(container, 'checkbox', 'indicator')).toEqual(['indeterminate', 'checked', 'unchecked']);
+        for (const node of allParts(container, 'checkbox', 'indicator')) expect(node._class).toContain('zx-a-size-xl');
+    });
+
     it('hideLabel renders no label part', () => {
         const { container } = render(<Checkbox.Root hideLabel label="Row 1">Hidden</Checkbox.Root>);
         expect(allParts(container, 'checkbox', 'label')).toHaveLength(0);

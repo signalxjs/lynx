@@ -87,3 +87,22 @@ after 0.7.0 ([signalxjs/zero#365](https://github.com/signalxjs/zero/issues/365),
 On lynx the ring shows when the `focus-visible` flag is set. `@sigx/lynx-zero`
 has no keyboard-focus detection yet, so today that is only through
 `ForceStates` (`@sigx/lynx-zero/testing`).
+
+## No noise texture and no clip-path on lynx
+
+daisy paints a fractal-noise texture (`--fx-noise`, an SVG data-URI image)
+on its checkbox and radio. iOS Lynx cannot decode an SVG data-URI
+background: the image load fails, and a dev build shows the red error
+screen. zero-kit's lynx emitter now drops every SVG data-URI image, the
+tokens that hold one and every declaration that reads such a token. The
+texture is decorative, and daisy's default strength is 0.
+
+Lynx does not apply `clip-path` either, so the emitter drops it. daisy cuts
+its checkbox tick out of a rotated square with a polygon. On lynx the skin
+draws the same L as two borders on a rotated box, and draws the
+indeterminate mark as a bar centred in the box. Both changes ship with the
+`@sigx/zero-daisyui` release after 0.12.0
+([signalxjs/zero#401](https://github.com/signalxjs/zero/issues/401),
+[#1215](https://github.com/signalxjs/lynx/issues/1215),
+[#1216](https://github.com/signalxjs/lynx/issues/1216),
+[#1217](https://github.com/signalxjs/lynx/issues/1217)).
