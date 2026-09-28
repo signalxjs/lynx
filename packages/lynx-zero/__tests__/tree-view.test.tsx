@@ -2,7 +2,8 @@
  * Zero wave 4, navigation (W4D, #1256): TreeView held to BOTH oracles
  * (anatomy + class grammar), plus the lynx wiring — tap to select / expand,
  * multiple as a tap toggle, the tri-state check model, disabled nodes, the
- * collapsed subtree kept mounted (`hidden` + display none), forced states.
+ * collapsed subtree kept mounted (`hidden` + a clipped, invisible 0×0 box —
+ * not display none, #1271), forced states.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, fireEvent, render, touch } from '@sigx/lynx-testing';
@@ -10,6 +11,7 @@ import { anatomies } from '@sigx/zero/anatomy';
 import { signal } from '@sigx/lynx';
 import { TreeView } from '../src/index';
 import { clearAxisDefaults } from '../src/contract/axis-defaults';
+import { CLOSED_CONTENT_STYLE, OPEN_CONTENT_STYLE } from '../src/components/tree-view/TreeView';
 import { createTreeRegistry, nodeCheckMark, treeSelectNext, treeSelection } from '../src/components/tree-view/TreeView';
 import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
 
@@ -135,7 +137,14 @@ describe('TreeView', () => {
         const content = partsOf(container as never, 'branch-content')[0]!;
         expect(content.props['data-state']).toBe('closed');
         expect(content.props['hidden']).toBe(true);
-        expect(content._style ?? content.props['style']).toMatchObject({ display: 'none' });
+        expect(content.props['accessibility-elements-hidden']).toBe(true);
+        expect(content.props['flatten']).toBe(false);
+        // #1271: never display none (lynx keeps painting its text) — a
+        // clipped, transparent, invisible 0×0 box out of flow instead.
+        expect(content._style ?? content.props['style']).toEqual(CLOSED_CONTENT_STYLE);
+        expect(CLOSED_CONTENT_STYLE).toMatchObject({
+            display: 'flex', position: 'absolute', width: 0, height: 0, overflow: 'hidden', opacity: 0, visibility: 'hidden',
+        });
         // Kept mounted: the nested items are in the tree.
         expect(partsOf(container as never, 'item')).toHaveLength(4);
         const indicator = partsOf(container as never, 'branch-indicator')[0]!;
@@ -165,11 +174,16 @@ describe('TreeView', () => {
         const content = partsOf(container as never, 'branch-content')[0]!;
         expect(content.props['data-state']).toBe('open');
         expect(content.props['hidden']).toBeUndefined();
-        expect(content._style ?? content.props['style']).toMatchObject({ display: 'flex' });
+        expect(content.props['accessibility-elements-hidden']).toBeUndefined();
+        expect(content._style ?? content.props['style']).toEqual(OPEN_CONTENT_STYLE);
         expect(partsOf(container as never, 'branch-indicator')[0]!.props['data-state']).toBe('open');
         await tap(row(container, 'src'));
         expect(expanded.at(-1)).toEqual([]);
         expect(row(container, 'src').props['data-state']).toBe('closed');
+        // A live collapse takes the same hidden box as a closed mount (#1271).
+        const folded = partsOf(container as never, 'branch-content')[0]!;
+        expect(folded.props['hidden']).toBe(true);
+        expect(folded._style ?? folded.props['style']).toEqual(CLOSED_CONTENT_STYLE);
     });
 
     it('a tap on a leaf selects it alone in single mode (bound model)', async () => {

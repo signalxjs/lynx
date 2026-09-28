@@ -45,9 +45,11 @@
  *   the web, and no node announces `selected`. `NodeCheckbox` catches its own
  *   tap, so it toggles the check without selecting or folding the row.
  * - **Collapsed content stays mounted.** The web keeps a closed subtree in
- *   the DOM (`hidden`) so its nodes stay registered; here the content renders
- *   with `display: none` and the same `hidden` attribute, so a collapsed
- *   branch's derived check state still sees every leaf below it.
+ *   the DOM (`hidden`) so its nodes stay registered; here the content keeps
+ *   the same `hidden` attribute and collapses to a clipped, transparent 0×0
+ *   box out of flow (not `display: none`, whose text still paints on lynx,
+ *   #1271), so a collapsed branch's derived check state still sees every
+ *   leaf below it. The closed box is hidden from accessibility too.
  * - **Glyphs are text.** The default BranchIndicator is a `<text>` part
  *   holding `›` (the anatomy's glyph) and a checked NodeCheckbox holds `✓`
  *   (`−` when indeterminate): lynx has no pseudo-elements for a skin to draw
@@ -589,10 +591,36 @@ const TreeViewBranchIndicator = component<TreeViewBranchIndicatorProps>(({ props
 
 export type TreeViewBranchContentProps = Define.Prop<'class', string, false> & Define.Slot<'default'>;
 
+/** An open branch's content: in flow, a column like any tree level. */
+export const OPEN_CONTENT_STYLE = { display: 'flex' } as const;
+
 /**
- * The subtree. Always rendered — `display: none` plus the anatomy's `hidden`
- * while closed — so a collapsed branch's nodes stay registered (see the
- * module doc).
+ * A closed branch's content (#1271): taken out of flow and collapsed to a
+ * clipped, transparent, invisible 0×0 box at the branch's origin — NOT
+ * `display: none`. On lynx a `display: none` view stops laying out but its
+ * `<text>` descendants keep painting (iOS from mount; Android once a branch
+ * folds live), so a closed branch drew its leaves' text over its own row.
+ * Each property here hides the subtree by a different route (the clip, the
+ * layer alpha, the visibility flag), so no one engine gap can leak it; the
+ * content view is kept unflattened (`flatten={false}`) so it owns the
+ * native view the clip and the alpha act on.
+ */
+export const CLOSED_CONTENT_STYLE = {
+    display: 'flex',
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0,
+    overflow: 'hidden',
+    opacity: 0,
+    visibility: 'hidden',
+} as const;
+
+/**
+ * The subtree. Always rendered — collapsed to a hidden 0×0 box (see
+ * `CLOSED_CONTENT_STYLE`) plus the anatomy's `hidden` while closed — so a
+ * collapsed branch's nodes stay registered (see the module doc).
  */
 const TreeViewBranchContent = component<TreeViewBranchContentProps>(({ props, slots }) => {
     const ctx = useTreeViewContext();
@@ -604,8 +632,9 @@ const TreeViewBranchContent = component<TreeViewBranchContentProps>(({ props, sl
         return (
             <view
                 {...partBag(anatomy, 'branch-content', { state, ...partAxes(axes()), class: props.class })}
-                {...(open ? {} : { hidden: true })}
-                style={{ display: open ? 'flex' : 'none' }}
+                {...(open ? {} : { hidden: true, 'accessibility-elements-hidden': true })}
+                flatten={false}
+                style={open ? OPEN_CONTENT_STYLE : CLOSED_CONTENT_STYLE}
             >
                 {slots.default?.()}
             </view>

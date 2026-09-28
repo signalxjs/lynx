@@ -84,7 +84,8 @@ describe('Divider', () => {
             // Decoration, not a part.
             expect(segment.props['data-part']).toBeUndefined();
             expect(segment.props['accessibility-element']).toBe(false);
-            expect(segment._style).toMatchObject({ flexGrow: 1 });
+            // Centred on the Label, not at cross-start (#1272).
+            expect(segment._style).toMatchObject({ flexGrow: 1, alignSelf: 'center' });
         }
         // The label carries its axes and the orientation for the skin's vertical padding.
         expect(classOf(label!)).toEqual(expect.arrayContaining(['zx-divider__label', 'zx-o-horizontal', 'zx-a-color-secondary']));
