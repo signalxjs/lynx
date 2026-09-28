@@ -21,7 +21,7 @@ import '@sigx/lynx-zero-daisyui/css/index.css';
 import '@sigx/lynx-zero-daisyui';
 import './zero-gallery.css';
 import type { Define, JSXElement } from '@sigx/lynx';
-import { component } from '@sigx/lynx';
+import { component, signal } from '@sigx/lynx';
 import { extendTheme, registerTheme, themeController } from '@sigx/lynx-daisyui';
 import { Screen, useFocusEffect, useNav, useParams, useSearch } from '@sigx/lynx-navigation';
 import {
@@ -30,6 +30,7 @@ import {
 } from '@sigx/lynx-zero';
 import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
 import { Field, Input, Textarea } from '@sigx/lynx-zero';
+import { Alert, Card } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
@@ -932,7 +933,119 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             ),
         },
     },
+    // ── Wave 3, display (W3B #1235) ──
+    alert: {
+        cell: (c) => (
+            <Alert.Root color={c.color} size={c.size}>
+                <Alert.Icon><text>!</text></Alert.Icon>
+                <Alert.Title>Quota</Alert.Title>
+                <Alert.Description>92% used.</Alert.Description>
+                <Alert.Close disabled={bool(c.props['closeDisabled'])} />
+            </Alert.Root>
+        ),
+        extras: {
+            // Each optional part left out in turn, then a live alert: tap ×
+            // to dismiss it (the root unmounts), "Show again" brings it back.
+            compose: () => (
+                <Col gap={10}>
+                    <Alert.Root color="info">
+                        <Alert.Title>No icon</Alert.Title>
+                        <Alert.Description>Title, description and close.</Alert.Description>
+                        <Alert.Close />
+                    </Alert.Root>
+                    <Alert.Root color="success">
+                        <Alert.Icon><text>✓</text></Alert.Icon>
+                        <Alert.Title>No close</Alert.Title>
+                        <Alert.Description>Icon, title and description.</Alert.Description>
+                    </Alert.Root>
+                    <Alert.Root color="warning">
+                        <Alert.Icon><text>!</text></Alert.Icon>
+                        <Alert.Title>Title only, with a close</Alert.Title>
+                        <Alert.Close />
+                    </Alert.Root>
+                    <Alert.Root color="error">
+                        <Alert.Icon><text>×</text></Alert.Icon>
+                        <Alert.Description>A description only: it takes the title's place beside the icon.</Alert.Description>
+                    </Alert.Root>
+                    <Alert.Root>
+                        <Alert.Title>Default (no color)</Alert.Title>
+                        <Alert.Description>The skin's own tint.</Alert.Description>
+                    </Alert.Root>
+                    <AlertLive />
+                </Col>
+            ),
+        },
+    },
+    card: {
+        cell: (c) => (
+            <Card.Root color={c.color} size={c.size}>
+                <Card.Header>
+                    <Card.Title>Report</Card.Title>
+                    <Card.Description>Updated</Card.Description>
+                </Card.Header>
+                <Card.Body><text>Body</text></Card.Body>
+            </Card.Root>
+        ),
+        extras: {
+            // A media band at the top (corners shared with the card's top)
+            // and at the bottom (its bottom corners); a flat colour block
+            // stands in for the image.
+            media: () => (
+                <Col gap={16}>
+                    <Card.Root>
+                        <Card.Media><view style={{ width: '100%', height: '96px', backgroundColor: '#7c9cbf' }} /></Card.Media>
+                        <Card.Header>
+                            <Card.Title>Media on top</Card.Title>
+                            <Card.Description>The band's top corners follow the card.</Card.Description>
+                        </Card.Header>
+                        <Card.Body><text>Body copy under the header.</text></Card.Body>
+                    </Card.Root>
+                    <Card.Root color="secondary">
+                        <Card.Header>
+                            <Card.Title>Media below</Card.Title>
+                        </Card.Header>
+                        <Card.Body><text>With a colour's top rule.</text></Card.Body>
+                        <Card.Media><view style={{ width: '100%', height: '72px', backgroundColor: '#b58fb8' }} /></Card.Media>
+                    </Card.Root>
+                </Col>
+            ),
+            // Every part at once: header, body, footer actions.
+            bands: () => (
+                <Col gap={16}>
+                    <Card.Root>
+                        <Card.Header>
+                            <Card.Title>Monthly report</Card.Title>
+                            <Card.Description>Updated 4 minutes ago</Card.Description>
+                        </Card.Header>
+                        <Card.Body><text>Revenue is up 12% on last month; three invoices are overdue.</text></Card.Body>
+                        <Card.Footer>
+                            <Button variant="ghost" size="sm"><text>Later</text></Button>
+                            <Button color="primary" size="sm"><text>Open</text></Button>
+                        </Card.Footer>
+                    </Card.Root>
+                    <Card.Root size="xs" color="accent">
+                        <Card.Body><text>A bare xs card: root and body only.</text></Card.Body>
+                    </Card.Root>
+                </Col>
+            ),
+        },
+    },
 };
+
+/** A live alert for the `compose` extra: × dismisses it, the button restores it. */
+const AlertLive = component(() => {
+    const state = signal({ open: true });
+    return () => (
+        <Col gap={6}>
+            <Alert.Root color="primary" model={() => state.open}>
+                <Alert.Icon><text>i</text></Alert.Icon>
+                <Alert.Title>Live: tap × to dismiss</Alert.Title>
+                <Alert.Close />
+            </Alert.Root>
+            {state.open ? null : <Button size="sm" onPress={() => { state.open = true; }}><text>Show again</text></Button>}
+        </Col>
+    );
+});
 
 type ToggleGroupCellProps =
     & Define.Prop<'color', string, false>

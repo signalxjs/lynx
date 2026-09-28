@@ -679,6 +679,61 @@ export const GALLERY_SCOPES = {
             };
         },
     },
+    // ── Wave 3, display (W3B #1235) ──────────────────────────────────────
+    // Cells are whole alerts — icon, title, description, close — so the
+    // forced states reach the close button (the one interactive part).
+    // `closed` unmounts the alert, so it has no cell: the `compose` extra
+    // holds a live one to dismiss and bring back.
+    alert: {
+        title: 'Alert',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            { id: 'close-pressed', label: 'close pressed', flags: { pressed: true }, parts: ['close'] },
+            { id: 'close-focus', label: 'close focus', flags: { 'focus-visible': true }, parts: ['close'] },
+            { id: 'close-disabled', label: 'close disabled', props: { closeDisabled: true } },
+        ],
+        // `compose`: the optional parts left out one at a time (no icon, no
+        // close, title only, description only), plus a live dismissable one.
+        extras: ['compose'],
+        labels: 'above',
+        cellWidth: 189,
+        // Fluid width. Padding (`--space-2xs…xl` × `--space-sm…2xl`) around
+        // the icon column (a --text-lg glyph and `--space-md`), the title
+        // over the description (both --text-sm, `--space-sm` apart), and the
+        // close button's corner (a --text-md glyph and `--space-md`).
+        cell: (size) => {
+            const py = ramp(2, 4, 8, 12, 16)[size];
+            const px = ramp(6, 8, 12, 16, 20)[size];
+            return {
+                width: 2 * px + 20 + 8 + textWidth('92% used.', 14) + 16 + 8,
+                height: 2 * py + 2 * lineHeight(14) + 6,
+            };
+        },
+    },
+    // Card has no states and no interactive part: one cell per axis value —
+    // header (title + description) over a body — and the bands the cell
+    // leaves out (media, footer) in the extras.
+    card: {
+        title: 'Card',
+        axes: { color: COLORS, size: SIZES },
+        states: [DEFAULT],
+        // `media`: a media band at the top and at the bottom (its corners
+        // follow the card's). `bands`: every part at once, footer actions
+        // included.
+        extras: ['media', 'bands'],
+        cellWidth: 163,
+        // `--card-pad` (`--space-sm, md, xl, 2xl, 2xl`) around the header
+        // (the --text-lg title, `--space-2xs`, the --text-sm description)
+        // and the body (--text-sm at 1.5 leading); a color's 3px top rule.
+        cell: (size) => {
+            const pad = ramp(6, 8, 16, 20, 20)[size];
+            return {
+                width: 2 * pad + textWidth('Report', 18),
+                height: 3 + pad + lineHeight(18) + 2 + lineHeight(14) + 2 * pad + 14 * 1.5,
+            };
+        },
+    },
 } as const satisfies Record<string, GalleryScope>;
 
 export type GalleryScopeId = keyof typeof GALLERY_SCOPES;

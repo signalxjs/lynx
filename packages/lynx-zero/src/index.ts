@@ -138,3 +138,13 @@ export type {
 export { NUMBER_INPUT_SPIN_INTERVAL, NumberInput } from './components/number-input/NumberInput.js';
 export type { FieldsetLegendProps, FieldsetRootProps } from './components/fieldset/Fieldset.js';
 export { Fieldset } from './components/fieldset/Fieldset.js';
+
+// ── Components (zero wave 3 — display: alert, card, W3B #1235) ──────────
+export type {
+    AlertCloseProps, AlertDescriptionProps, AlertIconProps, AlertRootProps, AlertTitleProps,
+} from './components/alert/Alert.js';
+export { Alert } from './components/alert/Alert.js';
+export type {
+    CardBandEnds, CardMediaProps, CardPartProps, CardRootProps, CardTextProps,
+} from './components/card/Card.js';
+export { Card } from './components/card/Card.js';
