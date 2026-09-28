@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { act, render } from '@sigx/lynx-testing';
 import { registerTheme, themeController, ThemeProvider } from '../src/index';
+import { component, onMounted } from '@sigx/lynx';
 
 const CORE = {
   'primary': '#0000ff', 'primary-content': '#ffffff',
@@ -293,5 +294,52 @@ describe('ThemeProvider CSS-backed themes (#985)', () => {
     // absent from the next op — nothing left to override the CSS rule.
     expect(host._style['--color-primary']).toBeUndefined();
     expect(host._class).toContain('cf-light');
+  });
+});
+
+describe('ThemeProvider — a theme set while the provider is still mounting (#1193)', () => {
+  beforeEach(() => {
+    registerTheme({ name: 'tpm-light', variant: 'light', colors: { ...CORE } });
+    registerTheme({
+      name: 'tpm-dark', variant: 'dark', pair: 'tpm-light',
+      colors: { ...CORE, 'base-100': '#111111', 'base-content': '#eeeeee' },
+    });
+    themeController.set('tpm-light');
+  });
+
+  // A cold deep link routes from `useLinkingNav`'s onMounted, which runs
+  // inside the root provider's first render. The routed screen pins the
+  // theme there (`useScreenTheme`), and the reactive core drops a
+  // notification to an effect that is still running, so the host kept the
+  // theme it mounted with.
+  it('a descendant pinning the theme in onMounted re-renders the host', () => {
+    const Pin = component(() => {
+      onMounted(() => themeController.set('tpm-dark'));
+      return () => <text>pin</text>;
+    });
+    const { container } = render(
+      <ThemeProvider>
+        <Pin />
+      </ThemeProvider>,
+    );
+    const host = container.children[0];
+    expect(themeController.name).toBe('tpm-dark');
+    expect(host._class).toContain('tpm-dark');
+    expect(host._style.backgroundColor).toBe('#111111');
+  });
+
+  it('a descendant pinning the theme in setup re-renders the host', () => {
+    const Pin = component(() => {
+      themeController.set('tpm-dark');
+      return () => <text>pin</text>;
+    });
+    const { container } = render(
+      <ThemeProvider>
+        <Pin />
+      </ThemeProvider>,
+    );
+    const host = container.children[0];
+    expect(host._class).toContain('tpm-dark');
+    expect(host._style['--color-base-100']).toBe('#111111');
   });
 });
