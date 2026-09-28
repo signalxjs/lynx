@@ -538,7 +538,8 @@ const TableHeaderCell = component<TableHeaderCellProps>(({ props, slots, onUnmou
         // hover/focus reveal, on a touch screen.
         const held = press.pressed() || !!forced?.['pressed'] || !!forced?.['focus-visible'];
         const text = plainText(content) ?? column?.label;
-        const label = props.label ?? text;
+        // Never an unnamed button: the column's sort name is the last resort.
+        const label = props.label ?? text ?? name;
         const spoken = state === 'none' ? label : [label, DIRECTION_WORDS[state]].filter(Boolean).join(', ');
         return (
             <view {...partBag(anatomy, 'header-cell', { ...a, state, class: props.class })} style={style}>
@@ -551,7 +552,7 @@ const TableHeaderCell = component<TableHeaderCellProps>(({ props, slots, onUnmou
                     }}
                     {...press.handlers}
                 >
-                    {asText(content, undefined)}
+                    {asText(content, column?.align)}
                     <text
                         {...partBag(anatomy, 'sort-indicator', { ...a, state, mods: { ...a.mods, held } })}
                         accessibility-element={false}

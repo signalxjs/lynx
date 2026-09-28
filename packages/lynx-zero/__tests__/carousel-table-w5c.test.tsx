@@ -510,6 +510,34 @@ describe('Table', () => {
         expect(byPart(container, 'table', 'sort-indicator')!._class).not.toContain('zx-m-held');
     });
 
+    it('a sort trigger is always named: label, text content, spec label, else the sort column', () => {
+        const { container } = render(
+            <Table.Root columns={[{ key: 'qty', align: 'end', sortable: true }, { key: 'n', label: 'Count', sortable: true }]}>
+                <Table.Head>
+                    <Table.Row>
+                        <Table.HeaderCell sortable column="qty"><view><text>#</text></view></Table.HeaderCell>
+                        <Table.HeaderCell sortable column="n" />
+                    </Table.Row>
+                </Table.Head>
+            </Table.Root>,
+        );
+        const [qty, count] = allParts(container, 'table', 'sort-trigger');
+        expect(qty!.props['accessibility-label']).toBe('qty');
+        expect(count!.props['accessibility-label']).toBe('Count');
+        conforms(container, 'table');
+    });
+
+    it('a sortable header aligns its text by its column', () => {
+        const { container } = render(
+            <Table.Root columns={[{ key: 'qty', label: 'Qty', align: 'end', sortable: true }]}>
+                <Table.Head />
+            </Table.Root>,
+        );
+        const trigger = byPart(container, 'table', 'sort-trigger')!;
+        const label = trigger.children.find((c) => c.type === 'text' && c.props['data-part'] === undefined)!;
+        expect(label._style).toMatchObject({ textAlign: 'right' });
+    });
+
     it('a sortable header needs a column name', () => {
         expect(() => render(
             <Table.Root columns={[{ label: 'A' }]}>
