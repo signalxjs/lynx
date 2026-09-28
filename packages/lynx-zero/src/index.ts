@@ -207,3 +207,13 @@ export type {
     TreeViewItemProps, TreeViewNodeCheckboxProps, TreeViewPartProps, TreeViewRoot, TreeViewRootProps,
 } from './components/tree-view/TreeView.js';
 export { TreeView } from './components/tree-view/TreeView.js';
+
+// ── Components (zero wave 5 — overlays: drawer, tooltip, W5A #1277) ──────
+export type {
+    DrawerCloseDetail, DrawerCloseProps, DrawerCloseReason, DrawerMeasure, DrawerPanelProps, DrawerPlacement,
+    DrawerRootProps, DrawerTitleProps, DrawerTriggerProps,
+} from './components/drawer/Drawer.js';
+export { Drawer } from './components/drawer/Drawer.js';
+export type { TooltipArrowProps, TooltipPopupProps, TooltipRootProps, TooltipTriggerProps } from './components/tooltip/Tooltip.js';
+export { TOOLTIP_CLOSE_DELAY, Tooltip } from './components/tooltip/Tooltip.js';
+export type { ArrowOffset } from './behaviors/position.js';

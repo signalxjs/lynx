@@ -1164,6 +1164,47 @@ export const GALLERY_SCOPES = {
             };
         },
     },
+    // ── Wave 5, overlays (W5A #1277): drawer, tooltip ───────────────────
+    // The trigger carries the axes (daisy's btn ramp, like dialog); the
+    // panel is the extras, each one open at mount and covering the screen.
+    drawer: {
+        title: 'Drawer',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'trigger', label: 'trigger' },
+            { id: 'pressed', label: 'pressed', flags: { pressed: true }, parts: ['trigger'] },
+            { id: 'focus', label: 'focus', flags: { 'focus-visible': true }, parts: ['trigger'] },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+        ],
+        // `start` / `end`: a side panel (title, links, Close), full height,
+        // 85% wide under the skin's 20rem cap. `top` / `bottom`: a block-edge
+        // sheet, full width, content-sized. `close-states`: Close held
+        // (forced pressed), focus (forced), disabled. `measure`: a start
+        // panel capped at 240pt by `measure`. `keyboard`: a bottom sheet
+        // with a field — focus it and the content lifts above the keyboard.
+        extras: ['start', 'end', 'top', 'bottom', 'close-states', 'measure', 'keyboard'],
+        cellWidth: 100,
+        cell: fieldTrigger('Open'),
+    },
+    // The trigger is daisy's btn (the tooltip's axes ride it); the anatomy
+    // declares only `disabled` on it — no pressed, no focus ring. The bubble
+    // stays daisy's neutral tooltip whatever the colour.
+    tooltip: {
+        title: 'Tooltip',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'trigger', label: 'trigger' },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+        ],
+        // `open`: four tooltips open at mount, one per side, each with its
+        // arrow at the trigger's centre (the trigger in its open state).
+        // `edge`: tooltips on triggers at the screen edges — the popup
+        // clamps inside and the arrow still points at the trigger.
+        // `long-press`: live — hold a trigger to open, lift to close.
+        extras: ['open', 'edge', 'long-press'],
+        cellWidth: 100,
+        cell: fieldTrigger('Tip'),
+    },
 } as const satisfies Record<string, GalleryScope>;
 
 /** The fixed box a navbar gallery cell gives its (fluid) bar — `ZeroGallery.tsx` renders it. */

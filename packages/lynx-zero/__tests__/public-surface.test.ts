@@ -144,6 +144,10 @@ describe('public runtime exports', () => {
                 'ToggleGroup',
                 // ── components (zero wave 4 — navigation: tree-view, W4D #1256) ──
                 'TreeView',
+                // ── components (zero wave 5 — overlays: drawer, tooltip, W5A #1277) ──
+                'Drawer',
+                'TOOLTIP_CLOSE_DELAY',
+                'Tooltip',
                 // ── components (zero wave 2 — forms, #1203) ──
                 'Checkbox',
                 'CheckboxGroup',

@@ -667,6 +667,42 @@ export interface LynxAnchorPosition {
     position(): ResolvedPosition | null;
     /** The absolute inline style for the floating element. */
     style(): Record<string, string | number>;
+    /**
+     * Where an arrow on the popup's edge points at the anchor's centre: the
+     * offset along the popup's CROSS axis (`x` on a `top*`/`bottom*` popup,
+     * `y` beside), in the popup's own coordinates — the lynx spelling of the
+     * web strategy's `--arrow-x`/`--arrow-y`. Null until both have measured.
+     */
+    arrow(padding?: number): ArrowOffset | null;
+}
+
+/** An arrow's offset along its popup edge (px from the popup's left / top). */
+export interface ArrowOffset {
+    x?: number;
+    y?: number;
+}
+
+/**
+ * The arrow offset, pure: the anchor's centre on the popup's cross axis,
+ * relative to the popup's resolved top-left, clamped `padding` px inside
+ * the popup so a popup clamped against the frame still points from its own
+ * edge (or centred, on a popup narrower than twice the padding). `anchor` and `resolved` share one coordinate space (outlet space).
+ */
+export function computeArrowOffset(
+    anchor: ElementLayout,
+    floating: Size,
+    resolved: ResolvedPosition,
+    padding = 8,
+): ArrowOffset {
+    const s = side(resolved.placement);
+    // A popup too small for the padding on both sides centres the arrow:
+    // the clamp range would otherwise collapse past its far edge.
+    const clamp = (value: number, size: number): number => (size <= 2 * padding
+        ? Math.round(size / 2)
+        : Math.round(Math.min(Math.max(value, padding), size - padding)));
+    return s === 'top' || s === 'bottom'
+        ? { x: clamp(anchor.left + anchor.width / 2 - resolved.left, floating.width) }
+        : { y: clamp(anchor.top + anchor.height / 2 - resolved.top, floating.height) };
 }
 
 export interface CreateAnchorPositionOptions extends AnchorPositionOptions {
@@ -788,6 +824,21 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
             // as a flash in the corner; off-glass reads as "not open yet".
             const at = p ? { top: `${p.top}px`, left: `${p.left}px` } : { top: '-10000px', left: '-10000px' };
             return { position: 'absolute', ...at, height: 'max-content' };
+        },
+        arrow: (padding) => {
+            const p = position();
+            const a = anchor.rect.value;
+            const f = floating.rect.value;
+            if (!p || !a || !f) return null;
+            // The anchor in outlet space, like `p` (identity without an origin).
+            const o = origin.rect();
+            const dx = o && o.width > 0 && o.height > 0 ? o.left : 0;
+            const dy = o && o.width > 0 && o.height > 0 ? o.top : 0;
+            const local: ElementLayout = {
+                top: a.top - dy, left: a.left - dx, right: a.right - dx, bottom: a.bottom - dy,
+                width: a.width, height: a.height,
+            };
+            return computeArrowOffset(local, { width: f.width, height: f.height }, p, padding);
         },
     };
 }
