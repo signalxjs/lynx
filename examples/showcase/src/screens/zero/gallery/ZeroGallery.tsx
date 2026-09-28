@@ -32,6 +32,7 @@ import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
 import { Field, Input, Textarea } from '@sigx/lynx-zero';
 import { Alert, Card } from '@sigx/lynx-zero';
 import { Badge, Kbd, Status } from '@sigx/lynx-zero';
+import { Divider, EmptyState, Stats } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
@@ -69,6 +70,18 @@ const str = (value: unknown): string | undefined => (typeof value === 'string' ?
 
 /** A text field is fluid: its cell gives it a fixed width (`TEXT_FIELD_WIDTH`). */
 const FIELD_BOX = { width: `${TEXT_FIELD_WIDTH}px` };
+
+/** A divider cell: a fixed-width box the rule spans, one label line tall. */
+const DIVIDER_CELL = { width: '70px', minHeight: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' };
+
+/** The divider `vertical` extra's rows: the rules stretch to the row's height. */
+const VERTICAL_ROW = { height: '48px', display: 'flex', flexDirection: 'row', alignItems: 'stretch', justifyContent: 'space-around' };
+
+/** A stat figure: a 32pt disc (the room the skin keeps clear beside the bands). */
+const STAT_FIGURE = {
+    width: '32px', height: '32px', borderRadius: '16px', backgroundColor: 'rgba(127,127,127,0.2)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+};
 
 /** The radio-group `labelled` extra's data: one plan disabled. */
 const PLANS = [
@@ -1137,6 +1150,131 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                 </Col>
             ),
         },
+    },
+    // W3D (#1236).
+    divider: {
+        cell: (c) => (
+            <view style={DIVIDER_CELL}>
+                {str(c.props['label']) === undefined
+                    ? <Divider.Root color={c.color} size={c.size} />
+                    : (
+                        <Divider.Root color={c.color} size={c.size}>
+                            <Divider.Label placement={str(c.props['placement']) as 'start' | 'end' | undefined}>
+                                {str(c.props['label'])}
+                            </Divider.Label>
+                        </Divider.Root>
+                    )}
+            </view>
+        ),
+        extras: {
+            // Vertical rules between items (bare, coloured, xl), then a
+            // labelled vertical rule and both placements.
+            vertical: () => (
+                <view style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <view style={VERTICAL_ROW}>
+                        <text>One</text>
+                        <Divider.Root orientation="vertical" />
+                        <text>Two</text>
+                        <Divider.Root orientation="vertical" color="primary" />
+                        <text>Three</text>
+                        <Divider.Root orientation="vertical" color="error" size="xl" />
+                        <text>Four</text>
+                    </view>
+                    <view style={{ ...VERTICAL_ROW, height: '120px' }}>
+                        <text>A</text>
+                        <Divider.Root orientation="vertical" color="secondary">
+                            <Divider.Label>or</Divider.Label>
+                        </Divider.Root>
+                        <text>B</text>
+                        <Divider.Root orientation="vertical">
+                            <Divider.Label placement="start">top</Divider.Label>
+                        </Divider.Root>
+                        <text>C</text>
+                        <Divider.Root orientation="vertical">
+                            <Divider.Label placement="end">end</Divider.Label>
+                        </Divider.Root>
+                        <text>D</text>
+                    </view>
+                    <Divider.Root color="neutral" size="lg">
+                        <Divider.Label>Continue with</Divider.Label>
+                    </Divider.Root>
+                </view>
+            ),
+        },
+    },
+    // W3D (#1236).
+    stats: {
+        cell: (c) => (
+            <Stats.Root color={c.color} size={c.size}>
+                <Stats.Item color={str(c.props['itemColor'])}>
+                    {bool(c.props['figure']) ? <Stats.Figure><view style={STAT_FIGURE}><text>$</text></view></Stats.Figure> : null}
+                    <Stats.Title>Sales</Stats.Title>
+                    <Stats.Value>129</Stats.Value>
+                    <Stats.Desc>+8%</Stats.Desc>
+                </Stats.Item>
+            </Stats.Root>
+        ),
+        extras: {
+            // Seams between items: none before the first (the `first` stamp).
+            row: () => (
+                <view style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <Stats.Root>
+                        <Stats.Item>
+                            <Stats.Figure><view style={STAT_FIGURE}><text>↓</text></view></Stats.Figure>
+                            <Stats.Title>Downloads</Stats.Title>
+                            <Stats.Value>31K</Stats.Value>
+                            <Stats.Desc>Jan 1 – Feb 1</Stats.Desc>
+                        </Stats.Item>
+                        <Stats.Item color="success">
+                            <Stats.Title>Users</Stats.Title>
+                            <Stats.Value>4,200</Stats.Value>
+                            <Stats.Desc>↗︎ 400 (22%)</Stats.Desc>
+                        </Stats.Item>
+                    </Stats.Root>
+                    <Stats.Root color="primary" size="sm">
+                        <Stats.Item><Stats.Title>A</Stats.Title><Stats.Value>1</Stats.Value></Stats.Item>
+                        <Stats.Item><Stats.Title>B</Stats.Title><Stats.Value>2</Stats.Value></Stats.Item>
+                        <Stats.Item color="error"><Stats.Title>C</Stats.Title><Stats.Value>3</Stats.Value></Stats.Item>
+                    </Stats.Root>
+                </view>
+            ),
+            column: () => (
+                <Stats.Root orientation="vertical">
+                    <Stats.Item>
+                        <Stats.Figure><view style={STAT_FIGURE}><text>↓</text></view></Stats.Figure>
+                        <Stats.Title>Downloads</Stats.Title>
+                        <Stats.Value>31K</Stats.Value>
+                        <Stats.Desc>Jan 1 – Feb 1</Stats.Desc>
+                    </Stats.Item>
+                    <Stats.Item color="warning">
+                        <Stats.Title>New registers</Stats.Title>
+                        <Stats.Value>1,200</Stats.Value>
+                        <Stats.Desc>↘︎ 90 (14%)</Stats.Desc>
+                    </Stats.Item>
+                    <Stats.Item>
+                        <Stats.Title>Users</Stats.Title>
+                        <Stats.Value>4,200</Stats.Value>
+                    </Stats.Item>
+                </Stats.Root>
+            ),
+        },
+    },
+    // W3D (#1236).
+    'empty-state': {
+        cell: (c) => (
+            <EmptyState.Root color={c.color} size={c.size}>
+                <EmptyState.Icon><text>☆</text></EmptyState.Icon>
+                <EmptyState.Title>No items</EmptyState.Title>
+                <EmptyState.Description>Nothing yet</EmptyState.Description>
+                {bool(c.props['actions'])
+                    ? (
+                        <EmptyState.Actions>
+                            <Button.Root size="xs" color={c.color}><text>Add</text></Button.Root>
+                        </EmptyState.Actions>
+                    )
+                    : null}
+            </EmptyState.Root>
+        ),
     },
 };
 

@@ -156,3 +156,11 @@ export type { StatusRootProps } from './components/status/Status.js';
 export { Status } from './components/status/Status.js';
 export type { KbdRootProps } from './components/kbd/Kbd.js';
 export { Kbd } from './components/kbd/Kbd.js';
+
+// ── Components (zero wave 3 — display: W3D, #1236) ──────────────────────
+export type { DividerLabelPlacement, DividerLabelProps, DividerRootProps } from './components/divider/Divider.js';
+export { Divider } from './components/divider/Divider.js';
+export type { StatsItemProps, StatsPartProps, StatsRootProps } from './components/stats/Stats.js';
+export { Stats } from './components/stats/Stats.js';
+export type { EmptyStatePartProps, EmptyStateRootProps } from './components/empty-state/EmptyState.js';
+export { EmptyState } from './components/empty-state/EmptyState.js';

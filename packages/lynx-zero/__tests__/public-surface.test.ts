@@ -157,6 +157,10 @@ describe('public runtime exports', () => {
                 'Badge',
                 'Kbd',
                 'Status',
+                // ── components (zero wave 3 — display: W3D, #1236) ──
+                'Divider',
+                'EmptyState',
+                'Stats',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',
@@ -230,6 +234,17 @@ describe('load-bearing signatures', () => {
         expectTypeOf(zero.Badge.Dot).toBeFunction();
         expectTypeOf(zero.Status.Root).toBeFunction();
         expectTypeOf(zero.Kbd.Root).toBeFunction();
+    });
+
+    it('Divider, Stats and EmptyState are compounds with the zero parts (W3D, #1236)', () => {
+        expectTypeOf(zero.Divider.Root).toBeFunction();
+        expectTypeOf(zero.Divider.Label).toBeFunction();
+        for (const part of ['Root', 'Item', 'Title', 'Value', 'Desc', 'Figure'] as const) {
+            expect(typeof zero.Stats[part], `Stats.${part}`).toBe('function');
+        }
+        for (const part of ['Root', 'Icon', 'Title', 'Description', 'Actions'] as const) {
+            expect(typeof zero.EmptyState[part], `EmptyState.${part}`).toBe('function');
+        }
     });
 
     it('the controller keeps the legacy handle shape', () => {
