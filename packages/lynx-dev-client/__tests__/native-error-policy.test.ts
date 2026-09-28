@@ -32,7 +32,8 @@ function between(source: string, start: string, end: string): string {
     const from = source.indexOf(start);
     expect(from, `missing ${start}`).toBeGreaterThanOrEqual(0);
     const to = source.indexOf(end, from + start.length);
-    return source.slice(from, to < 0 ? undefined : to);
+    expect(to, `missing ${end} after ${start}`).toBeGreaterThan(from);
+    return source.slice(from, to);
 }
 
 describe('native error policy (#1252)', () => {
