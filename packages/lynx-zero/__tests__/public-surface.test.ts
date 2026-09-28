@@ -166,6 +166,10 @@ describe('public runtime exports', () => {
                 'AvatarGroup',
                 'Skeleton',
                 'Spinner',
+                // ── components (zero wave 4 — navigation, W4B #1257) ──
+                'Breadcrumbs',
+                'Navbar',
+                'breadcrumbsHidden',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',
