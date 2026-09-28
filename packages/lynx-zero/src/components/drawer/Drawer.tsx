@@ -390,8 +390,9 @@ const DrawerPanel = component<DrawerPanelProps>(({ props, slots }) => {
         motionTimers = [];
     };
     let releaseKeyboard: (() => void) | null = null;
-    // STABLE identities for PortalScope (the Dialog lesson): a fresh arrow
-    // per closure run would re-render the portaled subtree every outlet turn.
+    // STABLE identities for PortalScope (the Dialog lesson): a fresh render
+    // function per closure run would re-render the portaled subtree on every
+    // outlet turn.
     const renderSlot = () => slots.default?.();
     let unregister: (() => void) | null = null;
     // A backdrop tap names its reason; a dismissal through the stack that

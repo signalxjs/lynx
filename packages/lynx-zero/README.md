@@ -1379,7 +1379,9 @@ How they behave on lynx:
   the app closes it.
 - **Tooltip: no light dismiss.** As with the web's `popover="manual"`, the
   tooltip covers nothing and takes no back press. Taps elsewhere belong to
-  the page.
+  the page. Because nothing covers the page, nothing tracks a scroll under
+  an open tooltip either: the bubble stays where it opened until it times
+  out.
 - **The arrow is placed by the component.** The web strategy writes
   `--arrow-x` / `--arrow-y`, and the recipe picks the edge from the
   popup's placement. Lynx CSS has no descendant selectors and inline custom

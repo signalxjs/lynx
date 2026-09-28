@@ -686,7 +686,7 @@ export interface ArrowOffset {
  * The arrow offset, pure: the anchor's centre on the popup's cross axis,
  * relative to the popup's resolved top-left, clamped `padding` px inside
  * the popup so a popup clamped against the frame still points from its own
- * edge. `anchor` and `resolved` share one coordinate space (outlet space).
+ * edge (or centred, on a popup narrower than twice the padding). `anchor` and `resolved` share one coordinate space (outlet space).
  */
 export function computeArrowOffset(
     anchor: ElementLayout,
@@ -695,8 +695,11 @@ export function computeArrowOffset(
     padding = 8,
 ): ArrowOffset {
     const s = side(resolved.placement);
-    const clamp = (value: number, size: number): number =>
-        Math.round(Math.min(Math.max(value, padding), Math.max(size - padding, padding)));
+    // A popup too small for the padding on both sides centres the arrow:
+    // the clamp range would otherwise collapse past its far edge.
+    const clamp = (value: number, size: number): number => (size <= 2 * padding
+        ? Math.round(size / 2)
+        : Math.round(Math.min(Math.max(value, padding), size - padding)));
     return s === 'top' || s === 'bottom'
         ? { x: clamp(anchor.left + anchor.width / 2 - resolved.left, floating.width) }
         : { y: clamp(anchor.top + anchor.height / 2 - resolved.top, floating.height) };

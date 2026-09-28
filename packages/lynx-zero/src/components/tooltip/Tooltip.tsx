@@ -193,7 +193,8 @@ const TooltipPopup = component<TooltipPopupProps>(({ props, slots }) => {
         defineProvide(useTooltipContext, () => tooltip);
         provideVariantAxes(axes);
     };
-    // Stable identities for PortalScope (the Popover lesson).
+    // A stable render function for PortalScope (the Popover lesson): a fresh
+    // one per closure run would re-render the portaled subtree every turn.
     const renderSlot = () => slots.default?.();
 
     effect(() => {

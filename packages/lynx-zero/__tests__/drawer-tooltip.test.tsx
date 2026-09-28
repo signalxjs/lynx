@@ -392,6 +392,9 @@ describe('tooltip arrow geometry (pure)', () => {
         expect(computeArrowOffset(anchor, { width: 100, height: 30 }, { top: 62, left: 70, placement: 'top' })).toEqual({ x: 50 });
         // Clamped against a screen edge: the popup sits right of centre.
         expect(computeArrowOffset(anchor, { width: 100, height: 30 }, { top: 62, left: 115, placement: 'top' })).toEqual({ x: 8 });
+        // A popup narrower than twice the padding: centred, never past its edge.
+        expect(computeArrowOffset(anchor, { width: 12, height: 30 }, { top: 62, left: 200, placement: 'top' })).toEqual({ x: 6 });
+        expect(computeArrowOffset(anchor, { width: 60, height: 6 }, { top: 90, left: 148, placement: 'right' })).toEqual({ y: 3 });
         // Beside: the offset is on y.
         expect(computeArrowOffset(anchor, { width: 60, height: 40 }, { top: 90, left: 148, placement: 'right' })).toEqual({ y: 20 });
     });
