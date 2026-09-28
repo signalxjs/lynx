@@ -100,8 +100,8 @@ texture is decorative, and daisy's default strength is 0.
 Lynx does not apply `clip-path` either, so the emitter drops it. daisy cuts
 its checkbox tick out of a rotated square with a polygon. On lynx the skin
 draws the same L as two borders on a rotated box, and draws the
-indeterminate mark as a bar centred in the box. Both changes ship with the
-`@sigx/zero-daisyui` release after 0.12.0
+indeterminate mark as a bar centred in the box. Both changes ship with
+`@sigx/zero-daisyui` 0.13.0
 ([signalxjs/zero#401](https://github.com/signalxjs/zero/issues/401),
 [#1215](https://github.com/signalxjs/lynx/issues/1215),
 [#1216](https://github.com/signalxjs/lynx/issues/1216),

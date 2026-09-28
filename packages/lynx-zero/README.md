@@ -454,7 +454,7 @@ import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
   Checkbox and radio have no noise texture on lynx: iOS cannot decode the
   SVG image, and lynx does not apply `clip-path`
   ([signalxjs/zero#401](https://github.com/signalxjs/zero/issues/401);
-  ships with the `@sigx/zero-daisyui` release after 0.12.0).
+  ships with `@sigx/zero-daisyui` 0.13.0).
 - The group roots are NOT accessibility elements — on lynx that would fold
   every box into one node — so each box or item announces itself.
 - Arrow-key roving, `focus-visible` detection and form reset are web
