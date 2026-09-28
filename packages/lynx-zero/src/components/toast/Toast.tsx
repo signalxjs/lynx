@@ -8,13 +8,13 @@
  * Presence is zero's: a toast is created `closed` and flips to `open` a
  * frame later (so the skin's closed→open transition plays), and `dismiss()`
  * flips it back to `closed` and removes it once the exit has had time to
- * play. The parts compose like zero's (`Toast.Root` / `Title` /
+ * play. The parts compose like zero's (`Toast.Root` / `Indicator` / `Title` /
  * `Description` / `Action` / `Close`); the viewport renders that stock
  * composition, and the parts also render IN PLACE, outside any viewport —
  * the state-matrix gallery draws its toasts that way.
  */
 import type { Define } from '@sigx/lynx';
-import { component, compound, defineInjectable, defineProvide, effect, signal } from '@sigx/lynx';
+import { component, compound, defineInjectable, defineProvide, effect, onMounted, onUnmounted, signal } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import { partBag } from '../../contract/part.js';
 import { partA11y } from '../../contract/a11y.js';
@@ -35,6 +35,13 @@ export interface ToastActionData {
     onPress?: () => void;
 }
 
+/**
+ * Where a toast's work stands — drawn by `Toast.Indicator`.
+ * `toaster.promise()` drives it (`loading`, then `complete` or `error`); a
+ * plain toast has none, and its indicator renders nothing.
+ */
+export type ToastStatus = 'loading' | 'complete' | 'error';
+
 export interface ToastOptions {
     title: string;
     description?: string;
@@ -44,6 +51,26 @@ export interface ToastOptions {
     color?: string;
     /** An action button, rendered before the close button. */
     action?: ToastActionData;
+    /** Work status, drawn by `Toast.Indicator`; `toaster.promise()` sets it for you. */
+    status?: ToastStatus;
+}
+
+/**
+ * One stage of a promise toast: a title alone, or the options of an
+ * ordinary toast (its `status` is the promise's to set).
+ */
+export type ToastInput = string | Omit<ToastOptions, 'status'>;
+
+export interface ToastPromiseOptions<T> {
+    /** Shown while the promise is pending — sticky, with `status: 'loading'`. */
+    loading: ToastInput;
+    /**
+     * Replaces the loading content when the promise resolves
+     * (`status: 'complete'`). A mapper that throws settles the error stage.
+     */
+    success: ToastInput | ((value: T) => ToastInput);
+    /** Replaces the loading content when the promise rejects (`status: 'error'`). */
+    error: ToastInput | ((error: unknown) => ToastInput);
 }
 
 export interface ToastItem extends ToastOptions {
@@ -56,6 +83,19 @@ export interface Toaster {
     /** The mounted toasts, oldest first — entering and exiting ones included. */
     toasts(): ToastItem[];
     show(options: ToastOptions): number;
+    /**
+     * Patch a mounted toast in place (title, description, color, action,
+     * status, duration). A new `duration` re-arms its timer from now; 0
+     * makes it sticky.
+     */
+    update(id: number, patch: Partial<ToastOptions>): void;
+    /**
+     * One toast for the life of a promise: `loading` while it is pending
+     * (sticky), then updated in place with `success` or `error` and the
+     * default duration restored (unless that stage sets its own). Returns
+     * the toast's id; a rejection is handled here, never left unhandled.
+     */
+    promise<T>(promise: PromiseLike<T>, options: ToastPromiseOptions<T>): number;
     /** Begin a toast's exit; it is removed once the exit has played. */
     dismiss(id: number): void;
     /** Drop a toast immediately, no exit. */
@@ -70,6 +110,9 @@ export interface ToasterOptions {
 /** The delay before a new toast flips `open` — one frame, so its entry transitions. */
 const ENTER_DELAY = 16;
 
+/** A toast's auto-dismiss when its options name none, in ms. */
+const DEFAULT_DURATION = 4000;
+
 let nextToastId = 1;
 
 /** The store — creatable headlessly (an app service can toast). */
@@ -78,32 +121,89 @@ export function createToaster(options: ToasterOptions = {}): Toaster {
     const state = signal<{ items: ToastItem[] }>({ items: [] });
     // Ids whose exit has begun: they never re-open, and never re-exit.
     const exiting = new Set<number>();
-    const setOpen = (id: number, open: boolean): void => {
-        state.items = state.items.map((t) => (t.id === id ? { ...t, open } : t));
+    // Each toast's pending auto-dismiss, so `update` can re-arm it.
+    const timers = new Map<number, ReturnType<typeof setTimeout>>();
+    const disarm = (id: number): void => {
+        const timer = timers.get(id);
+        if (timer !== undefined) clearTimeout(timer);
+        timers.delete(id);
+    };
+    const has = (id: number): boolean => state.items.some((t) => t.id === id);
+    const patch = (id: number, next: Partial<ToastItem>): void => {
+        state.items = state.items.map((t) => (t.id === id ? { ...t, ...next } : t));
     };
     const remove = (id: number): void => {
+        disarm(id);
         exiting.delete(id);
         state.items = state.items.filter((t) => t.id !== id);
     };
     const dismiss = (id: number): void => {
-        if (exiting.has(id) || !state.items.some((t) => t.id === id)) return;
+        if (exiting.has(id) || !has(id)) return;
+        disarm(id);
         exiting.add(id);
-        setOpen(id, false);
+        patch(id, { open: false });
         if (exitDuration === 0) remove(id);
         else setTimeout(() => remove(id), exitDuration);
     };
+    const arm = (id: number, duration: number): void => {
+        disarm(id);
+        if (duration > 0) timers.set(id, setTimeout(() => dismiss(id), duration));
+    };
+    const show = (opts: ToastOptions): number => {
+        const id = nextToastId++;
+        state.items = [...state.items, { ...opts, id, open: false }];
+        setTimeout(() => {
+            if (!exiting.has(id) && has(id)) patch(id, { open: true });
+        }, ENTER_DELAY);
+        arm(id, opts.duration ?? DEFAULT_DURATION);
+        return id;
+    };
+    const update = (id: number, next: Partial<ToastOptions>): void => {
+        if (exiting.has(id) || !has(id)) return;
+        // Only the keys the patch carries: an absent key keeps its value.
+        const defined = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined));
+        patch(id, defined);
+        if (next.duration !== undefined) arm(id, next.duration);
+    };
+    const stage = (input: ToastInput): Omit<ToastOptions, 'status'> =>
+        typeof input === 'string' ? { title: input } : input;
+    const promise = <T,>(pending: PromiseLike<T>, opts: ToastPromiseOptions<T>): number => {
+        const id = show({ ...stage(opts.loading), status: 'loading', duration: 0 });
+        const settle = (status: ToastStatus, input: Partial<Omit<ToastOptions, 'status'>>): void => {
+            // Gone before it settled (dismissed): nothing to update.
+            update(id, { ...input, duration: input.duration ?? DEFAULT_DURATION, status });
+        };
+        // The stage mappers are user code: one that throws must not turn the
+        // handled rejection back into an unhandled one.
+        const fail = (reason: unknown): void => {
+            let input: Partial<Omit<ToastOptions, 'status'>> = {};
+            try {
+                input = stage(typeof opts.error === 'function' ? opts.error(reason) : opts.error);
+            } catch {
+                // Nothing to map: the status alone moves to error.
+            }
+            settle('error', input);
+        };
+        pending.then(
+            (value) => {
+                let input: Omit<ToastOptions, 'status'>;
+                try {
+                    input = stage(typeof opts.success === 'function' ? opts.success(value) : opts.success);
+                } catch (thrown) {
+                    fail(thrown);
+                    return;
+                }
+                settle('complete', input);
+            },
+            fail,
+        );
+        return id;
+    };
     return {
         toasts: () => state.items,
-        show(opts) {
-            const id = nextToastId++;
-            state.items = [...state.items, { ...opts, id, open: false }];
-            setTimeout(() => {
-                if (!exiting.has(id) && state.items.some((t) => t.id === id)) setOpen(id, true);
-            }, ENTER_DELAY);
-            const duration = opts.duration ?? 4000;
-            if (duration > 0) setTimeout(() => dismiss(id), duration);
-            return id;
-        },
+        show,
+        update,
+        promise,
         dismiss,
         remove,
     };
@@ -133,9 +233,17 @@ const useToastViewportContext = defineInjectable<ToastViewportContext>(() => ({
 
 interface ToastItemContext {
     dismiss(): void;
+    /** The toast's work status (`undefined` for a plain toast). */
+    status(): ToastStatus | undefined;
+    /** A `Toast.Indicator` joins the toast; returns the leave function. */
+    addIndicator(): () => void;
 }
 
-const useToastItemContext = defineInjectable<ToastItemContext>(() => ({ dismiss: () => {} }));
+const useToastItemContext = defineInjectable<ToastItemContext>(() => ({
+    dismiss: () => {},
+    status: () => undefined,
+    addIndicator: () => () => {},
+}));
 
 // ── Root ──
 
@@ -151,14 +259,32 @@ export type ToastRootProps =
 
 const ToastRoot = component<ToastRootProps>(({ props, slots, emit }) => {
     const viewport = useToastViewportContext();
-    const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, {
-        color: props.color ?? props.toast?.color,
-        size: props.size ?? viewport.size(),
-    }));
+    const status = (): ToastStatus | undefined => props.toast?.status;
+    // How many Toast.Indicators this toast holds. A signal: the root's
+    // `marked` stamp renders from it.
+    const indicators = signal({ count: 0 });
+    // `marked`: an indicator is showing its mark. The lynx spelling of the
+    // web recipe's `:has(> indicator)`, stamped on every part so the skin
+    // can seat the mark beside the text.
+    const marked = (): boolean => indicators.count > 0 && status() !== undefined;
+    const axes = provideVariantAxes((): VariantAxes => {
+        const resolved = resolveVariantAxes(anatomy.scope, {
+            color: props.color ?? props.toast?.color,
+            size: props.size ?? viewport.size(),
+        });
+        return marked() ? { ...resolved, mods: { ...resolved.mods, marked: true } } : resolved;
+    });
     defineProvide(useToastItemContext, () => ({
         dismiss: () => {
             if (props.toast) viewport.dismiss(props.toast.id);
             emit('dismiss');
+        },
+        status,
+        addIndicator: () => {
+            indicators.count++;
+            return () => {
+                indicators.count = Math.max(0, indicators.count - 1);
+            };
         },
     }));
     return () => (
@@ -192,6 +318,53 @@ const ToastDescription = component<TextPartProps>(({ props, slots }) => {
         <text {...partBag(anatomy, 'description', { ...partAxes(axes()), class: props.class })}>{slots.default?.()}</text>
     );
 }, { name: 'Toast.Description' });
+
+// ── Indicator ──
+
+export type ToastIndicatorProps = Define.Prop<'class', string, false> & Define.Slot<'default'>;
+
+/**
+ * The toast's work status as a mark — `data-state` is the toast's `status`
+ * (`loading` | `complete` | `error`, which `toaster.promise()` drives). Not
+ * rendered while the toast has none. The skin draws the mark (a ring, a
+ * tick, a cross); children (an icon) are the app's own. Decorative: the
+ * title says it in words, so the mark is hidden from the reader.
+ *
+ * While it shows, the toast's parts carry the `marked` modifier
+ * (`zx-m-marked`), which the skin reads to seat the mark beside the text —
+ * lynx has no `:has()`.
+ */
+const ToastIndicator = component<ToastIndicatorProps>(({ props, slots }) => {
+    const item = useToastItemContext();
+    const axes = useVariantAxes();
+    // Joined one turn after mount: the root renders the `marked` stamp from
+    // the count, and a count its render reads must change after the pass
+    // that mounted this part, or the root never sees it. (A promise, not
+    // `queueMicrotask`: the background thread lacks it on some engines.)
+    let leave: (() => void) | null = null;
+    let alive = true;
+    onMounted(() => {
+        void Promise.resolve().then(() => {
+            if (alive) leave = item.addIndicator();
+        });
+    });
+    onUnmounted(() => {
+        alive = false;
+        leave?.();
+    });
+    return () => {
+        const status = item.status();
+        if (!status) return null;
+        return (
+            <view
+                {...partBag(anatomy, 'indicator', { state: status, ...partAxes(axes()), class: props.class })}
+                accessibility-element={false}
+            >
+                {slots.default?.()}
+            </view>
+        );
+    };
+}, { name: 'Toast.Indicator' });
 
 // ── Action / Close ──
 
@@ -263,12 +436,13 @@ const ToastClose = component<ToastCloseProps>(({ props, slots }) => {
 
 type ToastCardProps = Define.Prop<'toast', ToastItem, true>;
 
-/** The stock composition — zero's: title, description, action, close. */
+/** The stock composition — zero's: indicator, title, description, action, close. */
 const ToastCard = component<ToastCardProps>(({ props }) => {
     return () => {
         const t = props.toast;
         return (
             <ToastRoot toast={t}>
+                <ToastIndicator />
                 <ToastTitle>{t.title}</ToastTitle>
                 {t.description ? <ToastDescription>{t.description}</ToastDescription> : null}
                 {t.action
@@ -382,6 +556,7 @@ const ToastViewport = component<ToastViewportProps>(({ props }) => {
 export const Toast = compound(ToastViewport, {
     Viewport: ToastViewport,
     Root: ToastRoot,
+    Indicator: ToastIndicator,
     Title: ToastTitle,
     Description: ToastDescription,
     Action: ToastAction,

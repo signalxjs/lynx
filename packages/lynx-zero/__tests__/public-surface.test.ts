@@ -19,7 +19,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import * as zero from '../src/index';
-import type { LynxPartProps, ThemeController } from '../src/index';
+import type { LynxPartProps, ThemeController, ToastStatus, Toaster } from '../src/index';
 
 describe('public runtime exports', () => {
     it('matches the locked surface', () => {
@@ -161,6 +161,11 @@ describe('public runtime exports', () => {
                 'Divider',
                 'EmptyState',
                 'Stats',
+                // ── components (zero wave 3 — display, W3C #1237) ──
+                'Avatar',
+                'AvatarGroup',
+                'Skeleton',
+                'Spinner',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',
@@ -245,6 +250,20 @@ describe('load-bearing signatures', () => {
         for (const part of ['Root', 'Icon', 'Title', 'Description', 'Actions'] as const) {
             expect(typeof zero.EmptyState[part], `EmptyState.${part}`).toBe('function');
         }
+    });
+
+    it('the W3C display compounds carry the zero parts; toasts carry promise + status (#1196)', () => {
+        expectTypeOf(zero.Avatar.Root).toBeFunction();
+        expectTypeOf(zero.Avatar.Image).toBeFunction();
+        expectTypeOf(zero.Avatar.Fallback).toBeFunction();
+        expectTypeOf(zero.AvatarGroup.Root).toBeFunction();
+        expectTypeOf(zero.AvatarGroup.Overflow).toBeFunction();
+        expectTypeOf(zero.Skeleton.Root).toBeFunction();
+        expectTypeOf(zero.Spinner.Root).toBeFunction();
+        expectTypeOf(zero.Toast.Indicator).toBeFunction();
+        expectTypeOf<Toaster['promise']>().toBeFunction();
+        expectTypeOf<Toaster['update']>().toBeFunction();
+        expectTypeOf<ToastStatus>().toEqualTypeOf<'loading' | 'complete' | 'error'>();
     });
 
     it('the controller keeps the legacy handle shape', () => {

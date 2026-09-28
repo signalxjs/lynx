@@ -164,3 +164,14 @@ export type { StatsItemProps, StatsPartProps, StatsRootProps } from './component
 export { Stats } from './components/stats/Stats.js';
 export type { EmptyStatePartProps, EmptyStateRootProps } from './components/empty-state/EmptyState.js';
 export { EmptyState } from './components/empty-state/EmptyState.js';
+// ── Components (zero wave 3 — display: W3C, #1237) ──────────────────────
+export type { AvatarFallbackProps, AvatarImageProps, AvatarRootProps, AvatarStatus } from './components/avatar/Avatar.js';
+export { Avatar } from './components/avatar/Avatar.js';
+export type { AvatarGroupOverflowProps, AvatarGroupRootProps } from './components/avatar-group/AvatarGroup.js';
+export { AvatarGroup } from './components/avatar-group/AvatarGroup.js';
+export type { SkeletonRootProps } from './components/skeleton/Skeleton.js';
+export { Skeleton } from './components/skeleton/Skeleton.js';
+export type { SpinnerRootProps } from './components/spinner/Spinner.js';
+export { Spinner } from './components/spinner/Spinner.js';
+// Toast.Indicator + promise toasts (#1196).
+export type { ToastIndicatorProps, ToastInput, ToastPromiseOptions, ToastStatus } from './components/toast/Toast.js';

@@ -33,6 +33,8 @@ import { Field, Input, Textarea } from '@sigx/lynx-zero';
 import { Alert, Card } from '@sigx/lynx-zero';
 import { Badge, Kbd, Status } from '@sigx/lynx-zero';
 import { Divider, EmptyState, Stats } from '@sigx/lynx-zero';
+import { Avatar, AvatarGroup, Skeleton, Spinner } from '@sigx/lynx-zero';
+import type { ToastItem, ToastStatus } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
@@ -89,6 +91,21 @@ const PLANS = [
     { value: 'pro', label: 'Pro', disabled: false },
     { value: 'team', label: 'Team (sold out)', disabled: true },
 ];
+
+/**
+ * The avatar cells' sources (W3C #1237): a bundled 16×16 raster (a raster
+ * data URI decodes on both engines; loads at once), a URL that fails, and
+ * one that never answers — a non-routable address, so the image stays
+ * `loading` for the whole shot.
+ */
+const AVATAR_SRC: Record<string, string> = {
+    face: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAALUlEQVR4nGOIqflFEmKgu4Zf15aiIapqwFSNqYfOGmjvaVpGHC7vYrptEGoAAMPcDz9o76SlAAAAAElFTkSuQmCC',
+    broken: 'https://invalid.invalid/avatar.png',
+    pending: 'https://10.255.255.1/avatar.png',
+};
+
+/** An in-place toast's data carrying a promise status (#1196). */
+const statusToast = (status: ToastStatus, title: string): ToastItem => ({ id: 0, open: true, title, status });
 
 /** The render half of the registry — one entry per scope in `scopes.ts`. */
 const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
@@ -523,6 +540,27 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
         extras: {
             open: () => <ToastsOpen placement="top" />,
             bottom: () => <ToastsOpen placement="bottom" />,
+            // Promise toasts (#1196): the mark beside the text — neutral in
+            // every status, then role colours and the size ends.
+            indicator: () => (
+                <Col gap={10}>
+                    {([
+                        ['loading', 'Uploading…', undefined, undefined],
+                        ['complete', 'Uploaded', undefined, undefined],
+                        ['error', 'Upload failed', undefined, undefined],
+                        ['loading', 'Syncing…', 'primary', undefined],
+                        ['complete', 'Saved', 'success', 'lg'],
+                        ['error', 'Offline', 'error', 'xs'],
+                    ] as const).map(([status, title, color, size]) => (
+                        <Toast.Root key={`${status}-${title}`} toast={statusToast(status, title)} color={color} size={size}>
+                            <Toast.Indicator />
+                            <Toast.Title>{title}</Toast.Title>
+                            <Toast.Description>{`status: ${status}`}</Toast.Description>
+                            <Toast.Close />
+                        </Toast.Root>
+                    ))}
+                </Col>
+            ),
         },
     },
     toggle: {
@@ -1275,6 +1313,115 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     : null}
             </EmptyState.Root>
         ),
+    },
+    // ── Wave 3, display (W3C #1237) ──
+    avatar: {
+        cell: (c) => {
+            const src = str(c.props['src']);
+            return (
+                <Avatar.Root color={c.color} size={c.size}>
+                    {src ? <Avatar.Image src={AVATAR_SRC[src]} alt="Ada Lovelace" /> : null}
+                    <Avatar.Fallback><text>AL</text></Avatar.Fallback>
+                </Avatar.Root>
+            );
+        },
+        extras: {
+            // The shape axis at md and xl, image and fallback.
+            shape: () => (
+                <Col gap={14}>
+                    {(['circle', 'square', 'rounded'] as const).map((shape) => (
+                        <Row key={shape} gap={14} align="center">
+                            <text class="zg-label" style={{ width: '56px' }}>{shape}</text>
+                            <Avatar.Root shape={shape}><Avatar.Image src={AVATAR_SRC['face']!} alt="Ada" /><Avatar.Fallback><text>AL</text></Avatar.Fallback></Avatar.Root>
+                            <Avatar.Root shape={shape}><Avatar.Fallback><text>AL</text></Avatar.Fallback></Avatar.Root>
+                            <Avatar.Root shape={shape} size="xl"><Avatar.Image src={AVATAR_SRC['face']!} alt="Ada" /><Avatar.Fallback><text>AL</text></Avatar.Fallback></Avatar.Root>
+                            <Avatar.Root shape={shape} size="xl" color="accent"><Avatar.Fallback><text>AL</text></Avatar.Fallback></Avatar.Root>
+                        </Row>
+                    ))}
+                </Col>
+            ),
+        },
+    },
+    'avatar-group': {
+        cell: (c) => (
+            <AvatarGroup.Root label="Project members" color={c.color} size={c.size}>
+                {['AL', 'GH', 'KJ'].map((initials) => (
+                    <Avatar.Root key={initials}><Avatar.Fallback><text>{initials}</text></Avatar.Fallback></Avatar.Root>
+                ))}
+                <AvatarGroup.Overflow count={Number(c.props['count'] ?? 0)} />
+            </AvatarGroup.Root>
+        ),
+        extras: {
+            // A loaded face, a broken one (its fallback), an avatar that
+            // sets its own size inside an sm group, then a 12-member group.
+            mixed: () => (
+                <Col gap={18}>
+                    <AvatarGroup.Root label="Reviewers" size="sm">
+                        <Avatar.Root><Avatar.Image src={AVATAR_SRC['face']!} alt="Ada" /><Avatar.Fallback><text>AL</text></Avatar.Fallback></Avatar.Root>
+                        <Avatar.Root><Avatar.Image src={AVATAR_SRC['broken']!} alt="Grace" /><Avatar.Fallback><text>GH</text></Avatar.Fallback></Avatar.Root>
+                        <Avatar.Root size="lg" color="warning"><Avatar.Fallback><text>KJ</text></Avatar.Fallback></Avatar.Root>
+                        <AvatarGroup.Overflow count={2} />
+                    </AvatarGroup.Root>
+                    <AvatarGroup.Root label="Team" size="lg" color="secondary">
+                        {['A', 'B', 'C', 'D', 'E'].map((initials) => (
+                            <Avatar.Root key={initials}><Avatar.Fallback><text>{initials}</text></Avatar.Fallback></Avatar.Root>
+                        ))}
+                        <AvatarGroup.Overflow count={7} />
+                    </AvatarGroup.Root>
+                </Col>
+            ),
+        },
+    },
+    skeleton: {
+        cell: (c) => (
+            <view style={{ width: '96px' }}>
+                <Skeleton.Root color={c.color} size={c.size} defaultLoading={bool(c.props['loading'])}>
+                    <text style={{ fontSize: '14px' }}>Headline text</text>
+                </Skeleton.Root>
+            </view>
+        ),
+        extras: {
+            // What an app draws with it: a text line, a media block, an
+            // avatar circle — loading beside loaded.
+            shapes: () => (
+                <Col gap={16}>
+                    {[true, false].map((loading) => (
+                        <Row key={String(loading)} gap={12} align="center">
+                            <Skeleton.Root defaultLoading={loading} size="xs">
+                                <view style={{ width: '40px', height: '40px' }}><text>AL</text></view>
+                            </Skeleton.Root>
+                            <Col gap={6}>
+                                <Skeleton.Root defaultLoading={loading} size="sm"><text>Ada Lovelace</text></Skeleton.Root>
+                                <Skeleton.Root defaultLoading={loading} size="sm" color="primary"><text>Analyst, 1843</text></Skeleton.Root>
+                            </Col>
+                            <Skeleton.Root defaultLoading={loading} size="lg">
+                                <view style={{ width: '120px', height: '64px' }}><text>Media block</text></view>
+                            </Skeleton.Root>
+                        </Row>
+                    ))}
+                </Col>
+            ),
+        },
+    },
+    spinner: {
+        cell: (c) => <Spinner color={c.color} size={c.size} decorative={bool(c.props['decorative'])} />,
+        extras: {
+            // The decorative spinner beside the words that say it, at three sizes.
+            inline: () => (
+                <Col gap={14}>
+                    {(['xs', 'md', 'xl'] as const).map((size) => (
+                        <Row key={size} gap={8} align="center">
+                            <Spinner decorative size={size} />
+                            <text>{`Saving (${size})…`}</text>
+                        </Row>
+                    ))}
+                    <Row gap={8} align="center">
+                        <Spinner label="Uploading photos" color="accent" />
+                        <text>labelled: "Uploading photos"</text>
+                    </Row>
+                </Col>
+            ),
+        },
     },
 };
 
