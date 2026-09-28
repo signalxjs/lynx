@@ -53,6 +53,8 @@ public class MultiPostProcessor implements Postprocessor {
       return CloseableReference.cloneOrNull(nextBitmap);
     } finally {
       CloseableReference.closeSafely(nextBitmap);
+      // sigx: the last iteration's clone is otherwise never closed.
+      CloseableReference.closeSafely(prevBitmap);
     }
   }
 

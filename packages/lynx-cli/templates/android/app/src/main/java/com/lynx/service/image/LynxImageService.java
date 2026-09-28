@@ -168,6 +168,13 @@ public class LynxImageService implements ILynxImageService, ILynxImageServiceExt
       ImageRequestInfo imageRequestInfo, ImageLoadListener loadListener,
       AnimationListener animationListener) {
     CloseableReference<CloseableImage> reference = dataSource.getResult();
+    // sigx: getResult() is null when the source finished without an image; report
+    // it rather than NPE-ing on reference.get().
+    if (reference == null) {
+      loadListener.onFailure(LynxSubErrorCode.E_RESOURCE_IMAGE_PIC_SOURCE,
+          new Throwable("image load finished without a result"));
+      return;
+    }
     try {
       CloseableImage image = reference.get();
       boolean isAnim = false;
@@ -183,9 +190,9 @@ public class LynxImageService implements ILynxImageService, ILynxImageServiceExt
       loadListener.onSuccess(
           content, imageRequestInfo, new ImageInfo(image.getWidth(), image.getHeight(), isAnim));
     } catch (Exception exception) {
-      CloseableReference.closeSafely(reference);
       loadListener.onFailure(LynxSubErrorCode.E_RESOURCE_IMAGE_PIC_SOURCE, exception);
     } finally {
+      // sigx: close our reference exactly once (the content above holds clones).
       CloseableReference.closeSafely(reference);
     }
   }
@@ -376,12 +383,16 @@ public class LynxImageService implements ILynxImageService, ILynxImageServiceExt
             protected void onNewResultImpl(
                 DataSource<CloseableReference<CloseableImage>> dataSource) {
               CloseableReference<CloseableImage> reference = dataSource.getResult();
-              FrescoReleasableImage closeableBitmap = new FrescoReleasableImage(reference);
-              Bitmap bitmap = closeableBitmap.getBitmap();
+              // sigx: one wrapper owns `reference` and goes to the listener, which
+              // releases it; on failure the reference is closed here instead of
+              // leaking (a null result lands in the failure branch too).
+              FrescoReleasableImage image = new FrescoReleasableImage(reference);
+              Bitmap bitmap = image.getBitmap();
               if (bitmap != null) {
-                listener.onSuccess(new ImageContent(new FrescoReleasableImage(reference)),
-                    imageRequestInfo, new ImageInfo(bitmap.getWidth(), bitmap.getHeight(), false));
+                listener.onSuccess(new ImageContent(image), imageRequestInfo,
+                    new ImageInfo(bitmap.getWidth(), bitmap.getHeight(), false));
               } else {
+                image.release();
                 listener.onFailure(ImageErrorCodeUtils.LYNX_IMAGE_UNKNOWN_EXCEPTION,
                     new Throwable("empty bitmap!"));
               }
