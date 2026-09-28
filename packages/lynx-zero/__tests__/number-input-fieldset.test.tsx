@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, touch } from '@sigx/lynx-testing';
 import type { TestNode } from '@sigx/lynx-testing';
 import { anatomies } from '@sigx/zero/anatomy';
-import { component, signal } from '@sigx/lynx';
+import { OP, component, signal, takeOps } from '@sigx/lynx';
 import { Field, Fieldset, NumberInput } from '../src/index';
 import { clamp, parseDecimal, precisionOf, snapToStep, stepToward } from '../src/components/number-input/number';
 import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
@@ -39,6 +39,10 @@ const fire = (node: TestNode, key: string, event: unknown = {}): void => {
     handler(event);
 };
 const type = (input: TestNode, value: string): void => fire(input, 'bindinput', { detail: { value } });
+
+/** Whether the op stream carries `INVOKE_UI_METHOD <id> focus`. */
+const hasFocusOp = (ops: unknown[], id: number): boolean =>
+    ops.some((op, i) => op === OP.INVOKE_UI_METHOD && ops[i + 1] === id && ops[i + 2] === 'focus');
 
 interface NIProps {
     [key: string]: unknown;
@@ -114,6 +118,24 @@ describe('NumberInput', () => {
         expect(nip(b, 'input').props['type']).toBe('number');
         const { container: c } = render(<Full />);
         expect(nip(c, 'input').props['type']).toBe('number');
+    });
+
+    it('a custom format renders a text field, so the formatted text is not filtered away (#1221)', async () => {
+        // Lynx's digit/number fields run every write — setValue included —
+        // through their numeric key listener, which rejects "25 %" outright.
+        const { container } = render(<Full min={0} max={100} step={5} defaultValue={25} format={(v: number) => `${v} %`} />);
+        const input = nip(container, 'input');
+        expect(input.props['type']).toBe('text');
+        expect(input.props['value']).toBe('25 %');
+        await act(() => fire(nip(container, 'increment-trigger'), 'catchtap'));
+        expect(nip(container, 'input').props['value']).toBe('30 %');
+        await act(() => fire(nip(container, 'decrement-trigger'), 'catchtap'));
+        await act(() => fire(nip(container, 'decrement-trigger'), 'catchtap'));
+        expect(nip(container, 'input').props['value']).toBe('20 %');
+        // A typed commit shows formatted again once the draft is gone.
+        await act(() => type(nip(container, 'input'), '45'));
+        await act(() => fire(nip(container, 'input'), 'bindblur'));
+        expect(nip(container, 'input').props['value']).toBe('45 %');
     });
 
     it('steps with the triggers, clamps at the bounds and disables the spent trigger', async () => {
@@ -324,6 +346,18 @@ describe('NumberInput', () => {
         input.invoke = (m: string) => { calls.push(m); };
         await act(() => fire(byPart(container, 'field', 'label'), 'bindtap'));
         expect(calls).toEqual(['focus']);
+    });
+
+    it('on the background thread (a ShadowElement ref: an id, no invoke) focus rides the INVOKE_UI_METHOD op (#1223)', async () => {
+        const { container } = render(<Full defaultValue={1} />);
+        const input = nip(container, 'input') as unknown as { id?: number; invoke?: unknown };
+        delete input.invoke;
+        input.id = 4242;
+        takeOps();
+        fire(nip(container, 'label'), 'bindtap');
+        expect(hasFocusOp(takeOps(), 4242)).toBe(true);
+        fire(nip(container, 'control'), 'bindtap');
+        expect(hasFocusOp(takeOps(), 4242)).toBe(true);
     });
 
     it('a disabled control does not take focus', async () => {

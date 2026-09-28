@@ -514,6 +514,9 @@ The platform spellings to know:
 - **Taps focus through the UI method.** Lynx has no `<label for>` and no
   `element.focus()`: a tap on a `Label`, on Input's `control` padding or an
   adornment, or on Textarea's box invokes the native field's `focus` method.
+  From the background thread that call rides the runtime's
+  `INVOKE_UI_METHOD` op, the path `setValue` takes, because a callback
+  `ref` there is a ShadowElement with no `invoke` of its own.
   `Field.Label` focuses the first control that registered with the Field
   (zero's `FieldContext.report` seam). The triggers use `catchtap`, so a
   trigger press never also lands on the control.
@@ -586,8 +589,12 @@ How it behaves on lynx:
 - **The native input.** The visible text rides the `value` attribute. The
   runtime turns a step or a reformatting commit into the element's
   `setValue`, and skips the echo of the user's own typing, so the caret
-  stays put. `type` is `digit` when `min >= 0` and `number` otherwise.
-  Unset `placeholder` / `label` are left off the element, never sent as
+  stays put. `type` is `digit` when `min >= 0` and `number` otherwise,
+  and `text` when you pass a custom `format`. Lynx's `digit` and `number`
+  fields run every write, `setValue` included, through a numeric key
+  filter, so formatted text like `25 %` could never show in one. The cost
+  is the full keyboard in place of the number pad, so pass a `parse` that
+  reads your format back. Unset `placeholder` / `label` are left off the element, never sent as
   `undefined` (iOS would receive `NSNull`). Keep the input mounted: a
   remount clears its text.
 - **Focus.** Native focus stamps `focus-visible` on `control` and `input`,
