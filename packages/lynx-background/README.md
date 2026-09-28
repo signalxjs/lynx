@@ -17,7 +17,7 @@ Full API, scheduling caveats, time budgets, permitted-identifier setup and live 
 pnpm add @sigx/lynx-background
 ```
 
-`sigx prebuild` auto-discovers the package, links the native module, adds `UIBackgroundModes` to iOS, populates `BGTaskSchedulerPermittedIdentifiers` from the identifiers you declare in your app config, and adds the `androidx.work` dependency on Android. iOS task identifiers must be known at build time — declare them in `signalx.config.ts`.
+`sigx prebuild` auto-discovers the package, links the native module, adds `UIBackgroundModes` to iOS, populates `BGTaskSchedulerPermittedIdentifiers` from the identifiers you declare in your app config, adds the `androidx.work` dependency on Android, and writes the R8 keep rule WorkManager's database needs in release builds (#1266). iOS task identifiers must be known at build time — declare them in `signalx.config.ts`.
 
 ## A taste
 

@@ -455,6 +455,8 @@ object GeneratedModuleRegistry {
     private val registered = mutableListOf<String>()
 
     fun registerAll(context: Context) {
+        // CSS generic font families (monospace/serif/sans-serif) — #1260.
+        SigxGenericFonts.install()
         Log.i(TAG, "Registering auto-linked modules...")
 
 ${registrations.join('\n\n')}

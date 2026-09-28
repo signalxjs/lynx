@@ -12,6 +12,7 @@ object GeneratedModuleRegistry {
     private const val TAG = "GeneratedModuleRegistry"
 
     fun registerAll(context: Context) {
+        SigxGenericFonts.install()
         Log.i(TAG, "No auto-linked modules")
     }
 }

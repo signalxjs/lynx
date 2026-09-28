@@ -106,6 +106,12 @@ terminal, and a clipped QR is unscannable while still looking fine.
 `sigx dev --no-ui`, a non-TTY stdout, and `run:android` / `run:ios` use the plain
 streaming banner instead, unchanged.
 
+On Android, `sigx dev` runs `adb reverse` for both ports the dev client talks
+to over `localhost`: the bundle port and the log/reload port (bundle port + 1).
+The dev client posts its device errors and warnings (a failed image load, for
+example) to the second one, so without it they never reach the terminal
+(#1275). Both forwards are removed when `sigx dev` exits.
+
 ## Web
 
 - `sigx run:web` — build and serve the app in the browser (via upstream `@lynx-js/web-core`) with live reload. Zero config: no `environments` block needed in `lynx.config.ts`.
@@ -206,6 +212,18 @@ The effective (clamped) value is visible to JS as
 `@sigx/lynx-appearance`. Existing projects pick the wiring up on the next
 `sigx prebuild` (ContentView / MainActivity / AndroidManifest are managed
 files).
+
+## Generic font families (Android)
+
+Android Lynx never resolves the CSS generic families: `font-family:
+monospace` (or `serif`, `sans-serif`) falls through to the default face,
+while iOS resolves them through `UIFont`. The generated Android host
+registers a Lynx `TypefaceCache` provider (`SigxGenericFonts.kt`, a managed
+file) that maps `monospace` / `ui-monospace`, `serif` / `ui-serif` and
+`sans-serif` / `ui-sans-serif` / `system-ui` onto the system typefaces in the
+requested style. A named face earlier in the list (`Menlo, monospace`) still
+wins where it exists. `GeneratedModuleRegistry.registerAll` installs it, so
+existing projects pick it up on the next `sigx prebuild` (#1260).
 
 ## Orientation
 
@@ -316,6 +334,17 @@ report up-to-date, and the app launches and runs the *older* code with no error.
 `run:* --release` verifies the embedded bytes against `dist/` before packaging;
 if you drive Gradle or Xcode yourself, compare hashes rather than trusting a
 green build — minification defeats grepping the archive for a new symbol.
+
+### R8 keep rules from linked modules
+
+Release builds run R8 in full mode. A linked module whose native dependency
+needs keep rules its AAR does not ship declares them in its manifest's
+`android.proguardRules`, and prebuild writes them to
+`app/proguard-rules-generated.pro`. `@sigx/lynx-background` uses this for
+WorkManager: its Room dependency's consumer rule keeps `RoomDatabase`
+subclasses without their constructor, which full mode then strips, and
+WorkManager's startup initializer crashed every release build with
+`NoSuchMethodException: WorkDatabase_Impl.<init>` (#1266).
 
 ### Dynamic `import()` / async chunks
 
