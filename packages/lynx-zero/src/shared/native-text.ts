@@ -8,6 +8,7 @@
  * string must never reach the wire, because iOS hands a nulled string prop
  * to the native setter as `NSNull`, which crashes the string bridge.
  */
+import { OP, pushOp, scheduleFlush } from '@sigx/lynx';
 
 /** The text-shaped input types zero's Input accepts (`number` is NumberInput's). */
 export type InputType = 'text' | 'email' | 'password' | 'search' | 'tel' | 'url';
@@ -104,25 +105,41 @@ export function nativeTextAttrs(o: NativeTextOptions): NativeTextAttrs {
     return attrs;
 }
 
-/** The slice of a rendered element the focus call needs (a lynx ShadowElement). */
+/**
+ * The slice of a rendered element the focus call needs. On the background
+ * thread a callback `ref` hands over the runtime's ShadowElement, which has
+ * only its numeric `id` — no `invoke`. A main-thread element (and a test
+ * double) carries `invoke` itself.
+ */
 export interface InvokableElement {
+    id?: number;
     invoke?: (method: string, params?: Record<string, unknown>) => Promise<unknown> | unknown;
 }
 
 /**
  * Focus a native text field through its `focus` UI method — lynx has no
- * `element.focus()`. A stale or not-yet-native element rejects; that is a
- * no-op here, never an unhandled rejection.
+ * `element.focus()`. A background-thread ShadowElement rides the runtime's
+ * fire-and-forget `INVOKE_UI_METHOD` op (the same path `setValue` takes), so
+ * the call reaches the native `<input>`/`<textarea>` on the main thread; an
+ * element with its own `invoke` is called directly. A stale or
+ * not-yet-native element is a no-op here, never an unhandled rejection.
  */
 export function focusNative(el: InvokableElement | null | undefined): void {
-    if (!el || typeof el.invoke !== 'function') return;
-    try {
-        const result = el.invoke('focus', {});
-        if (result && typeof (result as Promise<unknown>).catch === 'function') {
-            (result as Promise<unknown>).catch(() => {});
+    if (!el) return;
+    if (typeof el.invoke === 'function') {
+        try {
+            const result = el.invoke('focus', {});
+            if (result && typeof (result as Promise<unknown>).catch === 'function') {
+                (result as Promise<unknown>).catch(() => {});
+            }
+        } catch {
+            // No native node yet — nothing to focus.
         }
-    } catch {
-        // No native node yet — nothing to focus.
+        return;
+    }
+    if (typeof el.id === 'number') {
+        pushOp(OP.INVOKE_UI_METHOD, el.id, 'focus', {});
+        scheduleFlush();
     }
 }
 

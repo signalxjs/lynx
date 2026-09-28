@@ -8,14 +8,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, touch } from '@sigx/lynx-testing';
 import type { TestNode } from '@sigx/lynx-testing';
-import { signal } from '@sigx/lynx';
+import { OP, signal, takeOps } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import { provideFieldsetContext } from '@sigx/zero/behaviors/core';
 import { component } from '@sigx/lynx';
 import type { Define } from '@sigx/lynx';
 import { Field, Input, Switch, Textarea } from '../src/index';
 import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
-import { lynxInputType, nativeTextAttrs } from '../src/shared/native-text';
+import { focusNative, lynxInputType, nativeTextAttrs } from '../src/shared/native-text';
 
 const conforms = (container: unknown, scope: keyof typeof anatomies): void => {
     expectAnatomy(container as never, anatomies[scope]);
@@ -69,6 +69,21 @@ const spyInvoke = (node: TestNode): ReturnType<typeof vi.fn> => {
     const invoke = vi.fn(() => Promise.resolve());
     (node as unknown as { invoke: unknown }).invoke = invoke;
     return invoke;
+};
+
+/**
+ * Make the native field look like what a background-thread callback `ref`
+ * really hands over on device: a ShadowElement — a numeric id, no `invoke`.
+ */
+const asShadow = (node: TestNode, id: number): void => {
+    const n = node as unknown as { id?: number; invoke?: unknown };
+    delete n.invoke;
+    n.id = id;
+    takeOps();
+};
+const focusOps = (id: number): number => {
+    const ops = takeOps();
+    return ops.filter((op, i) => op === OP.INVOKE_UI_METHOD && ops[i + 1] === id && ops[i + 2] === 'focus').length;
 };
 
 const BasicInput = (extra: Record<string, unknown> = {}) => (
@@ -217,6 +232,27 @@ describe('Input — model and native field', () => {
         await act(() => handler(byPart(container, 'input', 'label'), 'bindtap')());
         expect(invoke).toHaveBeenCalledTimes(2);
         expect(invoke).toHaveBeenCalledWith('focus', {});
+    });
+
+    it('with a ShadowElement ref (no invoke) the control and label taps push the focus UI-method op (#1223)', async () => {
+        const { container } = render(BasicInput());
+        asShadow(byPart(container, 'input', 'input'), 901);
+        fireEvent.tap(byPart(container, 'input', 'control'));
+        handler(byPart(container, 'input', 'label'), 'bindtap')();
+        expect(focusOps(901)).toBe(2);
+    });
+
+    it('focusNative: invoke when the element has one, the op for a bare id, nothing otherwise', () => {
+        takeOps();
+        const invoke = vi.fn(() => Promise.reject(new Error('stale')));
+        focusNative({ id: 5, invoke });
+        expect(invoke).toHaveBeenCalledWith('focus', {});
+        expect(focusOps(5)).toBe(0);
+        focusNative({ id: 6 });
+        expect(focusOps(6)).toBe(1);
+        focusNative(null);
+        focusNative({});
+        expect(takeOps()).toEqual([]);
     });
 
     it('a disabled field is not focused by a tap', async () => {
@@ -451,6 +487,18 @@ describe('Field', () => {
         const invoke = spyInvoke(byPart(container, 'input', 'input'));
         await act(() => handler(byPart(container, 'field', 'label'), 'bindtap')());
         expect(invoke).toHaveBeenCalledWith('focus', {});
+    });
+
+    it('a Field.Label tap reaches a Textarea through the focus op (#1223)', async () => {
+        const { container } = render(
+            <Field.Root>
+                <Field.Label>Bio</Field.Label>
+                <Textarea.Root><Textarea.Textarea /></Textarea.Root>
+            </Field.Root>,
+        );
+        asShadow(byType(container, 'textarea'), 902);
+        handler(byPart(container, 'field', 'label'), 'bindtap')();
+        expect(focusOps(902)).toBe(1);
     });
 
     it('a visually-hidden label stays in the tree, off screen', () => {

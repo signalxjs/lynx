@@ -25,8 +25,12 @@
  *   attribute: the runtime turns a programmatic change (a step, a commit
  *   that reformats) into the element's `setValue` and skips the echo of the
  *   user's own typing, so the caret is never disturbed. `type` is `digit`
- *   when `min >= 0` (no minus needed), else `number`. Keep the element
- *   mounted: a remount clears its text.
+ *   when `min >= 0` (no minus needed), else `number` — and `text` when a
+ *   custom `format` is set: lynx's numeric fields run every write, the
+ *   programmatic `setValue` included, through their numeric key filter, so
+ *   formatted text like `25 %` could never show in one. The trade is the
+ *   full keyboard instead of the number pad. Keep the element mounted: a
+ *   remount clears its text.
  * - `control` is the painted field box (iOS inputs ignore post-mount style
  *   updates, so the chrome lives on a view — the #996 split). Native focus
  *   drives `focus-visible` on control + input: a text field shows its ring
@@ -37,8 +41,10 @@
  *   `disabled` at its bound, while the root is disabled or read-only. They
  *   `catchtap`, so stepping never bubbles to the control's focus tap.
  * - There is no `<label for>`: a tap on the Label or on the control's box
- *   focuses the input through its `focus` UI method, and the control
- *   reports that focus to an enclosing `Field` so `Field.Label` does too.
+ *   focuses the input through its `focus` UI method (the runtime's
+ *   `INVOKE_UI_METHOD` op — a background-thread ref has no `invoke`), and
+ *   the control reports that focus to an enclosing `Field` so `Field.Label`
+ *   does too.
  * - `hidden-input` is omitted (no forms on lynx; the anatomy oracle walks
  *   rendered parts), and with it `name`. `locale`/`formatOptions` are not
  *   carried — `Intl` is not guaranteed on lynx's JS engines; pass `format`
@@ -82,7 +88,7 @@ interface NumberInputContext {
     commit(): void;
     canStep(direction: 1 | -1): boolean;
     stepBy(direction: 1 | -1): void;
-    inputType(): 'digit' | 'number';
+    inputType(): 'digit' | 'number' | 'text';
     spinInterval(): number;
     label(): string | undefined;
     setInputEl(el: InvokableElement | null): void;
@@ -231,7 +237,13 @@ const NumberInputRoot = component<NumberInputRootProps>(({ props, slots, emit, o
         commit,
         canStep,
         stepBy,
-        inputType: () => (props.min !== undefined && props.min >= 0 ? 'digit' : 'number'),
+        // A custom `format` needs a text field: lynx's digit/number fields
+        // filter EVERY write through their numeric key listener, `setValue`
+        // included, so "25 %" would never show (lynx#1221).
+        inputType: () => {
+            if (props.format) return 'text';
+            return props.min !== undefined && props.min >= 0 ? 'digit' : 'number';
+        },
         spinInterval: () => {
             const i = props.spinInterval;
             return typeof i === 'number' && Number.isFinite(i) && i > 0 ? i : NUMBER_INPUT_SPIN_INTERVAL;

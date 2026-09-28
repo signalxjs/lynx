@@ -849,11 +849,24 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             </NumberInput.Root>
         ),
         extras: {
-            // The full anatomy at every size: label part + a custom format.
+            // The full anatomy at every size: label part + a custom format
+            // (a text field on lynx, #1221) whose parse reads the edited
+            // "25 %" back. A tap on a label focuses its field (#1223).
             label: () => (
                 <Col gap={12}>
                     {SIZES.map((size) => (
-                        <NumberInput.Root key={size} size={size} min={0} step={5} defaultValue={25} format={(v: number) => `${v} %`}>
+                        <NumberInput.Root
+                            key={size}
+                            size={size}
+                            min={0}
+                            step={5}
+                            defaultValue={25}
+                            format={(v: number) => `${v} %`}
+                            parse={(t: string) => {
+                                const n = Number(t.replace('%', '').trim());
+                                return t.trim() !== '' && Number.isFinite(n) ? n : null;
+                            }}
+                        >
                             <NumberInput.Label>{`Opacity (${size})`}</NumberInput.Label>
                             <NumberInput.Control>
                                 <NumberInput.DecrementTrigger />
