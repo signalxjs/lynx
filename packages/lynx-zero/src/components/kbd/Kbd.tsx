@@ -18,6 +18,7 @@ import type { Define } from '@sigx/lynx';
 import { component, compound } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import { partBag } from '../../contract/part.js';
+import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes } from '../../contract/axes-context.js';
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
@@ -39,7 +40,7 @@ const KbdRoot = component<KbdRootProps>(({ props, slots }) => {
     return () => (
         <view
             {...partBag(anatomy, 'root', { ...partAxes(axes()), class: props.class })}
-            {...(props.label ? { 'accessibility-element': true, 'accessibility-label': props.label } : {})}
+            {...(props.label ? partA11y({ label: props.label }) : {})}
         >
             {slots.default?.()}
         </view>

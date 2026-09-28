@@ -29,6 +29,7 @@ import type { Define } from '@sigx/lynx';
 import { component, compound } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import { partBag } from '../../contract/part.js';
+import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideCarriedAxes, provideVariantAxes } from '../../contract/axes-context.js';
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
@@ -56,7 +57,7 @@ const BadgeRoot = component<BadgeRootProps>(({ props, slots }) => {
             {...partBag(anatomy, 'root', { ...partAxes(axes()), class: props.class })}
             // A named badge is one accessible element; an unnamed one lets
             // the reader reach its text directly (no empty stop around it).
-            {...(props.label ? { 'accessibility-element': true, 'accessibility-label': props.label } : {})}
+            {...(props.label ? partA11y({ label: props.label }) : {})}
         >
             {slots.default?.()}
         </view>
