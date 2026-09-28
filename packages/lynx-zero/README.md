@@ -698,6 +698,65 @@ How they behave on lynx:
   `zx-m-last`). A band mounted later, such as a conditional one, joins the
   end of that order.
 
+## Badge, Status and Kbd (zero wave 3, display)
+
+Three small display parts with no behavior. `Badge` is a standing label
+(`root`, plus the optional status `dot`), `Status` is a presence dot
+(`root`, empty), and `Kbd` is a keycap (`root`).
+
+```tsx
+import { Badge, Kbd, Row, Status } from '@sigx/lynx-zero';
+
+<Badge color="success"><text>Active</text></Badge>
+
+<Badge.Root>
+    <Badge.Dot color="warning" running />
+    <text>Deploying</text>
+</Badge.Root>
+
+<Row gap={6} align="center">
+    <Status color="success" />
+    <text>Online</text>
+</Row>
+<Status color="error" label="Service degraded" />
+
+<Row gap={4} align="center">
+    <Kbd label="Command"><text>⌘</text></Kbd>
+    <Kbd><text>K</text></Kbd>
+</Row>
+```
+
+| Prop | Part | Type | Default | Notes |
+|---|---|---|---|---|
+| `color` / `size` | all roots | skin axes | skin default (none in daisy) | Unset, daisy paints the base-200 pill / cap and the base-content dot. |
+| `variant` | `Badge.Root` | skin axis | — | Stamped when set; the daisy skin declares no badge variants. |
+| `label` | all roots | `string` | — | Accessible name (see below). |
+| `class` | every part | `string` | — | Appended last. |
+| `color` | `Badge.Dot` | skin axis | the pill's | The dot's own colour. Without one it follows the pill's. |
+| `running` | `Badge.Dot` | `boolean` | `false` | The thing the pill names is in flight: stamps the `running` state. |
+
+How they behave on lynx:
+
+- **Text is a `<text>` child.** Lynx prints text only inside `<text>`, so
+  the badge label and the key glyph are `<text>` children of a `view`
+  root. The skin's ink and type size reach them through CSS inheritance
+  (`enableCSSInheritance`, which the zero shells assume).
+- **The dot re-carries `color`** (zero#94/#130). A dot with a colour of its
+  own is that colour. Without one it follows the pill's, and on an
+  uncoloured pill it is the pill's ink. Lynx has no descendant selectors,
+  so the winning value is stamped on the dot, the same way as Timeline's
+  marker.
+- **Accessibility.** `Badge.Dot` is decorative and never an accessible
+  element. `Status` without `label` is not an accessible element either,
+  because it decorates text that already says what it means. With `label`
+  it is an element with the `image` trait, named by the label. It is never
+  a live region. A `label` on `Badge` or `Kbd` makes the root one named
+  element (`label="3 unread"` on a bare count, `label="Command"` on `⌘`).
+  Without it the reader reaches the text itself.
+- **Not carried:** `asChild` on Badge (lynx has no element to merge onto,
+  so a pressable badge is a Badge inside the pressable) and the `<kbd>`
+  element's semantics (lynx has no such element).
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the
