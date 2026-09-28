@@ -131,6 +131,12 @@ const FIELD_TEXT = ramp(12, 14, 14, 16, 18);
 /** Selector controls (switch, slider): `--size-selector * 4…8`. */
 const SELECTOR = ramp(16, 20, 24, 28, 32);
 const BORDER = 1;
+/** Avatar box (`--avatar-size`): `--size-selector * 6, 8, 10, 12, 16`. */
+const AVATAR = ramp(24, 32, 40, 48, 64);
+/** Spinner box: daisy's `loading-*`, `--size-selector * 4…8`. */
+const SPINNER = ramp(16, 20, 24, 28, 32);
+/** The skeleton cell: a 96pt box around one 14px line. */
+const SKELETON_CELL = { width: 96, height: 18 } as const;
 
 function fieldTrigger(label: string) {
     return (size: GallerySize): CellBox => ({
@@ -393,7 +399,9 @@ export const GALLERY_SCOPES = {
             FOCUS,
             { id: 'action-disabled', label: 'action disabled', props: { actionDisabled: true } },
         ],
-        extras: ['open', 'bottom'],
+        // `indicator`: promise toasts (#1196) — loading / complete / error
+        // marks beside the text, neutral and in role colours.
+        extras: ['open', 'bottom', 'indicator'],
         // The xl toast needs ~175pt, more than two columns beside a label
         // column leave (163): "Changes stored." wrapped (#1192). Labels
         // go above the cells instead, so two columns get the full width.
@@ -885,6 +893,77 @@ export const GALLERY_SCOPES = {
                 height: 3 * BORDER + 2 * py + 1.5 * font,
             };
         },
+    },
+    // ── Wave 3, display (W3C #1237) ──────────────────────────────────────
+    // Avatar: the load status is the component's own, so each state is a
+    // real source — a bundled raster (loaded), none (the fallback is the
+    // avatar, `error`), a src that fails, and one that never answers
+    // (`loading`: the fallback paints over the pending image). The daisy
+    // ring (a 4pt spread box-shadow) spills into the column padding.
+    avatar: {
+        title: 'Avatar',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'loaded', label: 'loaded', props: { src: 'face' } },
+            { id: 'fallback', label: 'fallback', props: {} },
+            { id: 'broken', label: 'error', props: { src: 'broken' } },
+            { id: 'loading', label: 'loading', props: { src: 'pending' } },
+        ],
+        // `shape`: circle / square / rounded at md and xl.
+        extras: ['shape'],
+        cellWidth: 76,
+        // `--avatar-size` = `--size-selector * 6, 8, 10, 12, 16`.
+        cell: (size) => ({ width: AVATAR[size], height: AVATAR[size] }),
+    },
+    // Three initialled faces (the group pushes its size and colour down,
+    // and stacks every face after the first) and the "+N" chip, each a
+    // quarter over its neighbour: 3.25 × the avatar box. One column, so the
+    // xl stack fits.
+    'avatar-group': {
+        title: 'AvatarGroup',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'overflow', label: 'faces + overflow', props: { count: 4 } },
+            { id: 'faces', label: 'faces only', props: { count: 0 } },
+        ],
+        // `mixed`: an image face, a broken one, and an avatar sizing itself.
+        extras: ['mixed'],
+        cellWidth: 216,
+        cell: (size) => ({ width: AVATAR[size] * (1 + 3 * 0.75), height: AVATAR[size] }),
+    },
+    // A fixed-width line of text under the skeleton: `loading` paints the
+    // fill over it (the text goes transparent), `loaded` shows the text.
+    // Size moves only the radius (selector below md, box from md up).
+    skeleton: {
+        title: 'Skeleton',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'loading', label: 'loading', props: { loading: true } },
+            { id: 'loaded', label: 'loaded', props: { loading: false } },
+        ],
+        // `shapes`: the placeholder shapes an app draws — a line, a block, a
+        // circle — loading and loaded side by side.
+        extras: ['shapes'],
+        cellWidth: 110,
+        cell: () => ({ width: SKELETON_CELL.width, height: SKELETON_CELL.height }),
+        // The pulse never settles.
+        settleTolerance: 0.05,
+    },
+    // No state (it spins, or it is not rendered): the labelled spinner and
+    // the decorative one paint the same, so both are shown to prove it.
+    spinner: {
+        title: 'Spinner',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'default', label: 'labelled' },
+            { id: 'decorative', label: 'decorative', props: { decorative: true } },
+        ],
+        // `inline`: a decorative spinner beside the text that says it.
+        extras: ['inline'],
+        cellWidth: 76,
+        // daisy's `loading-xs…xl`: `--size-selector * 4…8`.
+        cell: (size) => ({ width: SPINNER[size], height: SPINNER[size] }),
+        settleTolerance: 0.05,
     },
 } as const satisfies Record<string, GalleryScope>;
 

@@ -268,10 +268,26 @@ The platform spellings to know:
   (`createToaster({ exitDuration })`, 200 ms by default; `remove(id)`
   skips the exit). A toast can carry `color` and an `action`
   (`{ label, onPress }`), and `Toast.Viewport` takes `size`. The parts
-  compose like zero's (`Toast.Root` / `Title` / `Description` / `Action` /
-  `Close`). The viewport renders that stock composition, and the parts also
-  render in place outside any viewport (they conform inside a viewport
-  part, as the gallery draws them).
+  compose like zero's (`Toast.Root` / `Indicator` / `Title` / `Description`
+  / `Action` / `Close`). The viewport renders that stock composition, and
+  the parts also render in place outside any viewport (they conform inside
+  a viewport part, as the gallery draws them).
+- **Promise toasts** (zero 0.6, [#1196](https://github.com/signalxjs/lynx/issues/1196)).
+  A toast can carry a `status` (`loading` / `complete` / `error`), and
+  `Toast.Indicator` draws it as a mark: the skin's ring, tick or cross. The
+  indicator renders nothing while the toast has no status, and it is hidden
+  from the reader, because the title says it in words.
+  `toaster.promise(promise, { loading, success, error })` keeps one toast
+  for the life of a promise. It stays sticky while the promise is pending,
+  then it is updated in place with the success or error stage (a title
+  string or toast options; either may be a mapper of the value or the
+  reason), and the default duration comes back. A rejection is handled
+  there, and so is a stage mapper that throws. `toaster.update(id, patch)`
+  patches a mounted toast; a new `duration` re-arms its timer. Lynx has no
+  `:has()`, so while a mark shows, every part of the toast carries the
+  `marked` modifier (`zx-m-marked`). The skin reads it to seat the mark
+  beside the text. To compose a promise toast in place, pass `Toast.Root` a
+  `toast` object with a `status`.
 - **Select is items-driven** over zero's collection core (`items` +
   `itemKey` / `itemLabel` / `itemValue` / `itemGroup`, an `item` slot per
   row; the model is `T | null`, or `V | null` under `itemValue`). The open
@@ -856,6 +872,72 @@ How they behave on lynx:
 - **Not carried:** `asChild` on Badge (lynx has no element to merge onto,
   so a pressable badge is a Badge inside the pressable) and the `<kbd>`
   element's semantics (lynx has no such element).
+
+## Avatar, AvatarGroup, Skeleton, Spinner (zero wave 3)
+
+The display scopes of [#1237](https://github.com/signalxjs/lynx/issues/1237).
+None of them take input. Their states come from what they show: an image
+loading, content on its way.
+
+```tsx
+import { Avatar, AvatarGroup, Skeleton, Spinner } from '@sigx/lynx-zero';
+
+<AvatarGroup.Root label="Project members" size="sm">
+    {shown.map((u) => (
+        <Avatar.Root key={u.id}>
+            <Avatar.Image src={u.photo} alt={u.name} />
+            <Avatar.Fallback><text>{u.initials}</text></Avatar.Fallback>
+        </Avatar.Root>
+    ))}
+    <AvatarGroup.Overflow count={members.length - shown.length} />
+</AvatarGroup.Root>
+
+<Skeleton.Root model={() => state.pending}>
+    <text>{article.title}</text>
+</Skeleton.Root>
+
+<Spinner label="Uploading" size="lg" />
+```
+
+| Part / prop | Type | Default | Notes |
+|---|---|---|---|
+| `Avatar.Root` `color` / `size` / `shape` | skin axes | the enclosing group's, else the skin default | daisy: `shape` is `circle` / `square` / `rounded`. `statusChange` reports `loading` / `loaded` / `error`. |
+| `Avatar.Image` `src` / `alt` | `string` | — | `alt` is required: once loaded, the image is the avatar's only accessible element. |
+| `Avatar.Fallback` `delay` | `number` (ms) | `0` | Keeps the fallback out of the tree for that long, so a fast image never flashes initials first. |
+| `AvatarGroup.Root` `label` / `color` / `size` | `string` / skin axes | — | With a `label`, the group is one accessible element named by it. |
+| `AvatarGroup.Overflow` `count` / `label` | `number` / `string` | — / `"N more"` | Shows `+N`, announced as `label`. A count of zero or less renders nothing. |
+| `Skeleton.Root` `model` / `defaultLoading` | `boolean` | `true` | `loadingChange` fires on change. `label` (default "Loading") is what a reader hears while loading. `color` / `size`. |
+| `Spinner` (`Spinner.Root`) `label` / `decorative` | `string` / `boolean` | `"Loading"` / `false` | `color` / `size`. Decorative drops the label and hides the mark from the reader. |
+
+How they behave on lynx:
+
+- **Avatar status.** The lynx `<image>`'s load and error events drive the
+  status. A missing `src` is `error`, and so is a root with no
+  `Avatar.Image` once it has mounted: the fallback is then the avatar. A new
+  `src` loads again. Lynx has no `hidden` attribute, so the face a state
+  hides is not rendered, as the anatomy's `hiddenIn` says: the image while
+  `error`, the fallback once `loaded`. While `loading` both render, and the
+  skin lays the fallback over the pending image.
+- **AvatarGroup** pushes its resolved `size` and `color` down to every
+  `Avatar.Root` inside it, and an avatar's own prop wins. This is the lynx
+  spelling of the web recipe's `composes`, which has no class form here.
+  Lynx has no `:first-child`, so the group tracks its avatars in mount order
+  and stamps every one after the first `stacked` (`zx-m-stacked`,
+  `data-mod-stacked`). The skin overlaps those avatars. An avatar mounted
+  later joins the end of that order.
+- **Skeleton** keeps its children mounted in both states, so the layout
+  does not jump when the content arrives. While loading, the root is one
+  accessible element announced as busy (lynx has no `aria-busy`), and the
+  skin's `pointer-events: none` keeps taps off the placeholder. The skin's
+  transparent ink reaches `<text>` children only through CSS inheritance
+  (`enableCSSInheritance`, as the showcase sets it).
+- **Spinner** has no state: it spins, or it is not rendered. The skin draws
+  the mark on the root. The words are the `label` part, a visually hidden
+  `<text>`, and the root is also one accessible element named by them and
+  announced as busy, since lynx has no live region.
+- **Not carried:** `asChild` on `Avatar.Image` (there is no DOM element to
+  merge into), and the skins' `prefers-reduced-motion` stops (lynx emits no
+  `@media`, so the spinner and the skeleton pulse keep moving).
 
 ## What comes next
 
