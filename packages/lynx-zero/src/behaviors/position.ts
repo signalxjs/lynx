@@ -495,6 +495,14 @@ export interface AnchorPositionOptions {
     offset?: number;
     /** Minimum distance from the viewport edge before flipping, px. */
     viewportPadding?: number;
+    /**
+     * Clamp the MAIN axis into the viewport too, when neither side fits — the
+     * popup then overlaps its anchor's side instead of running off-screen.
+     * A submenu on a phone: two 13rem panels side by side need more than a
+     * portrait width, so the submenu slides back over its parent (default
+     * false: a popup that fits neither side keeps the preferred side).
+     */
+    shift?: boolean;
 }
 
 export interface ResolvedPosition {
@@ -565,7 +573,10 @@ export function computeAnchorPosition(
     if (!fits(s) && fits(OPPOSITE[s])) s = OPPOSITE[s];
     const placement = (alignment(preferred) ? `${s}-${alignment(preferred)}` : s) as LynxPlacement;
 
-    const main = mainAxisStart(anchor, floating, s, offset);
+    const start = mainAxisStart(anchor, floating, s, offset);
+    const main = options.shift && !fits(s)
+        ? Math.min(Math.max(start, padding), Math.max(limit - size - padding, padding))
+        : start;
     const crossLimit = vertical ? viewport.width : viewport.height;
     const crossSize = vertical ? floating.width : floating.height;
     const cross = Math.min(

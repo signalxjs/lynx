@@ -135,6 +135,16 @@ const BORDER = 1;
 const AVATAR = ramp(24, 32, 40, 48, 64);
 /** Spinner box: daisy's `loading-*`, `--size-selector * 4…8`. */
 const SPINNER = ramp(16, 20, 24, 28, 32);
+/**
+ * A nav-list cell: a fixed-width list holding one link. The widest content
+ * is the xl link: 16pt padding each side, a 1.25em icon, "Inbox" and a
+ * two-digit count at text-xs, two 6pt gaps — about 130pt.
+ */
+export const NAV_CELL_WIDTH = 170;
+/** The link's block padding: daisy's `--space-2xs, xs, sm, md, lg` per size. */
+const NAV_LINK_PAD = ramp(2, 4, 6, 8, 12);
+/** The list's type size (the root's `font-size` per size). */
+const NAV_TEXT = ramp(12, 12, 14, 16, 18);
 /** The skeleton cell: a 96pt box around one 14px line. */
 const SKELETON_CELL = { width: 96, height: 18 } as const;
 
@@ -1015,6 +1025,45 @@ export const GALLERY_SCOPES = {
                 height: 2 * 4 + lineHeight(font),
             };
         },
+    },
+    // The trigger is the menu's only axis carrier (daisy's btn ramp, like
+    // popover); the popup and its rows are the extras, open at mount.
+    menu: {
+        title: 'Menu',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'trigger', label: 'trigger' },
+            { id: 'pressed', label: 'pressed', flags: { pressed: true }, parts: ['trigger'] },
+            { id: 'focus', label: 'focus', flags: { 'focus-visible': true }, parts: ['trigger'] },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+        ],
+        // `open`: plain rows with shortcuts, a disabled row, a separator and
+        // a labelled group, anchored at mount.
+        // `open-states`: the row under the finger (forced highlighted +
+        // pressed), checkbox rows on/off/disabled, a radio group.
+        // `sub`: a submenu open beside (or, on a phone, over) its parent —
+        // the sub-trigger in its open state.
+        extras: ['open', 'open-states', 'sub'],
+        cellWidth: 100,
+        cell: fieldTrigger('Menu'),
+    },
+    // One link per cell, in a fixed-width list: resting, current, and a bare
+    // label (no icon, no meta). The link declares no interaction flag (no
+    // pressed, no focus ring on lynx) — `active` / `inactive` is its state.
+    'nav-list': {
+        title: 'NavList',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'inactive', label: 'inactive' },
+            { id: 'active', label: 'active (current)', props: { current: true } },
+            { id: 'plain', label: 'label only', props: { plain: true } },
+        ],
+        // `sidebar`: two groups with headings, icons and count badges; a tap
+        // moves the current page (live).
+        extras: ['sidebar'],
+        labels: 'above',
+        cellWidth: NAV_CELL_WIDTH + CELL_PAD,
+        cell: (size) => ({ width: NAV_CELL_WIDTH, height: 2 * NAV_LINK_PAD[size] + lineHeight(NAV_TEXT[size]) }),
     },
 } as const satisfies Record<string, GalleryScope>;
 

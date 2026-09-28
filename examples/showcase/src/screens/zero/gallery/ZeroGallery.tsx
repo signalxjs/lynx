@@ -35,13 +35,14 @@ import { Badge, Kbd, Status } from '@sigx/lynx-zero';
 import { Divider, EmptyState, Stats } from '@sigx/lynx-zero';
 import { Avatar, AvatarGroup, Skeleton, Spinner } from '@sigx/lynx-zero';
 import { Breadcrumbs, Navbar } from '@sigx/lynx-zero';
+import { Menu, NavList } from '@sigx/lynx-zero';
 import type { ToastItem, ToastStatus } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
 import {
     BLOCK_GAP, CELL_PAD, COLORS, FRAME_PADDING, GALLERY_SCOPES, LABEL_GAP, LABEL_WIDTH, LINE_GAP, SIZES,
-    NAVBAR_CELL_WIDTH, TEXT_FIELD_WIDTH, gallerySections, matrixOf, parseSection,
+    NAV_CELL_WIDTH, NAVBAR_CELL_WIDTH, TEXT_FIELD_WIDTH, gallerySections, matrixOf, parseSection,
 } from './scopes.js';
 
 /** What one matrix cell renders: the swept axis value plus the state's props. */
@@ -1541,7 +1542,130 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             ),
         },
     },
+    menu: {
+        cell: (c) => (
+            <Menu.Root color={c.color} size={c.size}>
+                <Menu.Trigger disabled={bool(c.props['disabled'])}><text>Menu</text></Menu.Trigger>
+                <Menu.Popup><Menu.Item value="never"><text>Never opened</text></Menu.Item></Menu.Popup>
+            </Menu.Root>
+        ),
+        extras: {
+            open: () => (
+                <Menu.Root defaultOpen color="primary">
+                    <Menu.Trigger><text>Actions</text></Menu.Trigger>
+                    <Menu.Popup>
+                        <Menu.Item value="rename"><text>Rename</text><Menu.Shortcut>⌘R</Menu.Shortcut></Menu.Item>
+                        <Menu.Item value="duplicate"><text>Duplicate</text><Menu.Shortcut>⌘D</Menu.Shortcut></Menu.Item>
+                        <Menu.Item value="archive" disabled><text>Archive (disabled)</text></Menu.Item>
+                        <Menu.Separator />
+                        <Menu.Group>
+                            <Menu.GroupLabel>Danger zone</Menu.GroupLabel>
+                            <Menu.Item value="delete"><text>Delete…</text></Menu.Item>
+                        </Menu.Group>
+                    </Menu.Popup>
+                </Menu.Root>
+            ),
+            'open-states': () => (
+                <Menu.Root defaultOpen closeOnSelect={false}>
+                    <Menu.Trigger><text>View</text></Menu.Trigger>
+                    <Menu.Popup>
+                        <ForceStates flags={{ highlighted: true, pressed: true }}>
+                            <Menu.Item value="held"><text>Held row</text></Menu.Item>
+                        </ForceStates>
+                        <Menu.Item value="rest"><text>Resting row</text></Menu.Item>
+                        <Menu.Separator />
+                        <Menu.CheckboxItem value="on" defaultChecked><text>Checked</text></Menu.CheckboxItem>
+                        <Menu.CheckboxItem value="off"><text>Unchecked</text></Menu.CheckboxItem>
+                        <Menu.CheckboxItem value="dis" defaultChecked disabled><text>Checked, disabled</text></Menu.CheckboxItem>
+                        <Menu.Separator />
+                        <Menu.RadioGroup defaultValue="name">
+                            <Menu.GroupLabel>Sort by</Menu.GroupLabel>
+                            <Menu.RadioItem value="name"><text>Name</text></Menu.RadioItem>
+                            <Menu.RadioItem value="date"><text>Date</text></Menu.RadioItem>
+                        </Menu.RadioGroup>
+                    </Menu.Popup>
+                </Menu.Root>
+            ),
+            sub: () => (
+                <Menu.Root defaultOpen>
+                    <Menu.Trigger><text>File</text></Menu.Trigger>
+                    <Menu.Popup>
+                        <Menu.Item value="new"><text>New</text></Menu.Item>
+                        <Menu.Sub defaultOpen>
+                            <Menu.SubTrigger><text>Share</text></Menu.SubTrigger>
+                            <Menu.SubPopup>
+                                <Menu.Item value="email"><text>Email</text></Menu.Item>
+                                <Menu.Item value="link"><text>Copy link</text></Menu.Item>
+                                <Menu.Item value="airdrop" disabled><text>AirDrop</text></Menu.Item>
+                            </Menu.SubPopup>
+                        </Menu.Sub>
+                        <Menu.Sub>
+                            <Menu.SubTrigger><text>Export</text></Menu.SubTrigger>
+                            <Menu.SubPopup><Menu.Item value="pdf"><text>PDF</text></Menu.Item></Menu.SubPopup>
+                        </Menu.Sub>
+                        <Menu.Item value="close"><text>Close</text></Menu.Item>
+                    </Menu.Popup>
+                </Menu.Root>
+            ),
+        },
+    },
+    'nav-list': {
+        cell: (c) => (
+            <view style={{ width: `${NAV_CELL_WIDTH}px` }}>
+                <NavList.Root color={c.color} size={c.size}>
+                    <NavList.List>
+                        <NavList.Item>
+                            <NavList.Link current={bool(c.props['current'])}>
+                                {bool(c.props['plain']) ? null : <NavList.Icon><text>✉</text></NavList.Icon>}
+                                <text>Inbox</text>
+                                {bool(c.props['plain']) ? null : <NavList.Meta><text>12</text></NavList.Meta>}
+                            </NavList.Link>
+                        </NavList.Item>
+                    </NavList.List>
+                </NavList.Root>
+            </view>
+        ),
+        extras: {
+            sidebar: () => <NavSidebar />,
+        },
+    },
 };
+
+/** The nav-list `sidebar` extra: two groups, a live current page. */
+const NavSidebar = component(() => {
+    const st = signal({ current: 'inbox' });
+    const link = (page: string, icon: string, label: string, count?: number) => (
+        <NavList.Item key={page}>
+            <NavList.Link current={st.current === page} onPress={() => { st.current = page; }}>
+                <NavList.Icon><text>{icon}</text></NavList.Icon>
+                <text>{label}</text>
+                {count === undefined ? null : <NavList.Meta><Badge.Root size="sm" color="neutral"><text>{String(count)}</text></Badge.Root></NavList.Meta>}
+            </NavList.Link>
+        </NavList.Item>
+    );
+    return () => (
+        <view style={{ width: '240px' }}>
+            <NavList.Root color="primary">
+                <NavList.Group>
+                    <NavList.Heading>Workspace</NavList.Heading>
+                    <NavList.List>
+                        {link('inbox', '✉', 'Inbox', 12)}
+                        {link('drafts', '✎', 'Drafts', 3)}
+                        {link('sent', '➤', 'Sent')}
+                    </NavList.List>
+                </NavList.Group>
+                <NavList.Group>
+                    <NavList.Heading>Settings</NavList.Heading>
+                    <NavList.List>
+                        {link('profile', '☺', 'Profile')}
+                        {link('billing', '$', 'Billing')}
+                    </NavList.List>
+                </NavList.Group>
+            </NavList.Root>
+            <text class="zg-note">{`current: ${st.current} (tap a link)`}</text>
+        </view>
+    );
+});
 
 /** A live alert for the `compose` extra: × dismisses it, the button restores it. */
 const AlertLive = component(() => {
