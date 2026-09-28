@@ -721,7 +721,8 @@ How they behave on lynx:
   divider as `::before`/`::after` segments, which lynx does not have. So
   while a `Divider.Label` is mounted, the root draws a segment view on each
   side of it. Each segment carries the root's own line classes plus
-  `zx-m-segment`, so it has the same ink and thickness. A `placement`
+  `zx-m-segment`, so it has the same ink and thickness, and centres itself
+  on the label across the rule (#1272). A `placement`
   leaves out the segment on that side. The root is stamped `labelled`
   (`zx-m-labelled`) and stops painting a line itself. A labelled divider is
   read through its label's text.
@@ -1219,10 +1220,13 @@ How it behaves on lynx:
   the tree is checkable and has no selection model (no `multiple`, `model`
   or `defaultValue`), a tap on a leaf row toggles its check instead, and no
   row is announced as selected.
-- **Collapsed content stays mounted.** A closed `BranchContent` renders with
-  `display: none` and the anatomy's `hidden` attribute, the way the web
-  keeps its subtree in the DOM. Its nodes stay registered, so a collapsed
-  branch still shows the right check state.
+- **Collapsed content stays mounted.** A closed `BranchContent` keeps the
+  anatomy's `hidden` attribute, the way the web keeps its subtree in the
+  DOM. Its nodes stay registered, so a collapsed branch still shows the
+  right check state. It is not `display: none`: on lynx a `display: none`
+  view's text keeps painting over the branch row (#1271). The closed content
+  is taken out of flow as a clipped, transparent, `visibility: hidden` 0×0
+  box, and it is hidden from accessibility.
 - **The reader.** Each row is one accessible element (a `button`). Its
   status lists checked, unchecked or mixed, then selected, then expanded or
   collapsed, then disabled. The root, the tree and the branch wrapper are

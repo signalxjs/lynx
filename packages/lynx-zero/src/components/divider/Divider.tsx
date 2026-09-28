@@ -22,7 +22,7 @@
  *   classes (`zx-divider__root` + orientation + axes, plus the `segment`
  *   modifier), so each one paints exactly the rule an unlabelled divider
  *   paints — the same ink, thickness ramp and colour — and grows to fill its
- *   side. They are decoration, not parts: no `data-scope`/`data-part`, not
+ *   side, centred on the Label across the rule. They are decoration, not parts: no `data-scope`/`data-part`, not
  *   accessibility elements.
  * - **Placement is the missing segment.** A Label placed at `start` has no
  *   segment before it and one at `end` none after it, which is what the
@@ -80,8 +80,14 @@ export function dividerSegmentClass(orientation: Orientation, axes: VariantAxes)
     return classes.join(' ');
 }
 
-/** A segment grows to fill its side of the Label. */
-const SEGMENT_STYLE = { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, minHeight: 0 };
+/**
+ * A segment grows to fill its side of the Label, centred on it across the
+ * rule (#1272): the root's line classes carry `align-self: stretch`, and a
+ * stretched segment with a definite thickness lands at cross-START on lynx —
+ * the top of the label row, not the middle the web's `align-items: center`
+ * gives the `::before`/`::after` rules.
+ */
+const SEGMENT_STYLE = { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, minHeight: 0, alignSelf: 'center' };
 
 /**
  * The labelled root holds the Label and the segments instead of being the
