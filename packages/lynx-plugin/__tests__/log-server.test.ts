@@ -372,6 +372,23 @@ describe('device errors (POST /__sigx/device-error)', () => {
         expect(entries.every((e) => e.level === 'error' && e.platform === 'android')).toBe(true);
     });
 
+    it('emits a recoverable native error the device marked warn as a warning (#1252)', async () => {
+        const message = '{"error":"Error when loading image","error_code":399,"sub_code":39900,"type":"image"}';
+        const res = await postJson(DEVICE_ERROR_ENDPOINT_PATH, { message, platform: 'ios', level: 'warn' });
+        expect(JSON.parse(res.body)).toEqual({ received: 1 });
+        const entry = parsedLines()[0];
+        expect(entry.level).toBe('warn');
+        expect(entry.args).toEqual([message]);
+    });
+
+    it('treats any level other than warn as an error', async () => {
+        await postJson(DEVICE_ERROR_ENDPOINT_PATH, {
+            platform: 'android',
+            errors: [{ message: 'a', level: 'log' }, { message: 'b', level: 'warn' }, { message: 'c' }],
+        });
+        expect(parsedLines().map((e) => e.level)).toEqual(['error', 'warn', 'error']);
+    });
+
     it('falls back to the UA-sniffed platform when none is supplied', async () => {
         const res = await postJson(
             DEVICE_ERROR_ENDPOINT_PATH,
