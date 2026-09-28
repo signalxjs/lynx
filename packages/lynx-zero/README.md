@@ -725,6 +725,12 @@ How they behave on lynx:
   leaves out the segment on that side. The root is stamped `labelled`
   (`zx-m-labelled`) and stops painting a line itself. A labelled divider is
   read through its label's text.
+- **Thickness is `height` / `width`.** Lynx ignores `block-size` and
+  `inline-size`, which is where daisy puts the rule's thickness. Since
+  signalxjs/zero#479, zero-kit's lynx emitter ships them as `height` /
+  `width` (lynx has no writing modes). A skin compiled with an older
+  zero-kit draws no bare rule, and its segments fill the label row
+  (#1250).
 - **Stats seams and figure.** The web draws the seam between items with
   `item + item` and places the figure in a grid column. Lynx has neither a
   sibling selector nor grid. So the root tracks its items in mount order and
@@ -797,7 +803,10 @@ How they behave on lynx:
   so pass them a string. `Alert.Close` is a `view` with the `button` trait
   and tier-2 press feedback. It carries the `disabled` and `pressed` flags,
   and draws `×` when it has no children. `focus-visible` is reachable
-  through `ForceStates` only.
+  through `ForceStates` only. Lynx does not carry the close's
+  `line-height: 1` into the glyph's `<text>`, so the daisy skin sizes the
+  close as a square chip on lynx, with the glyph centred. Its press wash and
+  focus ring are square too (signalxjs/zero#479, #1253).
 - **Presence mods (a rendering detail).** The web skin lays the alert out
   on a grid, but lynx has no grid and no `:has()`. So the root tracks
   whether an Icon and a Close are rendered, and stamps `with-icon` and
@@ -873,6 +882,13 @@ How they behave on lynx:
   a live region. A `label` on `Badge` or `Kbd` makes the root one named
   element (`label="3 unread"` on a bare count, `label="Command"` on `⌘`).
   Without it the reader reaches the text itself.
+- **The cap face.** The web draws a keycap in monospace because of the
+  browser's UA style for `<kbd>`. Lynx has no UA sheet, so the daisy skin
+  sets `font-family: Menlo, monospace` on the root, and the glyph's
+  `<text>` inherits it (signalxjs/zero#479, #1254). iOS resolves Menlo.
+  Android Lynx does not resolve the CSS generic families (#1260), so the
+  cap keeps the system face there unless the app declares an `@font-face`
+  named `monospace`.
 - **Not carried:** `asChild` on Badge (lynx has no element to merge onto,
   so a pressable badge is a Badge inside the pressable) and the `<kbd>`
   element's semantics (lynx has no such element).
