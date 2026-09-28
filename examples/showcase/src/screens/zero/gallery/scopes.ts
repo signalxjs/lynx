@@ -151,6 +151,9 @@ export const SIZES = ['xs', 'sm', 'md', 'lg', 'xl'] as const;
 /** The fixed width a text-field cell gives its (fluid) field — `ZeroGallery.tsx` renders it. */
 export const TEXT_FIELD_WIDTH = 150;
 
+/** The fixed width of a steps cell's rail — `ZeroGallery.tsx` renders it. */
+export const STEPS_RAIL_WIDTH = 150;
+
 const DEFAULT: GalleryState = { id: 'default', label: 'default' };
 const PRESSED: GalleryState = { id: 'pressed', label: 'pressed', flags: { pressed: true } };
 const FOCUS: GalleryState = { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true } };
@@ -964,6 +967,53 @@ export const GALLERY_SCOPES = {
         // daisy's `loading-xs…xl`: `--size-selector * 4…8`.
         cell: (size) => ({ width: SPINNER[size], height: SPINNER[size] }),
         settleTolerance: 0.05,
+    },
+    // ── Wave 4, navigation (W4C #1258): pagination, steps ───────────────
+    // A three-page row on page 2 — ‹ 1 [2] 3 › — so both triggers are live
+    // and one page is current. The bounds, the window's ellipses and the
+    // edge triggers are in `window`.
+    pagination: {
+        title: 'Pagination',
+        axes: { color: COLORS, size: SIZES },
+        states: [...PRESSABLE],
+        extras: ['window'],
+        // One cell per line: the xl row is ~300pt wide.
+        cellWidth: 320,
+        // Five cells of `--size-field * 7, 9, 10, 12, 14` (min-width and
+        // height), `--space-2xs` apart, inside the root's 4pt ring room.
+        cell: (size) => {
+            const pg = ramp(28, 36, 40, 48, 56)[size];
+            return { width: 5 * pg + 4 * 2 + 2 * 4, height: pg + 2 * 4 };
+        },
+    },
+    // Three steps (Cart, Ship, Pay) in a fixed 150pt rail, Ship current:
+    // complete, active and inactive side by side, each disc bridged to the
+    // next by its separator.
+    steps: {
+        title: 'Steps',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            PRESSED,
+            FOCUS,
+            DISABLED,
+            // The last step flagged: its disc and title in error.
+            { id: 'invalid', label: 'invalid (3rd)', props: { invalid: true } },
+            // On the first step: the third is past the next reachable one.
+            { id: 'linear', label: 'linear', props: { linear: true, step: 'cart' } },
+        ],
+        // `vertical`: a vertical rail with descriptions. `wizard`: panels and
+        // Back/Next under a linear rail. `colors`: a colour per step.
+        extras: ['vertical', 'wizard', 'colors'],
+        cellWidth: 163,
+        // The item: `--space-xs` padding around the disc
+        // (`--size-selector * 5…9`), a `--space-2xs` gap, then the title at
+        // `--steps-font` (text-xs at xs, text-md at xl, else text-sm).
+        cell: (size) => {
+            const ind = ramp(20, 24, 28, 32, 36)[size];
+            const font = ramp(12, 14, 14, 14, 16)[size];
+            return { width: STEPS_RAIL_WIDTH, height: 2 * 4 + ind + 2 + lineHeight(font) };
+        },
     },
 } as const satisfies Record<string, GalleryScope>;
 

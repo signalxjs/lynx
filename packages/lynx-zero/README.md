@@ -939,6 +939,85 @@ How they behave on lynx:
   merge into), and the skins' `prefers-reduced-motion` stops (lynx emits no
   `@media`, so the spinner and the skeleton pulse keep moving).
 
+## Pagination and Steps (zero wave 4, navigation)
+
+The navigation scopes of [#1258](https://github.com/signalxjs/lynx/issues/1258).
+Pagination picks a page from a numbered range. Steps is a wizard's step rail,
+with optional panels and Back/Next.
+
+```tsx
+import { Pagination, Steps } from '@sigx/lynx-zero';
+
+<Pagination.Root count={20} model={() => state.page} withEdges />
+
+<Steps.Root model={() => state.step} linear>
+    <Steps.Item value="cart" label="Cart">
+        <Steps.Indicator><text>1</text></Steps.Indicator>
+        <Steps.Title>Cart</Steps.Title>
+        <Steps.Separator />
+    </Steps.Item>
+    <Steps.Item value="pay" label="Pay" invalid={!state.cardOk}>
+        <Steps.Indicator><text>2</text></Steps.Indicator>
+        <Steps.Title>Pay</Steps.Title>
+    </Steps.Item>
+    <Steps.Content value="cart"><text>…</text></Steps.Content>
+    <Steps.Content value="pay"><text>…</text></Steps.Content>
+    <Steps.PrevTrigger><text>Back</text></Steps.PrevTrigger>
+    <Steps.NextTrigger><text>Next</text></Steps.NextTrigger>
+</Steps.Root>
+```
+
+| Part / prop | Type | Default | Notes |
+|---|---|---|---|
+| `Pagination.Root` `model` / `defaultPage` | `number` | `1` | `pageChange` fires on change. The page is clamped to `1…count`. |
+| `Pagination.Root` `count` | `number` | — | Required. The total number of pages. |
+| `Pagination.Root` `siblingCount` / `boundaryCount` | `number` | `1` / `1` | Pages beside the current one, and pages pinned at each end. |
+| `Pagination.Root` `withEdges` | `boolean` | `false` | Adds the first/last triggers (`«` / `»`) outside prev/next. |
+| `Pagination.Root` `pageLabel` / `prevLabel` / `nextLabel` / `firstLabel` / `lastLabel` | `(n) => string` / `string` | `"Page N"`, `"Previous page"`, … | What a reader hears. The glyphs are never the name. |
+| `Pagination.Root` `disabled` / `pressFeel` / `color` / `size` | `boolean` / skin axes | — | `pressFeel={false}` keeps the pressed flag but drops the main-thread scale. |
+| `Steps.Root` `model` / `defaultStep` | `string` | — | `stepChange` fires on change. `orientation` is `horizontal` (default) or `vertical`. |
+| `Steps.Root` `linear` | `boolean` | `false` | Steps past the next reachable one are disabled. Going back is never gated. |
+| `Steps.Root` `invalidLabel` / `disabled` / `pressFeel` / `color` / `size` | `string` / `boolean` / skin axes | `", has errors"` | `invalidLabel` is appended to an invalid item's name. |
+| `Steps.Item` `value` / `label` | `string` | — | `label` is the step's accessible name. |
+| `Steps.Item` `color` / `disabled` / `invalid` | skin colour / `boolean` | the root's | The item re-carries `color`: one step can paint its own tone. `invalid` flags the item, its indicator and its separator. |
+| `Steps.Indicator` / `Steps.Separator` | — | — | The numbered disc (pass a `<text>`), and the line from this step toward the next. |
+| `Steps.Title` / `Steps.Description` | — | — | `<text>` parts: pass a string. |
+| `Steps.Content` `value` | `string` | — | The step's panel. Only the active step's renders. |
+| `Steps.PrevTrigger` / `Steps.NextTrigger` `label` | `string` | — | Move to the nearest enabled step before / after the current one. |
+
+How they behave on lynx:
+
+- **Pagination renders its own row.** The window is zero's constant-width
+  shape: boundary pages at both ends, siblings around the current page, and
+  an ellipsis where the row elides. Near an edge the sibling block slides
+  rather than shrinking, so the row keeps its width as you page through.
+  Every page and trigger is its own `view` with the `button` trait and its
+  own press feedback. The current page is announced as `selected`.
+- **A bound is disabled.** Prev and first on page 1, and next and last on
+  the last page, stamp `disabled` and ignore taps. So does every control
+  under a disabled root. Lynx has no keyboard focus to keep, so the web's
+  "focusable but `aria-disabled`" bound is plain disabled here.
+- **Steps follow mount order.** The root tracks its items in mount order,
+  which is the visual order. An item before the current step is `complete`,
+  the current one `active`, the rest `inactive`, and the indicator and
+  separator follow their item. An item mounted later (a conditional one)
+  joins the end of the order.
+- **Only the active panel renders.** Lynx has no `hidden` attribute, so an
+  inactive `Steps.Content` is not rendered, like `Tabs.Panel`.
+- **`wizard` is stamped.** On the web the rail wraps onto its own line when
+  the root holds a panel or a trigger, through `:has()`. Lynx has no
+  `:has()`, so the root stamps `wizard` (`zx-m-wizard`, `data-mod-wizard`)
+  while any `Steps.Content`, `PrevTrigger` or `NextTrigger` is mounted, and
+  the skin wraps on that.
+- **An invalid step** appends `invalidLabel` to its `label`. Without a
+  `label`, the words ride in the item as visually hidden text.
+- **Not carried:** zero's link mode (`getPageHref`: lynx has no anchors),
+  the `nav` landmark name and the rail's group name (lynx has no landmark or
+  group roles, and marking the root an accessible element would hide its
+  controls on iOS), roving focus, arrow keys and `loop` (there is no
+  keyboard), and `lazyMount` (inactive panels never render). `focus-visible`
+  is reachable through `ForceStates` only, as on every lynx-zero part.
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the

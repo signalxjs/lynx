@@ -166,6 +166,9 @@ describe('public runtime exports', () => {
                 'AvatarGroup',
                 'Skeleton',
                 'Spinner',
+                // ── components (zero wave 4 — navigation, W4C #1258) ──
+                'Pagination',
+                'Steps',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',

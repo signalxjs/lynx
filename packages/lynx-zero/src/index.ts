@@ -175,3 +175,12 @@ export type { SpinnerRootProps } from './components/spinner/Spinner.js';
 export { Spinner } from './components/spinner/Spinner.js';
 // Toast.Indicator + promise toasts (#1196).
 export type { ToastIndicatorProps, ToastInput, ToastPromiseOptions, ToastStatus } from './components/toast/Toast.js';
+
+// ── Components (zero wave 4 — navigation: pagination, steps, W4C #1258) ──
+export type { PaginationRootProps, PaginationRowEntry } from './components/pagination/Pagination.js';
+export { Pagination } from './components/pagination/Pagination.js';
+export type {
+    StepsContentProps, StepsEntry, StepsItemProps, StepsPartProps, StepsPhase, StepsRootProps, StepsSeparatorProps,
+    StepsTriggerProps,
+} from './components/steps/Steps.js';
+export { Steps } from './components/steps/Steps.js';
