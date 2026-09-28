@@ -188,6 +188,15 @@ describe('public runtime exports', () => {
                 'nextTableSort',
                 // ── components (zero wave 5 — overlays & complex, W5B #1278) ──
                 'Combobox',
+                // ── components (zero wave 5 — file-upload, chat, chat-log, W5D #1276) ──
+                'Chat',
+                'ChatLog',
+                'FileUpload',
+                'acceptMimeTypes',
+                'acceptsFile',
+                'chatLogEndOffset',
+                'fileErrors',
+                'formatBytes',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',
@@ -227,6 +236,20 @@ describe('load-bearing signatures', () => {
     it('partBag derives classes and data attrs from one descriptor', () => {
         expectTypeOf(zero.partBag).parameter(1).toBeString();
         expectTypeOf(zero.partBag).returns.toMatchTypeOf<LynxPartProps>();
+    });
+
+    it('FileUpload, Chat and ChatLog are compounds with the zero parts (W5D #1276)', () => {
+        for (const part of ['Root', 'Label', 'Trigger', 'ClearTrigger', 'Dropzone', 'ItemGroup', 'Item', 'ItemName', 'ItemSize', 'ItemRemove'] as const) {
+            expect(typeof zero.FileUpload[part]).toBe('function');
+        }
+        for (const part of ['Root', 'Avatar', 'Header', 'Bubble', 'Footer'] as const) {
+            expect(typeof zero.Chat[part]).toBe('function');
+        }
+        for (const part of ['Root', 'Content', 'JumpTrigger'] as const) {
+            expect(typeof zero.ChatLog[part]).toBe('function');
+        }
+        expectTypeOf(zero.formatBytes).returns.toBeString();
+        expectTypeOf(zero.chatLogEndOffset).returns.toBeNumber();
     });
 
     it('NumberInput and Fieldset are compounds with the zero parts', () => {

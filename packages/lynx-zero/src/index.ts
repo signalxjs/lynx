@@ -233,3 +233,15 @@ export { Table, nextTableSort } from './components/table/Table.js';
 // ── Components (zero wave 5 — overlays & complex: combobox, W5B #1278) ──
 export type { ComboboxRoot, ComboboxRootProps, ComboboxTagSlotProps } from './components/combobox/Combobox.js';
 export { Combobox } from './components/combobox/Combobox.js';
+
+// ── Components (zero wave 5 — file-upload, chat, chat-log, W5D #1276) ───
+export type {
+    FileConstraints, FileRejection, FileRejectionCode, FileUploadClearTriggerProps, FileUploadDropzoneProps, FileUploadFile,
+    FileUploadItemGroupProps, FileUploadItemProps, FileUploadItemRemoveProps, FileUploadItemTextProps, FileUploadLabelProps,
+    FileUploadPickRequest, FileUploadPicker, FileUploadRootProps, FileUploadTriggerProps,
+} from './components/file-upload/FileUpload.js';
+export { FileUpload, acceptMimeTypes, acceptsFile, fileErrors, formatBytes } from './components/file-upload/FileUpload.js';
+export type { ChatAvatarProps, ChatPartProps, ChatPlacement, ChatRootProps } from './components/chat/Chat.js';
+export { Chat } from './components/chat/Chat.js';
+export type { ChatLogContentProps, ChatLogJumpTriggerProps, ChatLogRootProps } from './components/chat-log/ChatLog.js';
+export { ChatLog, chatLogEndOffset } from './components/chat-log/ChatLog.js';

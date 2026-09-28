@@ -161,6 +161,15 @@ export const SIZES = ['xs', 'sm', 'md', 'lg', 'xl'] as const;
 /** The fixed width a text-field cell gives its (fluid) field — `ZeroGallery.tsx` renders it. */
 export const TEXT_FIELD_WIDTH = 150;
 
+/** The fixed width a file-upload cell gives its (fluid) field — `ZeroGallery.tsx` renders it. */
+export const FILE_UPLOAD_WIDTH = 120;
+
+/** The fixed width a chat cell gives its (fluid) row — `ZeroGallery.tsx` renders it. */
+export const CHAT_CELL_WIDTH = 150;
+
+/** The fixed box a chat-log cell gives its transcript — `ZeroGallery.tsx` renders it. */
+export const CHAT_LOG_BOX = { width: 150, height: 100 } as const;
+
 /** The fixed width of a steps cell's rail — `ZeroGallery.tsx` renders it. */
 export const STEPS_RAIL_WIDTH = 150;
 
@@ -1301,6 +1310,82 @@ export const GALLERY_SCOPES = {
         // The control is `--size-field * 8…16` tall (the shared field ramp)
         // as a floor; a single-value field never wraps.
         cell: (size) => ({ width: TEXT_FIELD_WIDTH, height: FIELD_H[size] }),
+    },
+    // ── Wave 5 / W5D: file-upload, chat, chat-log (#1276) ──
+    // A picked file under its trigger: "Browse" over one item row (name,
+    // size, ×) in a fixed box. The dropzone, the clear trigger, a rejected
+    // item and a live picker are the extras.
+    'file-upload': {
+        title: 'FileUpload',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            PRESSED,
+            FOCUS,
+            DISABLED,
+            { id: 'invalid', label: 'invalid', props: { invalid: true } },
+        ],
+        // `dropzone`: resting, highlighted (forced — a drag has no lynx
+        // source), disabled, per size. `list`: several files, the clear
+        // trigger, a rejected item, held and focus. `live`: a working picker.
+        extras: ['dropzone', 'list', 'live'],
+        labels: 'above',
+        cellWidth: FILE_UPLOAD_WIDTH + CELL_PAD,
+        // The trigger (`--space-xs` × `--space-lg` padding around one line of
+        // `--fu-font`), the root's `--space-sm` gap, then the item row
+        // (`--space-xs` × `--space-md` padding; the × button adds
+        // `--space-2xs` above and below its line).
+        cell: (size) => {
+            const font = ramp(12, 12, 14, 16, 16)[size];
+            const trigger = 2 * BORDER + 2 * 4 + lineHeight(font);
+            const item = 2 * BORDER + 2 * 4 + 2 * 2 + lineHeight(font);
+            return { width: FILE_UPLOAD_WIDTH, height: trigger + 8 + item };
+        },
+    },
+    // One message row per cell in a fixed 150pt box: the other party's
+    // (start), your own (end), with an avatar, and with the name and status
+    // lines.
+    chat: {
+        title: 'Chat',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'start', label: 'start' },
+            { id: 'end', label: 'end', props: { placement: 'end' } },
+            { id: 'avatar', label: 'start + avatar', props: { avatar: true } },
+            { id: 'meta', label: 'end + header/footer', props: { placement: 'end', meta: true } },
+        ],
+        // `thread`: a conversation (avatars, names, times, statuses, colours).
+        // `long`: bubbles that wrap at the 90% cap.
+        extras: ['thread', 'long'],
+        cellWidth: CHAT_CELL_WIDTH + 13,
+        // The bubble: `--space-2xs…md` block padding around one line of
+        // text-xs…lg; the header and footer are text-xs lines `--space-2xs`
+        // apart; the row pads `--space-2xs` top and bottom. The avatar is a
+        // 40pt (md) Avatar.
+        cell: (size) => {
+            const font = ramp(12, 12, 14, 16, 18)[size];
+            const py = ramp(2, 4, 4, 12, 12)[size];
+            const bubble = 2 * py + lineHeight(font);
+            const meta = lineHeight(12) + 2 + bubble + 2 + lineHeight(12);
+            return { width: CHAT_CELL_WIDTH, height: 2 * 2 + Math.max(meta, AVATAR.md) };
+        },
+    },
+    // A fixed 150×100pt transcript of three rows per cell: following its
+    // tail (no trigger), then scrolled up (the jump trigger floats over the
+    // foot), held and focused.
+    'chat-log': {
+        title: 'ChatLog',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'following', label: 'following' },
+            { id: 'up', label: 'scrolled up', props: { up: true } },
+            { id: 'pressed', label: 'up · pressed', flags: { pressed: true }, props: { up: true } },
+            { id: 'focus', label: 'up · focus', flags: { 'focus-visible': true }, props: { up: true } },
+        ],
+        // `live`: send messages and watch it follow; scroll up to let go.
+        extras: ['live'],
+        cellWidth: CHAT_LOG_BOX.width + 13,
+        cell: () => ({ width: CHAT_LOG_BOX.width, height: CHAT_LOG_BOX.height }),
     },
 } as const satisfies Record<string, GalleryScope>;
 
