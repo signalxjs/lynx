@@ -80,6 +80,15 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle, LynxViewLife
             NSLog("[sigx-dev] (filtered HMR noise) %@", message)
             return
         }
+        // A resource that failed to load (a dead avatar URL, an offline image)
+        // is an expected state the app renders around, not a crash: it goes to
+        // the `sigx dev` terminal as a warning and never raises the red screen
+        // (#1252). Every other error still does.
+        if Self.isRecoverableResourceError(error, message: message) {
+            NSLog("[sigx-dev] (resource load failure, no overlay) %@", message)
+            DevServerReporter.report(bundleUrl: lastLoadedUrl, message: message, level: "warn")
+            return
+        }
         NSLog("[sigx-dev] Lynx error: %@", message)
         // Mirror the error to the `sigx dev` terminal so it isn't trapped on the
         // red screen. Fire-and-forget; deduped server-side against the JS path.
@@ -96,6 +105,56 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle, LynxViewLife
     static func isDevNoise(_ message: String) -> Bool {
         let head = (message.components(separatedBy: detailMarker).first ?? message).lowercased()
         return head.contains("hot-update") || head.contains("failed to load css update file")
+    }
+
+    /// Lynx's "Resource" error section: 301 image, 302 font, 303 external
+    /// resource, 398 custom, 399 exception (`LynxSubErrorCode.h`). A sub-code is
+    /// its section code × 100 plus a detail (30196 = image from network,
+    /// 39900 = resource exception).
+    static let resourceErrorCodes = 300...399
+    /// The image behavior inside the resource section.
+    static let imageResourceErrorCode = 301
+    /// `customInfo` / JSON value naming the resource kind for an image.
+    static let imageResourceType = "image"
+
+    /// An image that failed to load. Lynx reports it as a level-`error`
+    /// LynxError (code 301, or 399 with resource type `image` — the shape a
+    /// dead URL produces on iOS), but the image element also fires `binderror`
+    /// and the app renders its fallback. Nothing is broken, so it is not a
+    /// red-screen error. Reads the typed LynxError first, then the JSON
+    /// headline Lynx folds the same fields into.
+    static func isRecoverableResourceError(_ error: Error?, message: String) -> Bool {
+        if let lynx = error as? LynxError {
+            let info = lynx.customInfo
+            let type = (info[LynxErrorKeyResourceType] as? String) ?? (info["type"] as? String)
+            if isImageResourceError(code: lynx.errorCode, subCode: lynx.getSubCode(), resourceType: type) {
+                return true
+            }
+        }
+        let head = (message.components(separatedBy: detailMarker).first ?? message)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard head.hasPrefix("{"),
+              let data = head.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return false }
+        return isImageResourceError(
+            code: intValue(obj["error_code"]) ?? 0,
+            subCode: intValue(obj["sub_code"]) ?? 0,
+            resourceType: obj["type"] as? String
+        )
+    }
+
+    static func isImageResourceError(code: Int, subCode: Int, resourceType: String?) -> Bool {
+        guard resourceErrorCodes.contains(code) else { return false }
+        return code == imageResourceErrorCode
+            || subCode / 100 == imageResourceErrorCode
+            || resourceType?.lowercased() == imageResourceType
+    }
+
+    private static func intValue(_ any: Any?) -> Int? {
+        if let n = any as? NSNumber { return n.intValue }
+        if let s = any as? String { return Int(s) }
+        return nil
     }
 
     /// Separates the human-readable REASON (shown by default) from the

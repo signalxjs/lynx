@@ -135,6 +135,16 @@ const BORDER = 1;
 const AVATAR = ramp(24, 32, 40, 48, 64);
 /** Spinner box: daisy's `loading-*`, `--size-selector * 4…8`. */
 const SPINNER = ramp(16, 20, 24, 28, 32);
+/**
+ * A nav-list cell: a fixed-width list holding one link. The widest content
+ * is the xl link: 16pt padding each side, a 1.25em icon, "Inbox" and a
+ * two-digit count at text-xs, two 6pt gaps — about 130pt.
+ */
+export const NAV_CELL_WIDTH = 170;
+/** The link's block padding: daisy's `--space-2xs, xs, sm, md, lg` per size. */
+const NAV_LINK_PAD = ramp(2, 4, 6, 8, 12);
+/** The list's type size (the root's `font-size` per size). */
+const NAV_TEXT = ramp(12, 12, 14, 16, 18);
 /** The skeleton cell: a 96pt box around one 14px line. */
 const SKELETON_CELL = { width: 96, height: 18 } as const;
 
@@ -332,7 +342,10 @@ export const GALLERY_SCOPES = {
         // `keyboard`: a name input and a bio textarea above the footer, for
         // the soft keyboard (#1232) — focus Bio and the panel must lift so
         // the field and the footer stay above the keyboard.
-        extras: ['open', 'open-states', 'nested', 'keyboard'],
+        // `field-focus`: a full-width input inside the open panel with its
+        // ring forced on — the ring must paint on all four sides, not be
+        // clipped by the scroll body (#1255). No taps, no keyboard.
+        extras: ['open', 'open-states', 'nested', 'keyboard', 'field-focus'],
         // The default 76 let the xl trigger overlap its neighbour (#1192).
         cellWidth: 100,
         cell: fieldTrigger('Open'),
@@ -699,7 +712,8 @@ export const GALLERY_SCOPES = {
     // gets lynx-zero's drawn segments, and its placement drops the segment on
     // its side. No flags or machine states in the anatomy: the states are
     // the label forms. `vertical`: vertical rules between items, bare and
-    // labelled.
+    // labelled. The thickness is daisy's block-size/inline-size, which
+    // lynx sees as height/width from zero#479 on (#1250).
     divider: {
         title: 'Divider',
         axes: { color: COLORS, size: SIZES },
@@ -791,7 +805,9 @@ export const GALLERY_SCOPES = {
         // Fluid width. Padding (`--space-2xs…xl` × `--space-sm…2xl`) around
         // the icon column (a --text-lg glyph and `--space-md`), the title
         // over the description (both --text-sm, `--space-sm` apart), and the
-        // close button's corner (a --text-md glyph and `--space-md`).
+        // close button's corner (a --text-md glyph and `--space-md`). From
+        // zero#479 the close is a 20pt square chip (#1253): its pressed wash
+        // and focus ring are squares, not tall ovals.
         cell: (size) => {
             const py = ramp(2, 4, 8, 12, 16)[size];
             const px = ramp(6, 8, 12, 16, 20)[size];
@@ -886,7 +902,9 @@ export const GALLERY_SCOPES = {
         cellWidth: 81,
         // The cap: a hairline border with a doubled bottom edge, padding
         // `--space-2xs…xs` × `--space-xs…lg` (the base is 2xs/md minus the
-        // border), `--text-xs…md` at 1.5. The widest key is "Shift".
+        // border), `--text-xs…md` at 1.5. The widest key is "Shift". From
+        // zero#479 the cap is set in Menlo on iOS (#1254); Android keeps
+        // the system face until #1260.
         cell: (size) => {
             const font = ramp(12, 12, 12, 14, 16)[size];
             const py = ramp(0, 0, 1, 2, 4)[size];
@@ -968,6 +986,96 @@ export const GALLERY_SCOPES = {
         cell: (size) => ({ width: SPINNER[size], height: SPINNER[size] }),
         settleTolerance: 0.05,
     },
+    // ── Wave 4, navigation (W4B #1257) ───────────────────────────────────
+    // Navbar is pure composition (no states, no flags): the states are the
+    // section sets. Each cell is a bar in a fixed 157pt box (the bar is
+    // fluid; start and end share the slack).
+    navbar: {
+        title: 'Navbar',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'ends', label: 'start + end' },
+            { id: 'center', label: 'start·center·end', props: { center: true } },
+        ],
+        // `compose`: real bars — a brand + button, a centred title between
+        // icon buttons, a neutral bar with ghost actions.
+        extras: ['compose'],
+        cellWidth: 163,
+        // `min-height` 2.5/3/4/5/6rem; the xl content is three --text-lg
+        // words inside `--space-sm` padding.
+        cell: (size) => ({ width: NAVBAR_CELL_WIDTH, height: ramp(40, 48, 64, 80, 96)[size] }),
+    },
+    // Breadcrumbs: the link states are the trail's (`active` on the current
+    // crumb); the flags live on the ellipsis trigger only, so the pressed /
+    // focus cells are collapsed trails with the trigger forced.
+    breadcrumbs: {
+        title: 'Breadcrumbs',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'trail', label: 'trail (last current)' },
+            { id: 'collapsed', label: 'collapsed', props: { collapsed: true } },
+            {
+                id: 'pressed', label: '… pressed', flags: { pressed: true }, parts: ['ellipsis-trigger'],
+                props: { collapsed: true },
+            },
+            {
+                id: 'focus', label: '… focus-visible', flags: { 'focus-visible': true }, parts: ['ellipsis-trigger'],
+                props: { collapsed: true },
+            },
+        ],
+        // `collapse`: live trails — tap … to expand — with other
+        // before/after counts, and a custom separator.
+        extras: ['collapse'],
+        cellWidth: 163,
+        // "Home / Docs / Kit" at --text-xs…lg: three labels, two separators,
+        // four `--space-xs` gaps, inside the list's `--space-xs` block padding.
+        cell: (size) => {
+            const font = ramp(12, 12, 14, 16, 18)[size];
+            return {
+                width: textWidth('HomeDocsKit', font) + 2 * textWidth('/', font) + 4 * 4,
+                height: 2 * 4 + lineHeight(font),
+            };
+        },
+    },
+    // The trigger is the menu's only axis carrier (daisy's btn ramp, like
+    // popover); the popup and its rows are the extras, open at mount.
+    menu: {
+        title: 'Menu',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'trigger', label: 'trigger' },
+            { id: 'pressed', label: 'pressed', flags: { pressed: true }, parts: ['trigger'] },
+            { id: 'focus', label: 'focus', flags: { 'focus-visible': true }, parts: ['trigger'] },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+        ],
+        // `open`: plain rows with shortcuts, a disabled row, a separator and
+        // a labelled group, anchored at mount.
+        // `open-states`: the row under the finger (forced highlighted +
+        // pressed), checkbox rows on/off/disabled, a radio group.
+        // `sub`: a submenu open beside (or, on a phone, over) its parent —
+        // the sub-trigger in its open state.
+        extras: ['open', 'open-states', 'sub'],
+        cellWidth: 100,
+        cell: fieldTrigger('Menu'),
+    },
+    // One link per cell, in a fixed-width list: resting, current, and a bare
+    // label (no icon, no meta). The link declares no interaction flag (no
+    // pressed, no focus ring on lynx) — `active` / `inactive` is its state.
+    'nav-list': {
+        title: 'NavList',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'inactive', label: 'inactive' },
+            { id: 'active', label: 'active (current)', props: { current: true } },
+            { id: 'plain', label: 'label only', props: { plain: true } },
+        ],
+        // `sidebar`: two groups with headings, icons and count badges; a tap
+        // moves the current page (live).
+        extras: ['sidebar'],
+        labels: 'above',
+        cellWidth: NAV_CELL_WIDTH + CELL_PAD,
+        cell: (size) => ({ width: NAV_CELL_WIDTH, height: 2 * NAV_LINK_PAD[size] + lineHeight(NAV_TEXT[size]) }),
+    },
     // ── Wave 4, navigation (W4C #1258): pagination, steps ───────────────
     // A three-page row on page 2 — ‹ 1 [2] 3 › — so both triggers are live
     // and one page is current. The bounds, the window's ellipses and the
@@ -1016,6 +1124,9 @@ export const GALLERY_SCOPES = {
         },
     },
 } as const satisfies Record<string, GalleryScope>;
+
+/** The fixed box a navbar gallery cell gives its (fluid) bar — `ZeroGallery.tsx` renders it. */
+export const NAVBAR_CELL_WIDTH = 157;
 
 export type GalleryScopeId = keyof typeof GALLERY_SCOPES;
 

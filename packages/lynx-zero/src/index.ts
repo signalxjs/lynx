@@ -175,6 +175,22 @@ export type { SpinnerRootProps } from './components/spinner/Spinner.js';
 export { Spinner } from './components/spinner/Spinner.js';
 // Toast.Indicator + promise toasts (#1196).
 export type { ToastIndicatorProps, ToastInput, ToastPromiseOptions, ToastStatus } from './components/toast/Toast.js';
+// ── Components (zero wave 4 — navigation: navbar, breadcrumbs, W4B #1257) ──
+export type { NavbarRootProps, NavbarSectionProps } from './components/navbar/Navbar.js';
+export { Navbar } from './components/navbar/Navbar.js';
+export type {
+    BreadcrumbsCollapse, BreadcrumbsEllipsisTriggerProps, BreadcrumbsLinkProps, BreadcrumbsPartProps, BreadcrumbsRootProps,
+} from './components/breadcrumbs/Breadcrumbs.js';
+export { Breadcrumbs, breadcrumbsHidden } from './components/breadcrumbs/Breadcrumbs.js';
+
+// ── Components (zero wave 4 — navigation: menu, nav-list, W4A #1259) ─────
+export type {
+    MenuCheckboxItemProps, MenuItemProps, MenuRadioGroupProps, MenuRadioItemProps, MenuRootProps,
+    MenuSubProps, MenuSubTriggerProps, MenuTriggerProps,
+} from './components/menu/Menu.js';
+export { Menu } from './components/menu/Menu.js';
+export type { NavListLinkProps, NavListPartProps, NavListRootProps } from './components/nav-list/NavList.js';
+export { NavList } from './components/nav-list/NavList.js';
 
 // ── Components (zero wave 4 — navigation: pagination, steps, W4C #1258) ──
 export type { PaginationRootProps, PaginationRowEntry } from './components/pagination/Pagination.js';

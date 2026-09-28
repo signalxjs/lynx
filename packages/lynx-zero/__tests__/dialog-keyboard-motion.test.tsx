@@ -189,6 +189,36 @@ describe('Dialog.Popup with the keyboard up (#1232)', () => {
         expect(backdrop._style.paddingBottom).toBe('34px');
     });
 
+    it('leaves a focus ring room inside the scroll body\'s clip (#1255)', async () => {
+        const { container } = render(
+            <OverlayHost>
+                <FakeOrigin outlet={WINDOW} frame={SAFE}>
+                    <Dialog.Root defaultOpen>
+                        <Dialog.Popup><Dialog.Title>T</Dialog.Title></Dialog.Popup>
+                    </Dialog.Root>
+                </FakeOrigin>
+            </OverlayHost>,
+        );
+        await act(() => {});
+        const popup = byPart(container, 'dialog', 'popup')!;
+        const body = popup.children[0]!;
+        expect(body.type).toBe('scroll-view');
+        // The body reaches 4px (the skin's widest ring) into the panel's
+        // padding on every side…
+        for (const side of ['Top', 'Right', 'Bottom', 'Left']) {
+            expect(body._style[`margin${side}`]).toBe('-4px');
+        }
+        // …and hands it back to the content, so the slot lands where it did
+        // and a full-width field's ring paints inside the clip.
+        const content = body.children[0]!;
+        expect(content.type).toBe('view');
+        expect(content._style.flexDirection).toBe('column');
+        for (const side of ['Top', 'Right', 'Bottom', 'Left']) {
+            expect(content._style[`padding${side}`]).toBe('4px');
+        }
+        expect(byPart(content, 'dialog', 'title')).toBeTruthy();
+    });
+
     it('a closed dialog holds no subscription', async () => {
         render(
             <OverlayHost>

@@ -166,6 +166,13 @@ describe('public runtime exports', () => {
                 'AvatarGroup',
                 'Skeleton',
                 'Spinner',
+                // ── components (zero wave 4 — navigation, W4B #1257) ──
+                'Breadcrumbs',
+                'Navbar',
+                'breadcrumbsHidden',
+                // ── components (zero wave 4 — navigation, W4A #1259) ──
+                'Menu',
+                'NavList',
                 // ── components (zero wave 4 — navigation, W4C #1258) ──
                 'Pagination',
                 'Steps',
@@ -267,6 +274,18 @@ describe('load-bearing signatures', () => {
         expectTypeOf<Toaster['promise']>().toBeFunction();
         expectTypeOf<Toaster['update']>().toBeFunction();
         expectTypeOf<ToastStatus>().toEqualTypeOf<'loading' | 'complete' | 'error'>();
+    });
+
+    it('Menu and NavList are compounds with the zero parts (W4A, #1259)', () => {
+        for (const part of [
+            'Root', 'Trigger', 'Popup', 'Item', 'CheckboxItem', 'RadioGroup', 'RadioItem', 'Group', 'GroupLabel',
+            'Separator', 'Shortcut', 'Sub', 'SubTrigger', 'SubPopup',
+        ] as const) {
+            expect(typeof zero.Menu[part], `Menu.${part}`).toBe('function');
+        }
+        for (const part of ['Root', 'Group', 'Heading', 'List', 'Item', 'Link', 'Icon', 'Meta'] as const) {
+            expect(typeof zero.NavList[part], `NavList.${part}`).toBe('function');
+        }
     });
 
     it('the controller keeps the legacy handle shape', () => {

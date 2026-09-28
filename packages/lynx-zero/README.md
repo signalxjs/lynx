@@ -237,6 +237,10 @@ The platform spellings to know:
   at the visible box and its body is always a vertical `scroll-view`:
   a panel taller than the space scrolls inside instead of running under
   the keyboard, and the keyboard rising never remounts the focused field.
+  A scroll-view clips to its bounds, so the body reaches 4px (the skin's
+  widest focus ring) into the panel's padding and gives it back to its
+  content: a focused full-width field's ring paints all the way round
+  (#1255), and the content sits where it always did.
 - **Press feedback has two tiers.** Every pressable part (Button, a Tabs
   tab, an Accordion trigger, the Popover/Dialog triggers and closes, the
   Select trigger and items, the Toast action and close, a Toggle, each
@@ -721,6 +725,12 @@ How they behave on lynx:
   leaves out the segment on that side. The root is stamped `labelled`
   (`zx-m-labelled`) and stops painting a line itself. A labelled divider is
   read through its label's text.
+- **Thickness is `height` / `width`.** Lynx ignores `block-size` and
+  `inline-size`, which is where daisy puts the rule's thickness. Since
+  signalxjs/zero#479, zero-kit's lynx emitter ships them as `height` /
+  `width` (lynx has no writing modes). A skin compiled with an older
+  zero-kit draws no bare rule, and its segments fill the label row
+  (#1250).
 - **Stats seams and figure.** The web draws the seam between items with
   `item + item` and places the figure in a grid column. Lynx has neither a
   sibling selector nor grid. So the root tracks its items in mount order and
@@ -793,7 +803,10 @@ How they behave on lynx:
   so pass them a string. `Alert.Close` is a `view` with the `button` trait
   and tier-2 press feedback. It carries the `disabled` and `pressed` flags,
   and draws `×` when it has no children. `focus-visible` is reachable
-  through `ForceStates` only.
+  through `ForceStates` only. Lynx does not carry the close's
+  `line-height: 1` into the glyph's `<text>`, so the daisy skin sizes the
+  close as a square chip on lynx, with the glyph centred. Its press wash and
+  focus ring are square too (signalxjs/zero#479, #1253).
 - **Presence mods (a rendering detail).** The web skin lays the alert out
   on a grid, but lynx has no grid and no `:has()`. So the root tracks
   whether an Icon and a Close are rendered, and stamps `with-icon` and
@@ -869,6 +882,13 @@ How they behave on lynx:
   a live region. A `label` on `Badge` or `Kbd` makes the root one named
   element (`label="3 unread"` on a bare count, `label="Command"` on `⌘`).
   Without it the reader reaches the text itself.
+- **The cap face.** The web draws a keycap in monospace because of the
+  browser's UA style for `<kbd>`. Lynx has no UA sheet, so the daisy skin
+  sets `font-family: Menlo, monospace` on the root, and the glyph's
+  `<text>` inherits it (signalxjs/zero#479, #1254). iOS resolves Menlo.
+  Android Lynx does not resolve the CSS generic families (#1260), so the
+  cap keeps the system face there unless the app declares an `@font-face`
+  named `monospace`.
 - **Not carried:** `asChild` on Badge (lynx has no element to merge onto,
   so a pressable badge is a Badge inside the pressable) and the `<kbd>`
   element's semantics (lynx has no such element).
@@ -938,6 +958,192 @@ How they behave on lynx:
 - **Not carried:** `asChild` on `Avatar.Image` (there is no DOM element to
   merge into), and the skins' `prefers-reduced-motion` stops (lynx emits no
   `@media`, so the spinner and the skeleton pulse keep moving).
+
+## Navbar and Breadcrumbs (zero wave 4, navigation)
+
+The navigation scopes of [#1257](https://github.com/signalxjs/lynx/issues/1257).
+`Navbar` is the header bar: `root` / `start` / `center` / `end`.
+`Breadcrumbs` is the trail to the current screen: `root` / `list` / `item` /
+`link` / `separator`, plus `ellipsis` / `ellipsis-trigger` for a collapsed
+trail. Both carry the skin's `color` and `size` axes on the root.
+
+```tsx
+import { Breadcrumbs, Button, Navbar } from '@sigx/lynx-zero';
+
+<Navbar.Root color="primary">
+    <Navbar.Start><text>Acme</text></Navbar.Start>
+    <Navbar.Center><text>Inbox</text></Navbar.Center>
+    <Navbar.End><Button variant="ghost" size="sm"><text>Sign in</text></Button></Navbar.End>
+</Navbar.Root>
+
+<Breadcrumbs.Root maxItems={3}>
+    <Breadcrumbs.List>
+        <Breadcrumbs.Item>
+            <Breadcrumbs.Link onPress={() => nav.navigate('/')}><text>Home</text></Breadcrumbs.Link>
+            <Breadcrumbs.Separator />
+        </Breadcrumbs.Item>
+        <Breadcrumbs.Ellipsis>
+            <Breadcrumbs.EllipsisTrigger />
+            <Breadcrumbs.Separator />
+        </Breadcrumbs.Ellipsis>
+        {/* …middle items… */}
+        <Breadcrumbs.Item>
+            <Breadcrumbs.Link current><text>Anatomy</text></Breadcrumbs.Link>
+        </Breadcrumbs.Item>
+    </Breadcrumbs.List>
+</Breadcrumbs.Root>
+```
+
+| Part / prop | Type | Default | Notes |
+|---|---|---|---|
+| `Navbar.Root` `color` / `size` | skin axes | skin default | `color` refills the whole bar with the role pair; `size` steps its height. Every section is optional. |
+| `Breadcrumbs.Root` `maxItems` | `number` | — | Collapse the trail when it has more items than this. Absent: never collapses. |
+| `Breadcrumbs.Root` `itemsBeforeCollapse` / `itemsAfterCollapse` | `number` | `1` / `1` | Items kept before / after the ellipsis while collapsed. |
+| `Breadcrumbs.Root` `model:expanded` / `defaultExpanded` | `boolean` | `false` | Whether a collapsible trail shows every item. `expandedChange` fires when the trigger expands it. |
+| `Breadcrumbs.Root` `color` / `size` | skin axes | skin default | `color` inks the current crumb; `size` steps the type. |
+| `Breadcrumbs.Link` `current` / `label` | `boolean` / `string` | `false` / — | `current` stamps `active` (every other link `inactive`). Emits `press`. |
+| `Breadcrumbs.Separator` | children | `/` | A `<text>` glyph; pass your own (`›`). |
+| `Breadcrumbs.EllipsisTrigger` `label` / `pressFeel` | `(n) => string` / `boolean` | `"Show N more breadcrumbs"` / `true` | Draws `…` when it has no children. |
+
+`breadcrumbsHidden(total, options)` is the collapse rule as a pure function
+(the trail indices a collapse hides), exported for apps that render their
+own overflow menu.
+
+How they behave on lynx:
+
+- **Every part is a view.** Lynx has no `<header>`, `<nav>`, `<ol>`,
+  `<li>` or `<a>`, and no landmarks. Neither root is an accessible element,
+  because on iOS that would hide its content from the reader. Put labels in
+  `<text>`: they take the part's ink and size through CSS inheritance
+  (`enableCSSInheritance`, as the showcase sets it). The root row and its
+  sections lay out as explicit `flex-direction: row` rows in the skin.
+- **A link is a tap target, not a URL.** There is no browser to follow an
+  `href`, so `Breadcrumbs.Link` emits `press` and the app navigates. It is
+  announced with the `link` trait; the current one is announced `selected`,
+  the nearest native spelling of `aria-current="page"`. The link anatomy
+  declares no flags, so a link has no pressed or focus paint.
+- **The separator is a real part.** daisy draws its separator with
+  `::before`, which lynx drops. Place `Breadcrumbs.Separator` inside each
+  item after its link (not in the last item), so it hides with its item. It
+  sits outside the accessibility tree.
+- **Collapse is absence.** Lynx has no `hidden` attribute, so a collapsed
+  item (`closed`) and the ellipsis outside a collapse render nothing, which
+  is how the anatomy's `hiddenIn: ['closed']` is kept (the Tabs precedent).
+  The items join the trail in mount order; an item mounted later, such as a
+  conditional one, joins the end of that order. Place the ellipsis right
+  after the leading `itemsBeforeCollapse` items: lynx cannot compare node
+  positions, so a misplaced one is not warned about.
+- **The ellipsis trigger** is a `view` with the `button` trait, tier-2
+  press feedback and the `pressed` flag, announced `collapsed`. A tap sets
+  `expanded`. `focus-visible` is reachable through `ForceStates` only, and
+  moving focus to the first revealed link is web-only.
+- **Not carried:** `asChild` (no element to merge into), `href`, the
+  root's landmark `label`, and the web keyboard handling.
+
+## Menu and NavList (zero wave 4, navigation)
+
+`Menu` is zero's menu button: a trigger, then an anchored popup of actions.
+The popup can hold checkbox rows, a radio set and submenus. `NavList` is the
+list of links that an app's sidebar or drawer is made of. Both use zero's
+`menu` and `nav-list` anatomies.
+
+```tsx
+import { Menu, NavList } from '@sigx/lynx-zero';
+
+<Menu.Root onSelect={(value) => run(value)}>
+    <Menu.Trigger><text>Actions</text></Menu.Trigger>
+    <Menu.Popup>
+        <Menu.Item value="rename"><text>Rename</text><Menu.Shortcut>⌘R</Menu.Shortcut></Menu.Item>
+        <Menu.Item value="archive" disabled><text>Archive</text></Menu.Item>
+        <Menu.Separator />
+        <Menu.CheckboxItem value="wrap" model={() => state.wrap}><text>Word wrap</text></Menu.CheckboxItem>
+        <Menu.RadioGroup model={() => state.sort}>
+            <Menu.GroupLabel>Sort by</Menu.GroupLabel>
+            <Menu.RadioItem value="name"><text>Name</text></Menu.RadioItem>
+            <Menu.RadioItem value="date"><text>Date</text></Menu.RadioItem>
+        </Menu.RadioGroup>
+        <Menu.Sub>
+            <Menu.SubTrigger><text>Share</text></Menu.SubTrigger>
+            <Menu.SubPopup>
+                <Menu.Item value="email"><text>Email</text></Menu.Item>
+            </Menu.SubPopup>
+        </Menu.Sub>
+    </Menu.Popup>
+</Menu.Root>
+
+<NavList.Root color="primary">
+    <NavList.Group>
+        <NavList.Heading>Workspace</NavList.Heading>
+        <NavList.List>
+            <NavList.Item>
+                <NavList.Link current={route() === 'inbox'} onPress={() => nav.push('inbox')}>
+                    <NavList.Icon><text>✉</text></NavList.Icon>
+                    <text>Inbox</text>
+                    <NavList.Meta><Badge.Root size="sm"><text>12</text></Badge.Root></NavList.Meta>
+                </NavList.Link>
+            </NavList.Item>
+        </NavList.List>
+    </NavList.Group>
+</NavList.Root>
+```
+
+| Part | Prop | Type | Default | Notes |
+|---|---|---|---|---|
+| `Menu.Root` | `model` / `defaultOpen` / `onOpenChange` | `boolean` | `false` | Whether the popup is open. |
+| `Menu.Root` | `onSelect` | `(value: string) => void` | — | Fires when a row at any depth is activated, with that row's `value`. |
+| `Menu.Root` | `closeOnSelect` | `boolean` | `true` | Close the whole menu when a plain item is picked. |
+| `Menu.Root` | `placement` / `offset` | `LynxPlacement` / `number` | `'bottom-start'` / `4` | The popup flips to the other side when it does not fit. |
+| `Menu.Root` | `color` / `size` | skin axes | skin default | Worn by the trigger (daisy's btn ramp). |
+| `Menu.Trigger` | `disabled` / `label` | `boolean` / `string` | — | `label` is the accessible name when the content is not text. |
+| `Menu.Item` | `value` (required) / `disabled` / `label` | `string` / `boolean` / `string` | — | A row that runs an action. |
+| `Menu.CheckboxItem` | `value` / `model` / `defaultChecked` / `onCheckedChange` | `string` / `boolean` | `false` | Toggles on tap. The menu stays open unless `closeOnSelect` is set. |
+| `Menu.RadioGroup` | `model` / `defaultValue` / `onValueChange` | `string` | `''` | One value for the `RadioItem`s inside it. Renders the `group` part. |
+| `Menu.RadioItem` | `value` / `closeOnSelect` / `disabled` | `string` / `boolean` | — | Checked while the group's value matches. The menu stays open by default. |
+| `Menu.Sub` | `model` / `defaultOpen` / `onOpenChange` / `placement` / `offset` | `boolean` / … | `false`, `'right-start'` | One submenu level. |
+| `NavList.Root` | `color` / `size` | skin axes | skin default | The current link's ink and fill, and the type and padding ramp. |
+| `NavList.Link` | `current` | `boolean` | `false` | The page the user is on. It sets the `active` state and is announced as selected. |
+| `NavList.Link` | `onPress` / `label` | event / `string` | — | Navigate from `onPress`. There is no `href` on lynx. |
+
+Every part also takes `class`. The rows, triggers and links also take `pressFeel={false}`, which turns off the main-thread press scale.
+
+How they behave on lynx:
+
+- **The popup is the overlay machinery Popover and Select use.** The
+  trigger measures itself, and the popup renders in the `ZeroRoot` outlet at
+  the resolved side, which is stamped as `data-placement`. A tap outside
+  every open level closes the whole menu, as light dismiss does on the web.
+  A tap on the parent level's rows still reaches them. The dismiss stack
+  (`dismissTopLayer`, for a back button) closes the innermost level first.
+- **Touch, not keyboard.** There is no roving focus, no typeahead and no
+  arrow-key navigation. A row is activated by a tap. The row under the
+  finger is stamped `highlighted` and `pressed`, so it gets the skin's
+  hover wash. A sub-trigger opens its submenu on tap, not on hover.
+  `focus-visible` on the trigger is never set live. The gallery forces it.
+- **Submenus on a phone.** A submenu opens beside its sub-trigger in its
+  own outlet entry, above the parent. Two popups side by side do not fit a
+  portrait screen, so when neither side fits, the submenu slides back over
+  its parent instead of running off the screen (the `shift` option of the
+  placement math).
+- **Glyphs are `<text>`.** The web draws the checkbox and radio rows' ✓ and
+  the sub-trigger's › with `::after`, and lynx has no pseudo-elements. So
+  `item-indicator` is a `<text>` that holds ✓ while the row is checked (and
+  is empty, keeping its column, while it is not), and the sub-trigger
+  renders its › as a trailing `<text>`.
+- **Rows and parts.** `GroupLabel`, `Shortcut` and `NavList.Heading` render
+  as lynx `text`, so they take a plain string. `NavList.Icon` and
+  `NavList.Meta` are views, so put a `<text>` glyph, an icon or a `Badge`
+  in them.
+- **`value` rows never emit.** A component with a `value` prop cannot use
+  runtime-core's `emit()`, so `Menu.Root` emits `select` for its rows.
+  `Menu.CheckboxItem` calls its own `onCheckedChange` handler directly.
+- **NavList has no behavior.** Which link is current is known by the
+  router, and the app passes it in as `current`. The link has no `pressed`
+  flag in the anatomy, so a held link gets the main-thread scale and no
+  skin wash. Lynx has no navigation landmark, so the root and groups are
+  plain views. A heading is announced with the `header` trait.
+- **Not carried:** `Menu.Arrow`, `Menu.ContextTrigger` (a long-press
+  anchor is a follow-up), `keyshortcuts`, the `Menubar` identity (`value`
+  on `Menu.Root`), `asChild`, and `NavList.Root`'s landmark `label`.
 
 ## Pagination and Steps (zero wave 4, navigation)
 
