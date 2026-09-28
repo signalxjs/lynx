@@ -23,8 +23,17 @@ const report = JSON.parse(readFileSync(require.resolve('@sigx/zero-daisyui/repor
 const refuses = (issue: string): boolean =>
     (report.lynx?.dropped ?? []).some((f) => f.detail.includes(`signalxjs/lynx#${issue}`));
 const css = (file: string): string => readFileSync(join(lynxDist, file), 'utf8');
-const block = (sheet: string, selector: string): string =>
-    new RegExp(`${selector.replace(/\./g, '\\.')} \\{([^}]*)\\}`).exec(sheet)?.[1] ?? '';
+/**
+ * The declarations of the rule whose selector is exactly `selector`, however
+ * the sheet is spaced. Fails loudly when the rule is missing, so a format
+ * change cannot pass as an empty block.
+ */
+const block = (sheet: string, selector: string): string => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const body = new RegExp(`(?:^|[}\\s])${escaped}\\s*\\{([^}]*)\\}`).exec(sheet)?.[1];
+    if (body === undefined) throw new Error(`no "${selector}" rule in the shipped CSS`);
+    return body.replace(/\s+/g, ' ');
+};
 
 describe('shipped lynx CSS — no undecodable images, no clip-path (#1215–#1217)', () => {
     it.skipIf(!refuses('1215'))('carries no SVG data-URI image anywhere, and no noise layer', () => {
@@ -40,12 +49,12 @@ describe('shipped lynx CSS — no undecodable images, no clip-path (#1215–#121
     it.skipIf(!refuses('1216'))('draws the checkbox tick as two borders and the dash as a centred bar', () => {
         const checkbox = css('components/checkbox.css');
         const tick = block(checkbox, '.zx-checkbox__indicator');
-        expect(tick).toMatch(/border-right-width: calc\(/);
-        expect(tick).toMatch(/border-bottom-width: calc\(/);
-        expect(tick).toContain('transform: rotate(45deg);');
+        expect(tick).toMatch(/border-right-width\s*:\s*calc\(/);
+        expect(tick).toMatch(/border-bottom-width\s*:\s*calc\(/);
+        expect(tick).toMatch(/transform\s*:\s*rotate\(45deg\)/);
         const dash = block(checkbox, '.zx-checkbox__indicator.zx-s-indeterminate');
-        expect(dash).toContain('align-self: center;');
-        expect(dash).toContain('border-right-width: 0;');
+        expect(dash).toMatch(/align-self\s*:\s*center/);
+        expect(dash).toMatch(/border-right-width\s*:\s*0\b/);
         expect(dash).not.toMatch(/translate/);
     });
 });
