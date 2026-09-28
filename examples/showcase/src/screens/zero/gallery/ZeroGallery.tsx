@@ -42,6 +42,7 @@ import { Drawer, Tooltip } from '@sigx/lynx-zero';
 import type { DrawerMeasure, DrawerPlacement } from '@sigx/lynx-zero';
 import { Carousel, Table } from '@sigx/lynx-zero';
 import type { TableColumn, TableSort, TableSortDirection } from '@sigx/lynx-zero';
+import { Combobox } from '@sigx/lynx-zero';
 import type { ToastItem, ToastStatus } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
@@ -2162,6 +2163,80 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             scroll: () => <TableScroll />,
         },
     },
+    // ── Wave 5 / W5B: combobox (#1278) ──
+    combobox: {
+        cell: (c) => (
+            <view style={FIELD_BOX}>
+                <Combobox.Root
+                    items={FRUIT}
+                    itemValue={(o) => o.value}
+                    placeholder="Search"
+                    label="Fruit"
+                    defaultValue={str(c.props['value']) ?? null}
+                    color={c.color}
+                    size={c.size}
+                    invalid={bool(c.props['invalid'])}
+                    disabled={bool(c.props['disabled'])}
+                    readonly={bool(c.props['readonly'])}
+                    clearable={bool(c.props['clearable'])}
+                />
+            </view>
+        ),
+        extras: {
+            // `defaultInputValue=""`: the list filters on the text, and a
+            // preset value's label would narrow it to that one option.
+            open: () => (
+                <ComboboxOpen note="grouped + separators · Banana selected" />
+            ),
+            'open-held': () => (
+                <ForceStates flags={{ pressed: true }} parts={['item']}>
+                    <ComboboxOpen note="every option held" />
+                </ForceStates>
+            ),
+            'open-query': () => (
+                <ComboboxOpen note={'typed "an" · autoHighlight · clearable'} query="an" />
+            ),
+            'open-color': () => (
+                <ComboboxOpen note="secondary through the portal" color="secondary" />
+            ),
+            'empty-loading': () => (
+                <Col gap={10}>
+                    <text class="zg-note">emptyText (no match)</text>
+                    <view style={FIELD_BOX}>
+                        <Combobox.Root items={FRUIT} itemValue={(o) => o.value} defaultOpen defaultInputValue="zzz" emptyText="No match" label="Empty" />
+                    </view>
+                    <view style={{ height: '84px' }} />
+                    <text class="zg-note">loading (empty held back)</text>
+                    <view style={FIELD_BOX}>
+                        <Combobox.Root
+                            items={[] as typeof FRUIT}
+                            itemValue={(o) => o.value}
+                            defaultOpen
+                            loading
+                            loadingText="Loading…"
+                            emptyText="No match"
+                            label="Loading"
+                        />
+                    </view>
+                </Col>
+            ),
+            tags: () => (
+                <Col gap={10}>
+                    <text class="zg-note">multiple: tags before the field</text>
+                    <ComboboxTags />
+                    <text class="zg-note">remove held</text>
+                    <ForceStates flags={{ pressed: true }} parts={['tag-remove']}><ComboboxTags /></ForceStates>
+                    <text class="zg-note">tag ring (forced; no keyboard on lynx)</text>
+                    <ForceStates flags={{ 'focus-visible': true }} parts={['tag']}><ComboboxTags /></ForceStates>
+                    <text class="zg-note">readonly · disabled</text>
+                    <ComboboxTags readonly />
+                    <ComboboxTags disabled />
+                    <text class="zg-note">lg · accent · clearable</text>
+                    <ComboboxTags size="lg" color="accent" clearable />
+                </Col>
+            ),
+        },
+    },
 };
 
 /** A drawer open at mount on `placement`: title, a few links, Close. */
@@ -2291,6 +2366,60 @@ const CarouselWide = component(() => {
         </Col>
     );
 });
+
+type ComboboxOpenProps =
+    & Define.Prop<'note', string, true>
+    & Define.Prop<'query', string, false>
+    & Define.Prop<'color', string, false>;
+
+/** A combobox open at mount: grouped, separated, "Banana" selected (#1278). */
+const ComboboxOpen = component<ComboboxOpenProps>(({ props }) => () => (
+    <Col gap={10}>
+        <text class="zg-note">{props.note}</text>
+        <view style={{ width: '240px' }}>
+            <Combobox.Root
+                defaultOpen
+                items={FRUIT}
+                itemValue={(o) => o.value}
+                itemGroup={(o) => o.group}
+                groupSeparators
+                defaultValue={props.query === undefined ? 'banana' : null}
+                defaultInputValue={props.query ?? ''}
+                autoHighlight={props.query !== undefined}
+                clearable={props.query !== undefined}
+                color={props.color}
+                placeholder="Search fruit"
+                label="Fruit"
+            />
+        </view>
+    </Col>
+));
+
+type ComboboxTagsProps =
+    & Define.Prop<'readonly', boolean, false>
+    & Define.Prop<'disabled', boolean, false>
+    & Define.Prop<'clearable', boolean, false>
+    & Define.Prop<'size', string, false>
+    & Define.Prop<'color', string, false>;
+
+/** A multiple combobox holding two tags (#1278). */
+const ComboboxTags = component<ComboboxTagsProps>(({ props }) => () => (
+    <view style={{ width: '260px' }}>
+        <Combobox.Root
+            multiple
+            items={FRUIT}
+            itemValue={(o) => o.value}
+            defaultValue={['apple', 'carrot']}
+            placeholder="Add"
+            label="Fruit"
+            readonly={props.readonly}
+            disabled={props.disabled}
+            clearable={props.clearable}
+            size={props.size}
+            color={props.color}
+        />
+    </view>
+));
 
 /** The nav-list `sidebar` extra: two groups, a live current page. */
 const NavSidebar = component(() => {

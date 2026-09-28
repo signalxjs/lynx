@@ -186,6 +186,8 @@ describe('public runtime exports', () => {
                 'Carousel',
                 'Table',
                 'nextTableSort',
+                // ── components (zero wave 5 — overlays & complex, W5B #1278) ──
+                'Combobox',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',
@@ -296,6 +298,12 @@ describe('load-bearing signatures', () => {
         for (const part of ['Root', 'Group', 'Heading', 'List', 'Item', 'Link', 'Icon', 'Meta'] as const) {
             expect(typeof zero.NavList[part], `NavList.${part}`).toBe('function');
         }
+    });
+
+    it('Combobox is a data-driven compound, generic over items (W5B, #1278)', () => {
+        expect(typeof zero.Combobox.Root).toBe('function');
+        expect(zero.Combobox.Root).toBe(zero.Combobox);
+        expectTypeOf(zero.Combobox.Root).toMatchTypeOf<zero.ComboboxRoot>();
     });
 
     it('the controller keeps the legacy handle shape', () => {

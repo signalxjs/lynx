@@ -1527,6 +1527,95 @@ How they behave on lynx:
   roving focus and `prefers-reduced-motion`. `focus-visible` is reachable
   through `ForceStates` only, as on every lynx-zero part.
 
+## Combobox (zero wave 5, overlays & complex)
+
+zero's `combobox` scope from [#1278](https://github.com/signalxjs/lynx/issues/1278).
+It is a native text field over an anchored list that filters as you type.
+It is built from Select's popup and Input's field.
+
+```tsx
+import { Combobox } from '@sigx/lynx-zero';
+
+<Combobox.Root
+    items={countries}
+    itemValue={(c) => c.code}
+    itemLabel={(c) => c.name}
+    model={() => state.country}
+    model:inputValue={() => state.query}
+    placeholder="Search countries…"
+    emptyText="No match"
+    clearable
+/>
+
+// Several values: a tag per chosen value, before the field.
+<Combobox.Root items={fruits} multiple model={() => state.fruits} />
+
+// A server-filtered list: pass what came back, and no filter.
+<Combobox.Root items={results} filter={false} loading={state.busy} loadingText="Searching…"
+    model={() => state.pick} model:inputValue={() => state.query} />
+```
+
+| Part / prop | Type | Default | Notes |
+|---|---|---|---|
+| `model` / `defaultValue` | `T \| null`, `V \| null` with `itemValue`, an array under `multiple` | `null` / `[]` | The value. `valueChange` fires on change. |
+| `model:inputValue` / `defaultInputValue` | `string` | the preset value's label, else `''` | The text in the field, which is also the filter query. `inputValueChange` fires on change. |
+| `model:open` / `defaultOpen` | `boolean` | `false` | The list. `openChange` fires on change. |
+| `items`, `itemKey`, `itemLabel`, `itemValue`, `itemDisabled`, `itemGroup` | data accessors | Select's defaults | Data mode only, like Select. The label is what shows and what the filter matches. |
+| `filter` | `false \| (item, query) => boolean` | contains-match on the label, case-insensitive | `false` shows every item (a server-filtered list). Read once, at setup. |
+| `emptyText` | `string` | — | The `empty` row, shown while nothing matches and the list is not loading. |
+| `loading` / `loadingText` | `boolean` / `string` | `false` / `"Loading…"` | The `loading` row renders and `emptyText` holds back. The popup's `accessibility-status` is `busy`. |
+| `clearable` / `clearLabel` | `boolean` / `string` | `false` / `"Clear"` | A `clear-trigger` (`×`) in the field while there is a value or text. A tap clears both and focuses the field. |
+| `multiple` | `boolean` | `false` | A pick toggles, clears the text and keeps the list open. Each value is a `tag` (label + `tag-remove`) before the field. The `tag` slot replaces a tag's content. |
+| `allowCustom` | `boolean` | `false` | Enter with no highlighted option commits the text: the option whose label it is, else the text itself (for string models). A close with text does the same. |
+| `autoHighlight` | `boolean` | `false` | While there is a query, the first enabled match is `highlighted` and Enter commits it. |
+| `openOnClick` | `boolean` | `false` | The list opens when the field takes focus. By default typing and the trigger open it. |
+| `groupSeparators` | `boolean` | `false` | A `separator` rule between runs of options. |
+| `placeholder`, `enterkeyhint`, `autocorrect`, `label`, `triggerLabel` | `string` | — / — / — / — / `"Show options"` | Native field attributes and accessible names. |
+| `disabled` / `readonly` / `invalid` / `required` | `boolean` | the enclosing Field's | Readonly shows the value but does not open, edit or remove tags. |
+| `placement` / `offset` | `LynxPlacement` / `number` | `bottom-start` / `4` | Where the list opens. It flips when the preferred side does not fit. |
+| `color` / `size` | skin axes | skin default (size falls back to the Field's) | The popup stamps the colour too, so the accent carries across the portal. |
+| `item` slot | `{ item }` | the label | Custom content for an option row. |
+
+How it behaves on lynx:
+
+- **Typing opens and filters.** zero's listbox core does the filtering and
+  the selection, so the rules are the web's. In single mode a pick puts the
+  label in the field, closes the list and dismisses the soft keyboard.
+- **Closing resyncs the text** (zero #265). In single mode, empty text
+  clears the value and other text goes back to the value's label, or is
+  committed under `allowCustom`. Under `multiple` the query is dropped. A
+  blur while the list is open waits for the close, because the blur may
+  come from a tap on an option.
+- **The filter always reads the field.** A preset value's label is in the
+  field, so opening the list with the trigger shows the options that
+  contain it, as on the web. Pass `defaultInputValue=""` to open on the
+  whole list.
+- **The trigger does not raise the keyboard.** It toggles the list, so you
+  can browse every option with the keyboard down. A tap on the control's
+  padding (or a tag) focuses the field.
+- **Keyboard-aware placement.** While open, the list flips and clamps
+  against the part of the screen the soft keyboard leaves visible, so a
+  list under a raised keyboard opens above its field. Inside a `Dialog`,
+  the dialog lifts itself above the keyboard and the list follows it.
+- **Light dismiss.** A tap outside closes the list. A tap on the field
+  while the list is open lands on the dismiss surface, which covers the
+  window. That tap focuses the field and keeps the list open.
+- **An open list with nothing to show** (no match, no `emptyText`, not
+  loading) paints no panel. The field still reads `open`.
+- **The list is at least as wide as the field**, like the web's
+  `min-width: var(--anchor-width)`. There is no height cap or inner scroll,
+  so keep the unfiltered list short or filter it on the server.
+- **States.** `open`/`closed` on the control, input, trigger and popup.
+  `focus-visible` on the control and input follows native focus. `pressed`
+  on the trigger, the options and a tag's remove button. `highlighted`
+  comes from `autoHighlight`. `placeholder` is on the root and control
+  while there is no text and nothing chosen.
+- **Web-only, not carried:** arrow keys, Home/End, Escape, the tag keyboard
+  (zero #411), trigger mode (`@`-mentions), inline completion, windowing
+  (`virtual`), hand-written `Combobox.Item` children, and the
+  `hidden-input` (lynx has no forms). A tag's `focus-visible` is reachable
+  only through `ForceStates`.
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the

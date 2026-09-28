@@ -1270,6 +1270,38 @@ export const GALLERY_SCOPES = {
             };
         },
     },
+    // ── Wave 5 / W5B: combobox (#1278) ──
+    // A fluid field in a fixed box (`TEXT_FIELD_WIDTH`), like the text
+    // fields. The popup is portalled, so open states are extras; each extra
+    // is one open list (or a column of lists one row tall), anchored at mount.
+    combobox: {
+        title: 'Combobox',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'placeholder', label: 'placeholder' },
+            { id: 'value', label: 'value', props: { value: 'apple' } },
+            // The ring is the control's; the input delegates to it.
+            { id: 'focus', label: 'focus-visible', flags: { 'focus-visible': true }, parts: ['control', 'input'], props: { value: 'apple' } },
+            { id: 'trigger-pressed', label: 'trigger held', flags: { pressed: true }, parts: ['trigger'] },
+            { id: 'clearable', label: 'clearable', props: { value: 'apple', clearable: true } },
+            { id: 'invalid', label: 'invalid', props: { invalid: true } },
+            { id: 'disabled', label: 'disabled', props: { disabled: true, value: 'apple' } },
+            { id: 'readonly', label: 'readonly', props: { readonly: true, value: 'apple' } },
+        ],
+        // `open`: grouped list with separators, one option selected.
+        // `open-held`: every option held (forced pressed).
+        // `open-query`: typed "an" + autoHighlight — filtered, the first
+        // match highlighted, the clear chip showing.
+        // `open-color`: secondary through the portal (selected + tick).
+        // `empty-loading`: the empty row, then the loading row.
+        // `tags`: multiple — tags, a held remove, a forced tag ring,
+        // readonly and disabled tags.
+        extras: ['open', 'open-held', 'open-query', 'open-color', 'empty-loading', 'tags'],
+        cellWidth: 163,
+        // The control is `--size-field * 8…16` tall (the shared field ramp)
+        // as a floor; a single-value field never wraps.
+        cell: (size) => ({ width: TEXT_FIELD_WIDTH, height: FIELD_H[size] }),
+    },
 } as const satisfies Record<string, GalleryScope>;
 
 /** The fixed box a navbar gallery cell gives its (fluid) bar — `ZeroGallery.tsx` renders it. */
