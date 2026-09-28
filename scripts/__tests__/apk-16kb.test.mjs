@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deflateRawSync } from 'node:zlib';
-import { checkApk, minLoadAlign } from '../check-apk-16kb.mjs';
+import { checkApk, minLoadAlign } from '../lib/apk-16kb.mjs';
 
 /** A minimal little-endian ELF64 image with one PT_LOAD per entry of `aligns`. */
 function elf64(aligns) {
