@@ -142,6 +142,8 @@ describe('public runtime exports', () => {
                 // ── components (Wave 2, forms — #1204) ──
                 'Toggle',
                 'ToggleGroup',
+                // ── components (zero wave 4 — navigation: tree-view, W4D #1256) ──
+                'TreeView',
                 // ── components (zero wave 2 — forms, #1203) ──
                 'Checkbox',
                 'CheckboxGroup',

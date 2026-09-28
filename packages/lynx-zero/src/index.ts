@@ -200,3 +200,10 @@ export type {
     StepsTriggerProps,
 } from './components/steps/Steps.js';
 export { Steps } from './components/steps/Steps.js';
+
+// ── Components (zero wave 4 — navigation: tree-view, W4D #1256) ─────────
+export type {
+    TreeViewBranchContentProps, TreeViewBranchIndicatorProps, TreeViewBranchProps, TreeViewBranchTriggerProps,
+    TreeViewItemProps, TreeViewNodeCheckboxProps, TreeViewPartProps, TreeViewRoot, TreeViewRootProps,
+} from './components/tree-view/TreeView.js';
+export { TreeView } from './components/tree-view/TreeView.js';
