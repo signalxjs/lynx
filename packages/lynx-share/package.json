@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-share",
-    "version": "0.33.1",
+    "version": "0.34.0",
     "description": "Native share dialog for sigx-lynx",
     "type": "module",
     "sideEffects": false,
