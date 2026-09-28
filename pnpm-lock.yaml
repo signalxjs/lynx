@@ -1543,6 +1543,9 @@ importers:
       '@sigx/lynx-appearance':
         specifier: workspace:^
         version: link:../lynx-appearance
+      '@sigx/lynx-safe-area':
+        specifier: workspace:^
+        version: link:../lynx-safe-area
       '@sigx/zero':
         specifier: 'catalog:'
         version: 0.13.0(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1))(@sigx/runtime-dom@1.0.1(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1)))(sigx@1.0.1)

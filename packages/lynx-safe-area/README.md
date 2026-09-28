@@ -49,6 +49,7 @@ defineApp(<App />).mount(null);
 | `useSafeAreaInsetsMT()` | `→ EdgeInsets` | Synchronous read for `'main thread'` worklet bodies. Not reactive — it re-reads `lynx.__globalProps` per invocation. |
 | `useSafeAreaContext()` | `→ SafeAreaContextValue \| null` | The raw injectable, for composing your own hook. |
 | `readGlobalSafeArea()` | `→ EdgeInsets` | Provider-free synchronous read of the globalProps key; works on both threads. Falls back to `ZERO_INSETS`. |
+| `subscribeSafeArea(cb)` | `(cb: (raw: RawSafeAreaProps) => void) → () => void` | Provider-free live subscription to `safeAreaChanged` — the channel the provider listens on. The payload is validated (a plain object with at least one numeric inset); fields the platform omitted are absent. Returns an idempotent unsubscribe. For a library that follows the insets without requiring a `<SafeAreaProvider>` (lynx-zero's Dialog reads the keyboard this way). |
 | `ZERO_INSETS` | `EdgeInsets` | The all-zero record used as the fallback everywhere above. |
 | `GLOBAL_PROPS_KEY` / `SAFE_AREA_EVENT` | `string` | The `__globalProps` key and native event name — exported for tests and for a host that publishes insets itself. |
 

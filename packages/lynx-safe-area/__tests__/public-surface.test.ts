@@ -45,6 +45,8 @@ describe('public runtime exports', () => {
                 // Global-props bridge, shared with the native publishers
                 'readGlobalSafeArea',
                 'GLOBAL_PROPS_KEY',
+                // Provider-free live subscription to the same channel
+                'subscribeSafeArea',
                 // Zero-fallback constant consumers compare against
                 'ZERO_INSETS',
             ].sort(),

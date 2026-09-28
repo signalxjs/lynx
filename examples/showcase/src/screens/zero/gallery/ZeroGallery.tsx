@@ -371,6 +371,33 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     </Dialog.Popup>
                 </Dialog.Root>
             ),
+            // #1232: tap Bio — the panel lifts above the keyboard, Bio and
+            // the footer stay visible; add lines and it scrolls inside.
+            keyboard: () => (
+                <Dialog.Root defaultOpen dismissible={false}>
+                    <Dialog.Trigger><text>Open dialog</text></Dialog.Trigger>
+                    <Dialog.Popup>
+                        <Dialog.Title>Edit profile</Dialog.Title>
+                        <Dialog.Description>Focus a field: the panel stays above the keyboard.</Dialog.Description>
+                        <Field.Root>
+                            <Field.Label>Name</Field.Label>
+                            <Input.Root defaultValue="Ada Lovelace" label="Name">
+                                <Input.Control><Input.Input /></Input.Control>
+                            </Input.Root>
+                        </Field.Root>
+                        <Field.Root>
+                            <Field.Label>Bio</Field.Label>
+                            <Textarea.Root defaultValue={'Mathematician.\nWrote the first program.'} minRows={3} maxRows={8} label="Bio">
+                                <Textarea.Textarea />
+                            </Textarea.Root>
+                        </Field.Root>
+                        <Dialog.Footer>
+                            <Dialog.Cancel><text>Cancel</text></Dialog.Cancel>
+                            <Dialog.Close><text>Save</text></Dialog.Close>
+                        </Dialog.Footer>
+                    </Dialog.Popup>
+                </Dialog.Root>
+            ),
         },
     },
     popover: {

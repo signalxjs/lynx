@@ -320,7 +320,10 @@ export const GALLERY_SCOPES = {
         // held (forced pressed), Close disabled. `nested`: a Select opened
         // inside the open dialog — both live in the full-window outlet layer
         // (#1169), so the list must paint above the panel and the backdrop.
-        extras: ['open', 'open-states', 'nested'],
+        // `keyboard`: a name input and a bio textarea above the footer, for
+        // the soft keyboard (#1232) — focus Bio and the panel must lift so
+        // the field and the footer stay above the keyboard.
+        extras: ['open', 'open-states', 'nested', 'keyboard'],
         // The default 76 let the xl trigger overlap its neighbour (#1192).
         cellWidth: 100,
         cell: fieldTrigger('Open'),

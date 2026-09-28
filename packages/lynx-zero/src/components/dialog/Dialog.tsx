@@ -27,7 +27,8 @@ import { partAxes, provideVariantAxes, useVariantAxes } from '../../contract/axe
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
-import { useOutletFill, useOverlayInsets } from '../../behaviors/position.js';
+import { createAncestorMotion, useOutletFill, useOutletFullHeight, useOutletRect, useOverlayInsets } from '../../behaviors/position.js';
+import { acquireKeyboard, keyboardHeight, keyboardOverlap } from '../../behaviors/keyboard.js';
 import { OVERLAY_ROOT_STYLE, PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.dialog;
@@ -103,17 +104,88 @@ const DialogTrigger = component<TriggerProps>(({ props, slots }) => {
 
 type PopupProps = Define.Prop<'class', string, false> & Define.Slot<'default'>;
 
+/** When the open-animation fallback bumps fire (ms after opening). */
+const MOTION_FALLBACK_MS = [300, 1000] as const;
+
+/** The space kept between the panel and the visible box's edges, per side (px). */
+const DIALOG_MARGIN = 16;
+
+/** The panel's vertical box: the backdrop's top/bottom padding and the panel's cap. */
+export interface DialogLayout {
+    /** Backdrop top padding (px). */
+    top: number;
+    /** Backdrop bottom padding (px): the safe frame's, or the keyboard's overlap when higher. */
+    bottom: number;
+    /** The panel's max height (px), or null while the outlet is unmeasured. */
+    maxHeight: number | null;
+}
+
+/**
+ * The dialog panel's vertical box (#1232), pure. The backdrop pads by the
+ * safe frame; with the keyboard up it pads its bottom by the keyboard's
+ * overlap instead when that reaches higher (never both: the safe frame's
+ * bottom inset lies under the keyboard). The panel is capped at what is left,
+ * less a margin each side, so a tall one scrolls inside instead of running
+ * under the keyboard. See `keyboardOverlap` for `fullHeight`.
+ * @internal
+ */
+export function dialogLayout(
+    insets: { top: number; bottom: number },
+    outletHeight: number,
+    fullHeight: number,
+    keyboard: number,
+): DialogLayout {
+    const bottom = Math.max(insets.bottom, keyboardOverlap(keyboard, outletHeight, fullHeight));
+    const maxHeight = outletHeight > 0
+        ? Math.max(0, Math.round(outletHeight - insets.top - bottom - 2 * DIALOG_MARGIN))
+        : null;
+    return { top: insets.top, bottom, maxHeight };
+}
+
+function popupStyle(layout: DialogLayout): Record<string, string | number> {
+    const style: Record<string, string | number> = { display: 'flex', flexDirection: 'column' };
+    if (layout.maxHeight !== null) style.maxHeight = `${layout.maxHeight}px`;
+    return style;
+}
+
+/**
+ * The panel's scroll body: its content's height, shrinking below it (and
+ * scrolling) once the panel hits its cap. `flexBasis: auto` sizes it to the
+ * content first; `minHeight: 0` is what lets it shrink in the column.
+ */
+const DIALOG_BODY_STYLE = { flexGrow: 0, flexShrink: 1, flexBasis: 'auto', minHeight: 0 } as const;
+
 const DialogPopup = component<PopupProps>(({ props, slots }) => {
     const dialog = useDialogContext();
     const axes = useVariantAxes();
     const portal = useOverlayPortal();
     const insets = useOverlayInsets();
     const fill = useOutletFill();
+    const outlet = useOutletRect();
+    const fullHeight = useOutletFullHeight();
+    // The panel's open animation is a transform: anchored popups inside it
+    // (a Select) re-measure when it ends (#1233).
+    const motion = createAncestorMotion();
     // Slot content mounts under the OUTLET — re-provide what it needs.
     const bridge = () => {
         defineProvide(useDialogContext, () => dialog);
         provideVariantAxes(axes);
+        motion.provide();
     };
+    // The panel's box (#1232). The keyboard covers the bottom of the window;
+    // the backdrop pads by whichever reaches higher, the safe frame or the
+    // keyboard, so the panel centres in what is still visible — and a panel
+    // taller than that scrolls inside instead of running under the keyboard.
+    const layout = (): DialogLayout => dialogLayout(insets(), outlet()?.height ?? 0, fullHeight(), keyboardHeight());
+    // Fallback for the motion bump: an engine that sends no animation or
+    // transition event still re-measures once the open animation must be
+    // over. Two bounded bumps per open, cleared on close.
+    let motionTimers: ReturnType<typeof setTimeout>[] = [];
+    const clearMotionTimers = (): void => {
+        for (const t of motionTimers) clearTimeout(t);
+        motionTimers = [];
+    };
+    let releaseKeyboard: (() => void) | null = null;
     // STABLE identities for everything the portal closure hands to
     // PortalScope: a fresh arrow per closure run would re-render the portaled
     // subtree on every outlet turn, and a remounting overlay inside it then
@@ -132,6 +204,11 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
                     if (dialog.dismissible()) dialog.setOpen(false);
                 },
             });
+            if (!releaseKeyboard) {
+                releaseKeyboard = acquireKeyboard();
+                clearMotionTimers();
+                motionTimers = MOTION_FALLBACK_MS.map((ms) => setTimeout(() => motion.bump(), ms));
+            }
             portal.show(() => (
                 <view
                     {...partBag(anatomy, 'backdrop', { state: 'open', ...partAxes(axes()) })}
@@ -152,8 +229,8 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
                         ...OVERLAY_ROOT_STYLE,
                         ...fill(),
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                        paddingTop: `${insets().top}px`, paddingRight: `${insets().right}px`,
-                        paddingBottom: `${insets().bottom}px`, paddingLeft: `${insets().left}px`,
+                        paddingTop: `${layout().top}px`, paddingRight: `${insets().right}px`,
+                        paddingBottom: `${layout().bottom}px`, paddingLeft: `${insets().left}px`,
                     }}
                     // Route through the stack, not straight to setOpen: the
                     // innermost layer owns the gesture (dismiss.ts's contract).
@@ -161,21 +238,47 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
                 >
                     <view
                         {...partBag(anatomy, 'popup', { state: 'open', ...partAxes(axes()), class: props.class })}
+                        // A column capped at the visible box, so the body
+                        // below can shrink and scroll (#1232). The skin's
+                        // padding stays on the panel (it is border-box).
+                        style={popupStyle(layout())}
                         // The platform's only stopPropagation: an inner tap
                         // must not reach the backdrop's dismiss.
                         catchtap={() => {}}
+                        // The open animation ended: anchored popups inside
+                        // re-measure (#1233).
+                        bindanimationend={() => motion.bump()}
+                        bindtransitionend={() => motion.bump()}
                     >
-                        <PortalScope setup={bridge} render={renderSlot} />
+                        {/* ALWAYS a scroll body, keyboard or not: swapping
+                            the wrapper in when the keyboard rises would
+                            remount the slot and drop the focused field. */}
+                        <scroll-view
+                            scroll-orientation="vertical"
+                            scroll-y
+                            bounces={false}
+                            style={DIALOG_BODY_STYLE}
+                        >
+                            <PortalScope setup={bridge} render={renderSlot} />
+                        </scroll-view>
                     </view>
                 </view>
             ));
         } else {
             unregister?.();
             unregister = null;
+            releaseKeyboard?.();
+            releaseKeyboard = null;
+            clearMotionTimers();
             portal.hide();
         }
     });
-    onUnmounted(() => unregister?.());
+    onUnmounted(() => {
+        unregister?.();
+        releaseKeyboard?.();
+        releaseKeyboard = null;
+        clearMotionTimers();
+    });
 
     return () => undefined;
 }, { name: 'Dialog.Popup' });
