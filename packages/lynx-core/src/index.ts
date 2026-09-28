@@ -32,6 +32,11 @@ export type { DeviceInfoResult, IosDeviceInfo, AndroidDeviceInfo } from './devic
 // `--variant`. Lets an app render a "DEV"/"STAGING" badge or branch by env.
 export { variant, isVariant, isBaseBuild } from './variant.js';
 
+// App env (#1244) — the typed `env` block of `signalx.config.ts` (with the
+// active variant's overrides), baked into the bundle. Typed via the global
+// `SigxAppEnv` interface the app extends.
+export { env } from './env.js';
+
 // App foreground/background state (#607) — an ambient lifecycle signal backed
 // by the activity/app-lifecycle plumbing core already owns. `AppState` is the
 // ambient service (like Platform/DeviceInfo); `useAppState()` is the reactive

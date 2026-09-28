@@ -277,8 +277,13 @@ export async function applyIcons(
     // From here errors are real (bad config / failed validation) — let them throw
     // so the build fails loudly. eslint-disable + console.error keeps the message
     // visible even when the throw is wrapped by rsbuild.
-    const raw = await cli.loadConfig(cwd);
-    const config: ResolvedConfig = cli.resolveConfig(raw);
+    // Resolve with the active variant: resolveConfig re-exports the SIGX_LYNX_*
+    // build env (variant, app env, OTA channel) on this process, and a base
+    // resolve here would clobber what lynx-cli set before the plugin's defines
+    // read it (#1244).
+    const variant = process.env['SIGX_LYNX_VARIANT'] || undefined;
+    const raw = await cli.loadConfig(cwd, variant);
+    const config: ResolvedConfig = cli.resolveConfig(raw, variant);
 
     if (!config.iconSets || config.iconSets.length === 0) return;
 

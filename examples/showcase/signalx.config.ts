@@ -1,4 +1,4 @@
-import { defineLynxConfig } from '@sigx/lynx-cli/config';
+import { defineLynxConfig, readEnv } from '@sigx/lynx-cli/config';
 
 export default defineLynxConfig({
     name: 'showcase',
@@ -99,7 +99,7 @@ export default defineLynxConfig({
         // key stays out of source control; unset → prebuild injects a
         // placeholder (no crash, blank map) and warns. Get a key:
         // https://developers.google.com/maps/documentation/android-sdk/get-api-key
-        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
+        googleMapsApiKey: readEnv('GOOGLE_MAPS_API_KEY'),
     },
     ios: {
         bundleIdentifier: 'com.example.showcase',
@@ -116,6 +116,16 @@ export default defineLynxConfig({
         bgTaskIdentifiers: ['com.example.showcase.bg.refresh-feed'],
     },
 
+    // App env (#1244) — typed build-time settings baked into the JS bundle
+    // (OTA bundles included), read via `import { env } from '@sigx/lynx'` and
+    // typed from this file in src/sigx-env.d.ts. Variants override keys below.
+    // Values ship inside the app: public config only — never secrets.
+    env: {
+        environment: 'production',
+        // Echo service used by the Fetch demo.
+        echoApiBaseUrl: 'https://httpbin.org',
+    },
+
     // Build variants (#530) — per-environment app identity. Select one with
     // `sigx prebuild|build|run:android|run:ios|dev --variant <name>` (or set
     // SIGX_VARIANT). Each variant deep-merges onto the config above, suffixes
@@ -125,8 +135,8 @@ export default defineLynxConfig({
     // team → physical device) and get an auto launcher-icon badge.
     variants: {
         // com.example.showcase.dev · "showcase (Dev)" · showcasedev:// · badge "DEV"
-        dev: { idSuffix: '.dev', nameSuffix: ' (Dev)', schemeSuffix: 'dev' },
+        dev: { idSuffix: '.dev', nameSuffix: ' (Dev)', schemeSuffix: 'dev', env: { environment: 'dev' } },
         // PR/preview builds inherit dev, then override the id + label.
-        pr: { extends: 'dev', idSuffix: '.pr', nameSuffix: ' (PR)' },
+        pr: { extends: 'dev', idSuffix: '.pr', nameSuffix: ' (PR)', env: { environment: 'preview' } },
     },
 });

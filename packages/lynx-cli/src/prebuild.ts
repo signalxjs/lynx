@@ -15,6 +15,8 @@ import { join, dirname, relative, extname, basename, isAbsolute } from 'node:pat
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { resolveConfig, modulesForPlatform, resolveAssets } from './config/index.js';
+import { loadDotenvFiles } from './config/env.js';
+import { assertValidVariantName } from './config/variant.js';
 import { writeFileIfChanged, copyFileIfChanged } from './util/idempotent-write.js';
 import { embedBundle } from './util/embed-bundle.js';
 import { isResourceFolderRegistered, stripResourceFolderEntries } from './util/xcode-resources.js';
@@ -225,24 +227,25 @@ function toPascalCase(name: string): string {
 // Config loading
 // ────────────────────────────────────────────────────────────────
 
+/** Path of the project's `signalx.config.{ts,js,mjs}`, or null when there is none. */
+export function findConfigPath(cwd: string): string | null {
+    for (const name of ['signalx.config.ts', 'signalx.config.js', 'signalx.config.mjs']) {
+        const p = join(cwd, name);
+        if (existsSync(p)) return p;
+    }
+    return null;
+}
+
 /**
  * Load signalx.config.ts from the project root.
  * Uses esbuild to transform TypeScript config files to ESM.
+ *
+ * Before evaluating it, loads `.env`, `.env.local`, `.env.<variant>`,
+ * `.env.<variant>.local` into `process.env` (the real environment always
+ * wins), so the config's `env` block can read `process.env.X` (issue #1244).
  */
-export async function loadConfig(cwd: string): Promise<LynxConfig> {
-    const possiblePaths = [
-        join(cwd, 'signalx.config.ts'),
-        join(cwd, 'signalx.config.js'),
-        join(cwd, 'signalx.config.mjs'),
-    ];
-
-    let foundPath: string | null = null;
-    for (const p of possiblePaths) {
-        if (existsSync(p)) {
-            foundPath = p;
-            break;
-        }
-    }
+export async function loadConfig(cwd: string, variant?: string): Promise<LynxConfig> {
+    const foundPath = findConfigPath(cwd);
 
     if (!foundPath) {
         // Hard-cut migration: detect the legacy filename and tell the user exactly
@@ -265,6 +268,9 @@ export async function loadConfig(cwd: string): Promise<LynxConfig> {
             '  export default defineLynxConfig({ name: "MyApp" });\n'
         );
     }
+
+    if (variant) assertValidVariantName(variant);
+    loadDotenvFiles(cwd, variant);
 
     if (foundPath.endsWith('.ts')) {
         const esbuild = await import('esbuild');
@@ -2935,7 +2941,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
                 // below) — otherwise a project that has dropped a platform
                 // would get a bundle embedded into a tree prebuild itself no
                 // longer generates, since its sentinels linger on disk.
-                const cfg = resolveConfig(await loadConfig(cwd), variant);
+                const cfg = resolveConfig(await loadConfig(cwd, variant), variant);
                 if (buildAndroid && cfg.platforms.includes('android')) {
                     embedBundle({ cwd, config: cfg, platform: 'android', log });
                 }
@@ -2949,7 +2955,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
 
     log(variant ? `Starting prebuild (variant: ${variant})...` : 'Starting prebuild...');
 
-    const rawConfig = await loadConfig(cwd);
+    const rawConfig = await loadConfig(cwd, variant);
     const config = resolveConfig(rawConfig, variant);
 
     log(`App: ${config.name} v${config.version}`);

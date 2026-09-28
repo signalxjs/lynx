@@ -20,7 +20,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import * as cli from '../src/index';
-import type { LynxConfig, ModuleManifest, ResolvedConfig } from '../src/index';
+import type { AppEnvShape, LynxConfig, ModuleManifest, ResolvedConfig } from '../src/index';
 import type { AndroidLinkResult, IosLinkResult } from '../src/autolink/index';
 import type { PublishUpdateResult } from '@sigx/lynx-updates-publisher';
 
@@ -34,7 +34,10 @@ describe('public runtime exports', () => {
             [
                 // ./config
                 'defineLynxConfig',
+                'readEnv',
+                'requireEnv',
                 'resolveConfig',
+                'envHash',
                 'modulesForPlatform',
                 'resolveAssets',
                 // ./manifest
@@ -81,7 +84,11 @@ describe('public types', () => {
         // `defineLynxConfig` is identity-typed on purpose: it exists so user
         // `lynx.config.ts` files get inference, so it must hand the *same*
         // type back rather than widening to `LynxConfig`-shaped-unknown.
-        expectTypeOf(cli.defineLynxConfig).toEqualTypeOf<(config: LynxConfig) => LynxConfig>();
+        // Generic over the app env (#1244) so `env` keeps its inferred shape
+        // for `EnvOf<typeof config>`.
+        expectTypeOf(cli.defineLynxConfig).toEqualTypeOf<
+            <E extends AppEnvShape = AppEnvShape>(config: LynxConfig<E>) => LynxConfig<E>
+        >();
         expectTypeOf(cli.resolveConfig).toEqualTypeOf<
             (raw: LynxConfig, variantName?: string) => ResolvedConfig
         >();

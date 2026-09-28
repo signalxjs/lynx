@@ -350,7 +350,7 @@ async function resolveIosAppName(cwd: string, iosDir: string, variant?: string):
     try {
         const { loadConfig } = await import('./prebuild.js');
         const { resolveConfig } = await import('./config/index.js');
-        return resolveConfig(await loadConfig(cwd), variant).name;
+        return resolveConfig(await loadConfig(cwd, variant), variant).name;
     } catch {
         const { readdirSync } = await import('node:fs');
         const workspaces = readdirSync(iosDir).filter((f) => f.endsWith('.xcworkspace'));
@@ -729,7 +729,7 @@ function createDevActions(opts: DevControlOpts): DevActions {
                     try {
                         const { loadConfig } = await import('./prebuild.js');
                         const { resolveConfig } = await import('./config/index.js');
-                        const rawConfig = await loadConfig(opts.cwd);
+                        const rawConfig = await loadConfig(opts.cwd, opts.variant);
                         const config = resolveConfig(rawConfig, opts.variant);
                         appName = config.name;
                     } catch {
@@ -978,13 +978,15 @@ function bundleUrlFor(host: string, port: number, buildId: string): string {
 // next launch retries them (see the loop below).
 const _probedAbis = new Map<string, string>();
 const _warnedSvgAbi = new Set<string>();
-async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger): Promise<void> {
+async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger, variant?: string): Promise<void> {
     const ids = deviceIds.filter((id) => !_warnedSvgAbi.has(id));
     if (ids.length === 0) return;
     try {
         const { loadConfig } = await import('./prebuild.js');
         const { resolveConfig } = await import('./config/index.js');
-        const config = resolveConfig(await loadConfig(cwd));
+        // Pass the active variant: resolveConfig re-exports the SIGX_LYNX_*
+        // build env (variant, app env), so a base resolve here would clobber it.
+        const config = resolveConfig(await loadConfig(cwd, variant), variant);
         if (config.iconSets.length === 0) return;
         for (const id of ids) {
             // Cache successful ABI probes per device; a failed probe (null)
@@ -1253,6 +1255,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
                 cwd,
                 selectedTargets.filter((t) => t.kind === 'android-device').map((t) => t.deviceId),
                 logger,
+                opts.variant,
             );
             for (const t of selectedTargets) {
                 if (t.kind === 'android-device') {
@@ -1278,7 +1281,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         // `sigx run:android` / `sigx run:ios` which set up their own target).
 
         // Android
-        void warnIfSvgAbiGap(cwd, deviceStatus.devices.map((d) => d.id), logger);
+        void warnIfSvgAbiGap(cwd, deviceStatus.devices.map((d) => d.id), logger, opts.variant);
         for (const device of deviceStatus.devices) {
             addReverse(device.id, serverState.port);
             const url = bundleUrlFor('localhost', serverState.port, buildId);

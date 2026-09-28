@@ -49,6 +49,16 @@ declare const __DEV_BUILD__: boolean;
 // still can't evaluate them.
 declare const __SIGX_CSS_RULE__: boolean;
 
+// App env (`import { env } from '@sigx/lynx'`) is typed by the global
+// `SigxAppEnv` interface, which apps extend from their own config — it can't
+// live here, since only the app knows its `signalx.config.ts`:
+//
+//     // src/sigx-env.d.ts
+//     import type config from '../signalx.config';
+//     import type { EnvOf } from '@sigx/lynx-cli/config';
+//     declare global { interface SigxAppEnv extends EnvOf<typeof config> {} }
+//     export {};
+
 // The webpack/rspeedy HMR `module.hot` global. We type only the surface lynx
 // apps actually use (`accept` / `dispose`) to keep the ambient minimal and
 // avoid pulling in `@types/webpack-env` or `@types/node`.

@@ -10,6 +10,7 @@
 
 import {
     component,
+    env,
     signal,
     useElementLayout,
     useMainThreadRef,
@@ -309,14 +310,14 @@ const App = component(() => {
                                     ? 'Slide one of your discs, then flick it'
                                     : 'Waiting…'}
                         </text>
-                        <RenderModeSwitch
+                        {env.perfTools && <RenderModeSwitch
                             mode={render.mode}
                             onPick={(m) => {
                                 render.mode = m;
                                 sim.setKnob('renderMode', m);
                             }}
-                        />
-                        <StressPanel
+                        />}
+                        {env.perfTools && <StressPanel
                             count={stress.count}
                             broadphase={stress.broadphase}
                             writeAll={stress.writeAll}
@@ -326,7 +327,7 @@ const App = component(() => {
                                 (stress as unknown as Record<string, number>)[knob] = value;
                                 sim.setKnob(knob, value);
                             }}
-                        />
+                        />}
                     </view>
                 </SafeAreaView>
             </SafeAreaProvider>

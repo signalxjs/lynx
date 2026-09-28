@@ -68,6 +68,23 @@ import { subscribeNative, unwrapNative, SigxError } from '@sigx/lynx-core';
   | `'module_unavailable'` | `getModule` / `callSync` / `callAsync` / `guardModule` | The native module isn't in this build. Not recoverable at runtime — feature-detect with `isAvailable()` instead of catching. |
   | `'native_error'` | `unwrapNative` / `unwrapNativeVoid` | The platform reported a failure; the raw native payload is on `cause`. |
 
+## App environment
+
+`env` is the typed `env` block of the app's `signalx.config.ts`, with the active
+`--variant`'s overrides merged in. It is baked into the bundle at build time
+(OTA bundles included) and frozen. It is `{}` when the app declares no `env`.
+
+```ts
+import { env } from '@sigx/lynx-core'; // or '@sigx/lynx'
+
+const res = await fetch(`${env.apiBaseUrl}/me`);
+```
+
+It is typed by the global `SigxAppEnv` interface. The app extends it once from
+its config with `EnvOf<typeof config>`; see the
+[`@sigx/lynx-cli` App environment docs](../lynx-cli/README.md#app-environment).
+Everything in `env` ships inside the app, so never put secrets in it.
+
 ## Logging
 
 A tiny leveled + namespaced logger lives here so any package can log without taking a new dependency.

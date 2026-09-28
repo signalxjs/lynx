@@ -137,6 +137,23 @@ describe('applyIcons', { retry: 2 }, () => {
         expect(recorder.aliases).toEqual({});
     });
 
+    it('resolves the config with the active variant, keeping the build env lynx-cli set (#1244)', async () => {
+        writeFile(
+            'signalx.config.mjs',
+            `export default { name: 'T', iconSets: [], env: { api: 'prod' }, variants: { dev: { env: { api: 'dev' } } } };`,
+        );
+        process.env['SIGX_LYNX_VARIANT'] = 'dev';
+        try {
+            await applyIcons(makeFakeApi({ aliases: {} }), { cwd: projectRoot });
+            expect(process.env['SIGX_LYNX_VARIANT']).toBe('dev');
+            expect(JSON.parse(process.env['SIGX_LYNX_ENV']!)).toEqual({ api: 'dev' });
+        } finally {
+            for (const key of ['SIGX_LYNX_VARIANT', 'SIGX_LYNX_ENV', 'SIGX_LYNX_LOGGING', 'SIGX_LYNX_UPDATES_CHANNEL']) {
+                delete process.env[key];
+            }
+        }
+    });
+
     it('scans source, resolves used glyphs, writes virtual modules, aliases imports', async () => {
         writeFile(
             'signalx.config.mjs',

@@ -1,4 +1,4 @@
-import { component, signal } from '@sigx/lynx';
+import { component, env, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, Heading, Progress, ScrollView, Text } from '@sigx/lynx-daisyui';
 import { markdownComponents } from '@sigx/lynx-daisyui/markdown';
@@ -20,7 +20,8 @@ import { fetch, FormData } from '@sigx/lynx-http';
  *    feed (Wikimedia recentchange) and renders each live event into a
  *    streaming `<MarkdownView>` as it arrives (the SSE/chat path).
  *
- * GET/upload use httpbin.org, which echoes back what it received.
+ * GET/upload use an echo service (httpbin.org) — its base URL comes from the
+ * app env (`env.echoApiBaseUrl` in signalx.config.ts, #1244).
  */
 export const HttpDemo = component(() => {
     const getResult = signal<{ value: string | null }>({ value: null });
@@ -145,7 +146,7 @@ export const HttpDemo = component(() => {
     const runGet = async () => {
         getResult.value = '…';
         try {
-            const res = await fetch('https://httpbin.org/json', {
+            const res = await fetch(`${env.echoApiBaseUrl}/json`, {
                 headers: { Accept: 'application/json' },
             });
             const data = await res.json() as { slideshow?: { title?: string } };
@@ -166,7 +167,7 @@ export const HttpDemo = component(() => {
             const form = new FormData();
             form.append('file', file);
             form.append('purpose', 'showcase-demo');
-            const res = await fetch('https://httpbin.org/post', {
+            const res = await fetch(`${env.echoApiBaseUrl}/post`, {
                 method: 'POST',
                 headers: { Authorization: 'Bearer demo-token' },
                 body: form,

@@ -68,6 +68,8 @@ describe('public runtime exports', () => {
                 'isBaseBuild',
                 'isVariant',
                 'variant',
+                // app env (#1244)
+                'env',
                 // app lifecycle (#607)
                 'APP_STATE_EVENT',
                 'AppState',

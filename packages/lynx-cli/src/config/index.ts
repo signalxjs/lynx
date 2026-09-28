@@ -1,7 +1,10 @@
-export { defineLynxConfig } from './schema.js';
+export { defineLynxConfig, readEnv, requireEnv } from './schema.js';
 export type {
     LynxConfig,
     VariantConfig,
+    AppEnvShape,
+    AppEnvValue,
+    EnvOf,
     ModuleConfig,
     AndroidConfig,
     AndroidFeatureConfig,
@@ -21,7 +24,7 @@ export type {
     PlistValue,
 } from './schema.js';
 
-export { resolveConfig, modulesForPlatform, resolveAssets } from './parser.js';
+export { resolveConfig, modulesForPlatform, resolveAssets, envHash } from './parser.js';
 export type {
     ResolvedConfig,
     ResolvedModule,

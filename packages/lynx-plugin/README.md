@@ -131,6 +131,31 @@ export default defineConfig({
 
 8. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
 
+## App environment
+
+The plugin bakes the app env from `signalx.config.ts` (`env`, merged with the
+active variant) into the bundle as the `__SIGX_APP_ENV__` define. App code reads
+it as `env` from `@sigx/lynx`. `@sigx/lynx-cli` passes it to the build, so run
+the build through `sigx build` / `sigx dev`, not bare `rspeedy`. To read it in
+`lynx.config.ts`, use `appEnv()`:
+
+```ts
+// lynx.config.ts
+import { defineConfig } from '@lynx-js/rspeedy';
+import { appEnv, pluginSigxLynx } from '@sigx/lynx-plugin';
+
+const { apiBaseUrl } = appEnv<{ apiBaseUrl: string }>();
+
+export default defineConfig({
+  plugins: [pluginSigxLynx()],
+  server: { proxy: { '/api': apiBaseUrl } },
+});
+```
+
+After a production build the plugin writes `.sigx-build.json` (variant, env
+hash, OTA channel) next to the Lynx bundle. `sigx updates:publish` checks it
+(`BUILD_MARKER_FILE` is its name).
+
 ## Worklet author quick reference
 
 Mark an event handler as MT-thread by adding the directive as the first statement:
