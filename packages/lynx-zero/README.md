@@ -237,6 +237,10 @@ The platform spellings to know:
   at the visible box and its body is always a vertical `scroll-view`:
   a panel taller than the space scrolls inside instead of running under
   the keyboard, and the keyboard rising never remounts the focused field.
+  A scroll-view clips to its bounds, so the body reaches 4px (the skin's
+  widest focus ring) into the panel's padding and gives it back to its
+  content: a focused full-width field's ring paints all the way round
+  (#1255), and the content sits where it always did.
 - **Press feedback has two tiers.** Every pressable part (Button, a Tabs
   tab, an Accordion trigger, the Popover/Dialog triggers and closes, the
   Select trigger and items, the Toast action and close, a Toggle, each

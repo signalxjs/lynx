@@ -468,6 +468,28 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     </Dialog.Popup>
                 </Dialog.Root>
             ),
+            // #1255: the forced ring of a full-width field paints on all four
+            // sides inside the panel's scroll body.
+            'field-focus': () => (
+                <Dialog.Root defaultOpen dismissible={false}>
+                    <Dialog.Trigger><text>Open dialog</text></Dialog.Trigger>
+                    <Dialog.Popup>
+                        <Dialog.Title>Focus ring</Dialog.Title>
+                        <Dialog.Description>The ring paints all the way round.</Dialog.Description>
+                        <Field.Root>
+                            <Field.Label>Name</Field.Label>
+                            <ForceStates flags={{ 'focus-visible': true }} parts={['control']}>
+                                <Input.Root defaultValue="Ada Lovelace" label="Name">
+                                    <Input.Control><Input.Input /></Input.Control>
+                                </Input.Root>
+                            </ForceStates>
+                        </Field.Root>
+                        <Dialog.Footer>
+                            <Dialog.Close><text>Close</text></Dialog.Close>
+                        </Dialog.Footer>
+                    </Dialog.Popup>
+                </Dialog.Root>
+            ),
         },
     },
     popover: {
