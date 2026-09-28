@@ -600,6 +600,19 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143, #404)', () => {
     expect(restores.map(r => r[3])).toEqual([false]);
   });
 
+  it('a write after readonly turned off, while a readonly write waits, is not overwritten by it (#1231)', () => {
+    const el = readonlyField('a');
+
+    nodeOps.patchProp(el, 'value', 'a', 'b');
+    nodeOps.patchProp(el, 'readonly', true, false);
+    nodeOps.patchProp(el, 'value', 'b', 'c');
+    drainOps();
+
+    vi.runAllTimers();
+    const invokes = invokeOps(parseOps(drainOps()));
+    expect(invokes.map(r => r[3])).toEqual([{ value: 'c' }]);
+  });
+
   it('drops a readonly write whose element unmounted while it waited (#1231)', () => {
     const el = readonlyField('a');
 

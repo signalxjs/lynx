@@ -193,11 +193,18 @@ export function flushPendingReadonlyWrites(): void {
  * bracket is harmless there.
  */
 function pushSetValue(el: ShadowElement, value: string): void {
+  // A bracketed write is already waiting: this one replaces its text, even
+  // if readonly has turned off since. Written now, it would be overwritten
+  // by the stale pending text when the second half runs.
+  if (pendingReadonlyWrites.has(el)) {
+    pendingReadonlyWrites.set(el, value);
+    return;
+  }
   if (!el._readonly) {
     pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value });
     return;
   }
-  if (!pendingReadonlyWrites.has(el)) pushOp(OP.SET_PROP, el.id, 'readonly', false);
+  pushOp(OP.SET_PROP, el.id, 'readonly', false);
   pendingReadonlyWrites.set(el, value);
   if (readonlyWriteScheduled) return;
   readonlyWriteScheduled = true;
