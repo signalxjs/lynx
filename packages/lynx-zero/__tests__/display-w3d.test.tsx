@@ -27,7 +27,7 @@ function partsOf(root: Node, scope: string, part: string, out: Node[] = []): Nod
 }
 
 /** The divider's drawn segments: the root's children that are not parts. */
-const segmentsOf = (root: Node): Node[] => elementsOf(root).filter((child) => String(child._class ?? '').includes('zx-m-segment'));
+const segmentsOf = (root: Node): Node[] => elementsOf(root).filter((child) => classOf(child).includes('zx-m-segment'));
 
 /** A node's element children (the renderer's comment/text anchors dropped). */
 const elementsOf = (root: Node): Node[] => root.children.filter((child) => child.type === 'view' || child.type === 'text');
@@ -101,6 +101,7 @@ describe('Divider', () => {
         conforms(start as never, 'divider');
         const startRoot = partsOf(start, 'divider', 'root')[0]!;
         expect(elementsOf(startRoot).map((c) => c.props['data-part'] ?? 'segment')).toEqual(['label', 'segment']);
+        expect(segmentsOf(startRoot)).toHaveLength(1);
         const label = partsOf(start, 'divider', 'label')[0]!;
         expect(label.props['data-placement']).toBe('start');
         expect(classOf(label)).toContain('zx-p-start');
