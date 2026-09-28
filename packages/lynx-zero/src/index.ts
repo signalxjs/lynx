@@ -191,3 +191,10 @@ export type {
 export { Menu } from './components/menu/Menu.js';
 export type { NavListLinkProps, NavListPartProps, NavListRootProps } from './components/nav-list/NavList.js';
 export { NavList } from './components/nav-list/NavList.js';
+
+// ── Components (zero wave 4 — navigation: tree-view, W4D #1256) ─────────
+export type {
+    TreeViewBranchContentProps, TreeViewBranchIndicatorProps, TreeViewBranchProps, TreeViewBranchTriggerProps,
+    TreeViewItemProps, TreeViewNodeCheckboxProps, TreeViewPartProps, TreeViewRoot, TreeViewRootProps,
+} from './components/tree-view/TreeView.js';
+export { TreeView } from './components/tree-view/TreeView.js';
