@@ -102,21 +102,51 @@ export interface TreeRegistry {
 export function createTreeRegistry(): TreeRegistry {
     const nodes = new Map<string, TreeNodeEntry>();
     const version = signal({ n: 0 });
-    const isBelow = (entry: TreeNodeEntry, ancestor: string): boolean => {
-        const seen = new Set<string>();
-        for (let parent = entry.parentValue; parent !== null && !seen.has(parent); parent = nodes.get(parent)?.parentValue ?? null) {
-            if (parent === ancestor) return true;
-            seen.add(parent);
+    // Derived per registry version, not per read: every row's check state
+    // asks for leaves on each render, so the parent → children index is
+    // built once after a change and each branch's leaf list is memoized
+    // until the next one. `stamp` mirrors `version.n` outside the signal.
+    let stamp = 0;
+    let children: Map<string | null, TreeNodeEntry[]> | null = null;
+    const leaves = new Map<string, TreeNodeEntry[]>();
+    const changed = (): void => {
+        stamp++;
+        children = null;
+        leaves.clear();
+        version.n = stamp;
+    };
+    const childIndex = (): Map<string | null, TreeNodeEntry[]> => {
+        if (children) return children;
+        const index = new Map<string | null, TreeNodeEntry[]>();
+        for (const entry of nodes.values()) {
+            const siblings = index.get(entry.parentValue);
+            if (siblings) siblings.push(entry);
+            else index.set(entry.parentValue, [entry]);
         }
-        return false;
+        children = index;
+        return index;
+    };
+    const collect = (value: string): TreeNodeEntry[] => {
+        const index = childIndex();
+        const out: TreeNodeEntry[] = [];
+        const seen = new Set<string>([value]);
+        const stack = [...(index.get(value) ?? [])];
+        while (stack.length > 0) {
+            const entry = stack.pop()!;
+            if (seen.has(entry.value)) continue;
+            seen.add(entry.value);
+            if (entry.isBranch) stack.push(...(index.get(entry.value) ?? []));
+            else out.push(entry);
+        }
+        return out;
     };
     return {
         register(entry) {
             nodes.set(entry.value, entry);
-            version.n++;
+            changed();
             return () => {
                 if (nodes.get(entry.value) === entry) nodes.delete(entry.value);
-                version.n++;
+                changed();
             };
         },
         find(value) {
@@ -125,7 +155,12 @@ export function createTreeRegistry(): TreeRegistry {
         },
         leavesOf(value) {
             void version.n;
-            return [...nodes.values()].filter((entry) => !entry.isBranch && isBelow(entry, value));
+            let list = leaves.get(value);
+            if (!list) {
+                list = collect(value);
+                leaves.set(value, list);
+            }
+            return list;
         },
     };
 }

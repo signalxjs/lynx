@@ -116,6 +116,8 @@ describe('TreeView pure helpers', () => {
         reg.register({ value: 'i', parentValue: 'src', isBranch: false, disabled: off });
         expect(reg.leavesOf('src').map((n) => n.value).sort()).toEqual(['a', 'i']);
         expect(reg.leavesOf('lib').map((n) => n.value)).toEqual(['a']);
+        // Memoized per registry version: a second read reuses the list.
+        expect(reg.leavesOf('src')).toBe(reg.leavesOf('src'));
         leave();
         expect(reg.find('a')).toBeUndefined();
         expect(reg.leavesOf('src').map((n) => n.value)).toEqual(['i']);
