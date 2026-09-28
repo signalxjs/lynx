@@ -1,5 +1,6 @@
 package com.sigx.devclient
 
+import android.util.Log
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -177,6 +178,15 @@ fun DevLynxScreen(
                             // Drop dev-server / HMR artifacts (e.g. "Failed to
                             // load CSS update file …hot-update.json").
                             if (isDevNoise(msg)) return
+                            // A resource that failed to load (a dead avatar
+                            // URL, an offline image) is an expected state the
+                            // app renders around: log it to the `sigx dev`
+                            // terminal as a warning, no red screen (#1252).
+                            if (isRecoverableResourceError(error)) {
+                                Log.w("SigxDevClient", "resource load failure (no overlay): $msg")
+                                DevServerReporter.report(currentUrl, msg, level = "warn")
+                                return
+                            }
                             pushError(msg)
                         }
                     })
@@ -308,6 +318,37 @@ private fun formatThrowable(t: Throwable, fallback: String): String {
 private fun isDevNoise(s: String): Boolean {
     val head = s.substringBefore(DETAIL_MARKER).lowercase()
     return head.contains("hot-update") || head.contains("failed to load css update file")
+}
+
+/** Lynx's "Resource" error section: 301 image, 302 font, 303 external
+ *  resource, 398 custom, 399 exception. A sub-code is its section code × 100
+ *  plus a detail (30196 = image from network, 39900 = resource exception). */
+private val RESOURCE_ERROR_CODES = 300..399
+/** The image behavior inside the resource section. */
+private const val IMAGE_RESOURCE_ERROR_CODE = 301
+/** Custom-info / JSON value naming the resource kind for an image. */
+private const val IMAGE_RESOURCE_TYPE = "image"
+
+/**
+ * An image that failed to load. Lynx reports it as a level-`error` LynxError
+ * (code 301, or 399 with resource type `image`), but the image element also
+ * fires `binderror` and the app renders its fallback. Nothing is broken, so it
+ * is not a red-screen error. Reads the typed codes first, then the JSON
+ * [LynxError.toString] folds the same fields (and the resource type) into.
+ */
+private fun isRecoverableResourceError(error: LynxError): Boolean {
+    val json = try { JSONObject(error.toString()) } catch (_: Exception) { null }
+    val type = json?.optString("type")?.takeIf { it.isNotBlank() }
+    if (isImageResourceError(error.errorCode, error.subCode, type)) return true
+    if (json == null) return false
+    return isImageResourceError(json.optInt("error_code"), json.optInt("sub_code"), type)
+}
+
+private fun isImageResourceError(code: Int, subCode: Int, resourceType: String?): Boolean {
+    if (code !in RESOURCE_ERROR_CODES) return false
+    return code == IMAGE_RESOURCE_ERROR_CODE ||
+        subCode / 100 == IMAGE_RESOURCE_ERROR_CODE ||
+        resourceType.equals(IMAGE_RESOURCE_TYPE, ignoreCase = true)
 }
 
 /**

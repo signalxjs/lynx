@@ -339,7 +339,10 @@ export const GALLERY_SCOPES = {
         // `keyboard`: a name input and a bio textarea above the footer, for
         // the soft keyboard (#1232) — focus Bio and the panel must lift so
         // the field and the footer stay above the keyboard.
-        extras: ['open', 'open-states', 'nested', 'keyboard'],
+        // `field-focus`: a full-width input inside the open panel with its
+        // ring forced on — the ring must paint on all four sides, not be
+        // clipped by the scroll body (#1255). No taps, no keyboard.
+        extras: ['open', 'open-states', 'nested', 'keyboard', 'field-focus'],
         // The default 76 let the xl trigger overlap its neighbour (#1192).
         cellWidth: 100,
         cell: fieldTrigger('Open'),

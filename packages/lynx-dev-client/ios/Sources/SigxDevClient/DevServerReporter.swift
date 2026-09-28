@@ -20,11 +20,14 @@ enum DevServerReporter {
     private static let timeout: TimeInterval = 1.5
 
     /// POST `message` to the dev server derived from `bundleUrl`. No-ops when the
-    /// URL isn't a usable `http(s)` dev URL. Returns immediately.
-    static func report(bundleUrl: String?, message: String) {
+    /// URL isn't a usable `http(s)` dev URL. Returns immediately. `level` is
+    /// `"error"` (the red-screen errors) or `"warn"` (recoverable ones that are
+    /// only logged, such as an image that failed to load).
+    static func report(bundleUrl: String?, message: String, level: String = "error") {
         guard let endpoint = deviceErrorEndpoint(from: bundleUrl) else { return }
         let payload: [String: Any] = [
             "message": message,
+            "level": level,
             "platform": "ios",
             "ts": Int(Date().timeIntervalSince1970 * 1000),
         ]

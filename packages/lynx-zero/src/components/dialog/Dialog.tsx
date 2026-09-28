@@ -155,6 +155,35 @@ function popupStyle(layout: DialogLayout): Record<string, string | number> {
  */
 const DIALOG_BODY_STYLE = { flexGrow: 0, flexShrink: 1, flexBasis: 'auto', minHeight: 0 } as const;
 
+/**
+ * Room for a focus ring (#1255). A scroll-view clips its children to its
+ * bounds, and a focused field's ring is a box-shadow painted OUTSIDE the
+ * field — the widest in the skin is 4px (`0 0 0 2px surface, 0 0 0 4px
+ * accent`). So the body reaches that far into the panel's own padding
+ * (negative margin) and gives it back to the content (padding): the content
+ * box lands where it always did, and the ring now paints inside the clip.
+ * The panel's padding (24px) is far wider than the gutter.
+ */
+const DIALOG_RING_GUTTER = 4;
+
+const DIALOG_BODY_OUTSET_STYLE = {
+    ...DIALOG_BODY_STYLE,
+    marginTop: `-${DIALOG_RING_GUTTER}px`,
+    marginRight: `-${DIALOG_RING_GUTTER}px`,
+    marginBottom: `-${DIALOG_RING_GUTTER}px`,
+    marginLeft: `-${DIALOG_RING_GUTTER}px`,
+} as const;
+
+/** The scroll content: the slot, inset by the ring gutter, stacked as before. */
+const DIALOG_BODY_CONTENT_STYLE = {
+    display: 'flex',
+    flexDirection: 'column',
+    paddingTop: `${DIALOG_RING_GUTTER}px`,
+    paddingRight: `${DIALOG_RING_GUTTER}px`,
+    paddingBottom: `${DIALOG_RING_GUTTER}px`,
+    paddingLeft: `${DIALOG_RING_GUTTER}px`,
+} as const;
+
 const DialogPopup = component<PopupProps>(({ props, slots }) => {
     const dialog = useDialogContext();
     const axes = useVariantAxes();
@@ -257,9 +286,14 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
                             scroll-orientation="vertical"
                             scroll-y
                             bounces={false}
-                            style={DIALOG_BODY_STYLE}
+                            style={DIALOG_BODY_OUTSET_STYLE}
                         >
-                            <PortalScope setup={bridge} render={renderSlot} />
+                            {/* The ring gutter lives INSIDE the scroll
+                                content, so a focused field's ring clears the
+                                clip on every side (#1255). */}
+                            <view style={DIALOG_BODY_CONTENT_STYLE}>
+                                <PortalScope setup={bridge} render={renderSlot} />
+                            </view>
                         </scroll-view>
                     </view>
                 </view>

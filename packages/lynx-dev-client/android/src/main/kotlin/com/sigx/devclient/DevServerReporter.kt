@@ -34,13 +34,16 @@ object DevServerReporter {
     /**
      * POST [message] to the dev server derived from [bundleUrl]. No-ops when the
      * URL isn't a usable `http(s)` dev URL. Returns immediately; the request
-     * runs on a background daemon thread.
+     * runs on a background daemon thread. [level] is `"error"` (the red-screen
+     * errors) or `"warn"` (recoverable ones that are only logged, such as an
+     * image that failed to load).
      */
-    fun report(bundleUrl: String?, message: String) {
+    fun report(bundleUrl: String?, message: String, level: String = "error") {
         val endpoint = deviceErrorEndpoint(bundleUrl) ?: return
         val body = try {
             JSONObject()
                 .put("message", message)
+                .put("level", level)
                 .put("platform", "android")
                 .put("ts", System.currentTimeMillis())
                 .toString()
