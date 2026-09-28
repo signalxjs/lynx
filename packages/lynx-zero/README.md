@@ -98,7 +98,10 @@ themeController.followSystem();
   rem-based ramp arrives in px.
 - `useScreenTheme(name)` (`@sigx/lynx-zero/screen-theme`, optional
   `@sigx/lynx-navigation` peer) pins the global theme while a route is
-  focused.
+  focused. That includes a screen that a cold deep link opens while the app
+  is still mounting: a theme set from a descendant's setup or `onMounted`
+  reaches the root host once the provider has mounted
+  ([#1193](https://github.com/signalxjs/lynx/issues/1193)).
 
 ## Layout
 

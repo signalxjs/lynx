@@ -31,7 +31,7 @@
  * provider is a content island with local state that overrides its subtree.
  */
 import type { Define } from '@sigx/lynx';
-import { component, defineInjectable, defineProvide, effect, signal } from '@sigx/lynx';
+import { component, defineInjectable, defineProvide, effect, onMounted, signal, untrack } from '@sigx/lynx';
 import { useSystemColorScheme } from '@sigx/lynx-appearance';
 import { pickThemeFor, themeClass, HOST_CLASS } from './registry-bridge.js';
 import type { ThemeController, ThemeName, ThemeState } from './theme-state.js';
@@ -125,7 +125,24 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
         }
     });
 
+    // A theme written while this provider's FIRST render is still on the
+    // stack never reaches it: the subtree mounts inside that render (every
+    // descendant's setup and onMounted with it), and the reactive core drops
+    // a notification to an effect that is still running. A cold deep link
+    // lands exactly there: `useLinkingNav` routes from onMounted and the
+    // routed screen pins its theme (`useScreenTheme`) on focus, so the host
+    // kept the theme it mounted with (#1193, signalxjs/core#739). Once
+    // mounted, re-render if the state moved on during the mount.
+    let rendered = '';
+    const renderKey = (): string => `${state.name}|${state.fontScale}`;
+    const rerender = signal({ n: 0 });
+    onMounted(() => {
+        if (untrack(renderKey) !== rendered) rerender.n++;
+    });
+
     return () => {
+        void rerender.n;
+        rendered = renderKey();
         const classes = [HOST_CLASS];
         if (state.name) classes.push(themeClass(state.name));
         if (props.class) classes.push(props.class);

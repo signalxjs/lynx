@@ -46,7 +46,7 @@ import { daisyuiPreset } from '@sigx/lynx-daisyui/preset';
   <Select options={fruits} model={() => state.fruit} onChange={(v) => track('fruit', v)} />
   <Radio.Item value="pro" label="Pro" onSelect={(v) => setPlan(v)} />
   ```
-- **Theme switching** with `<ThemeProvider>` / `useTheme()`, a headless `themeController` singleton, per-screen themes, and scoped sub-overrides. Content themes nest freely; OS chrome (status/nav bars) follows the global theme.
+- **Theme switching** with `<ThemeProvider>` / `useTheme()`, a headless `themeController` singleton, per-screen themes, and scoped sub-overrides. Content themes nest freely; OS chrome (status/nav bars) follows the global theme. A theme set while the app is still mounting (a per-screen theme on a screen that a cold deep link opens) reaches the root provider once it has mounted ([#1193](https://github.com/signalxjs/lynx/issues/1193)).
 - **Navigation chrome** that pairs with [`@sigx/lynx-navigation`](https://sigx.dev/lynx/modules/navigation/overview/): `<NavTabBar />`, `<NavHeader />`, `<NavDrawer />`, all built on the navigation package's public hooks. (`<Tabs>` and `<SwiperIndicator>` need no peer and stay on the root entry.)
 - **Markdown integration** bridges into [`@sigx/lynx-markdown`](https://sigx.dev/lynx/modules/markdown/overview/) for themed rendering, editing and toolbar.
 - **Emoji skin** for [`@sigx/lynx-emoji`](https://sigx.dev/lynx/modules/emoji/overview/): `emojiClasses` and a themed `<EmojiPickerSheet>` (which also needs `@sigx/lynx-sheet`).

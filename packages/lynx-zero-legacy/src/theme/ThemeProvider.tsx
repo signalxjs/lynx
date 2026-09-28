@@ -390,7 +390,23 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     // Created on mount (the native publisher may populate the scheme between
     // setup and mount) and torn down on unmount.
     let follow: { stop: () => void } | undefined;
+
+    // What the host last rendered from, and a render key to re-run it. A
+    // theme written while this provider's FIRST render is still on the stack
+    // never reaches it: the subtree mounts inside that render (so does every
+    // descendant's setup and onMounted), and the reactive core drops a
+    // notification to an effect that is still running. That is exactly where
+    // a cold deep link lands: `useLinkingNav` routes from onMounted, and the
+    // routed screen pins its theme (`useScreenTheme`) on focus. The host then
+    // kept the theme it mounted with — white status-bar and home-indicator
+    // strips around a dark screen (#1193, signalxjs/core#739). So once
+    // mounted, re-render if the state moved on during the mount.
+    let rendered = '';
+    const renderKey = (): string => `${state.name}|${state.fontScale}|${state.following}`;
+    const rerender = signal({ n: 0 });
+
     onMounted(() => {
+        if (untrack(renderKey) !== rendered) rerender.n++;
         follow = effect(() => {
             const following = state.following;
             const scheme = readScheme();
@@ -408,6 +424,8 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     });
 
     return () => {
+        void rerender.n;
+        rendered = renderKey();
         // Does this theme's palette ship as a stylesheet rule the engine can
         // resolve? If so the host wears the theme name and the CSS does the
         // rest — no palette in the style op at all. Otherwise (any
