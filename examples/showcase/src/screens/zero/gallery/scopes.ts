@@ -999,7 +999,9 @@ export const GALLERY_SCOPES = {
         ],
         // `compose`: real bars — a brand + button, a centred title between
         // icon buttons, a neutral bar with ghost actions.
-        extras: ['compose'],
+        // `squeeze`: bars narrower than their content — every section keeps
+        // its words whole and the row overflows, never "Acm / e" (#1274).
+        extras: ['compose', 'squeeze'],
         cellWidth: 163,
         // `min-height` 2.5/3/4/5/6rem; the xl content is three --text-lg
         // words inside `--space-sm` padding.
@@ -1053,8 +1055,12 @@ export const GALLERY_SCOPES = {
         // `open-states`: the row under the finger (forced highlighted +
         // pressed), checkbox rows on/off/disabled, a radio group.
         // `sub`: a submenu open beside (or, on a phone, over) its parent —
-        // the sub-trigger in its open state.
-        extras: ['open', 'open-states', 'sub'],
+        // the sub-trigger in its open state. Live: tapping `Export` closes
+        // `Share` (one open submenu per level, #1273).
+        // `sub-states`: a held and a disabled sub-trigger, and an open
+        // two-level chain (Export › Image) whose nested siblings exclude
+        // each other.
+        extras: ['open', 'open-states', 'sub', 'sub-states'],
         cellWidth: 100,
         cell: fieldTrigger('Menu'),
     },
