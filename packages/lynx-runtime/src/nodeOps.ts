@@ -168,14 +168,16 @@ let readonlyWriteScheduled = false;
 export function flushPendingReadonlyWrites(): void {
   readonlyWriteScheduled = false;
   if (pendingReadonlyWrites.size === 0) return;
+  let emitted = false;
   for (const [el, value] of pendingReadonlyWrites) {
     // Unmounted meanwhile: the native node is gone.
     if (el.parent == null) continue;
     pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value });
     pushOp(OP.SET_PROP, el.id, 'readonly', el._readonly);
+    emitted = true;
   }
   pendingReadonlyWrites.clear();
-  scheduleFlush();
+  if (emitted) scheduleFlush();
 }
 
 /**
