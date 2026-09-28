@@ -436,7 +436,9 @@ export const GALLERY_SCOPES = {
         // `affordances`: start + end adornments, clear and visibility
         // triggers together, the triggers focused one at a time (#1163's
         // one-ring-per-cell rule), and a forced focus ring per colour.
-        extras: ['affordances'],
+        // `readonly-update`: readonly input, textarea and number input whose
+        // values change after mount; each must show "after" / 7 (#1231).
+        extras: ['affordances', 'readonly-update'],
         cellWidth: 163,
         // The control is `--size-field * 8…16` tall (the shared field ramp).
         cell: (size) => ({ width: TEXT_FIELD_WIDTH, height: FIELD_H[size] }),

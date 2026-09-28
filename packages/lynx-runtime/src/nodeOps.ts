@@ -111,11 +111,11 @@ const nativeEventSlots = new Map<number, Map<string, { sign: string; handlers: M
 
 // <input>/<textarea> elements whose non-empty initial value was captured at
 // mount (`el.parent == null`, before insertion). The `value` attribute set at
-// mount is honored by Android but ignored by iOS for initial display, and a
-// `setValue` UI method invoked in the mount batch is dropped too — the native
-// iOS input view isn't laid out yet. So the value is (re)applied via setValue
-// on a short deferred tick, once the view exists, which makes the model-bound
-// prefill appear on iOS while staying a harmless no-op repeat on Android. (#404)
+// mount does not display the text on iOS, and a `setValue` UI method invoked
+// in the mount batch is dropped too — the native iOS input view isn't laid out
+// yet. So the value is (re)applied via setValue on a short deferred tick, once
+// the view exists, which makes the model-bound prefill appear on iOS. Android
+// also gets the mount-batch `default-value` (see patchProp, #1231). (#404)
 const pendingInitialValues = new Set<ShadowElement>();
 let initialValueFlushScheduled = false;
 
@@ -146,13 +146,62 @@ export function flushPendingInitialValues(): void {
     //    during the deferral window — re-applying the initial value would
     //    clobber what's there.
     if (v != null && el.parent != null && el._lastInputValue === undefined) {
-      pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: v });
+      pushSetValue(el, v);
       el._lastInputValue = v;
       emitted = true;
     }
   }
   pendingInitialValues.clear();
   if (emitted) scheduleFlush();
+}
+
+// Readonly fields with a programmatic write waiting for the readonly flag to
+// be lifted natively (see `pushSetValue`), with the latest text to write.
+const pendingReadonlyWrites = new Map<ShadowElement, string>();
+let readonlyWriteScheduled = false;
+
+/**
+ * Second half of a readonly write: the batch that lifted the flag has
+ * flushed, so the text lands, and the flag goes back to the element's
+ * current `readonly`. Exported for tests.
+ */
+export function flushPendingReadonlyWrites(): void {
+  readonlyWriteScheduled = false;
+  if (pendingReadonlyWrites.size === 0) return;
+  for (const [el, value] of pendingReadonlyWrites) {
+    // Unmounted meanwhile: the native node is gone.
+    if (el.parent == null) continue;
+    pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value });
+    pushOp(OP.SET_PROP, el.id, 'readonly', el._readonly);
+  }
+  pendingReadonlyWrites.clear();
+  scheduleFlush();
+}
+
+/**
+ * Write text into a mounted native field through its `setValue` UI method.
+ *
+ * Android's field runs every text write through a `readonly` InputFilter
+ * that rejects it, setValue included, so a readonly field never shows a
+ * programmatic value (#1231). The write is bracketed: lift the flag, then
+ * write and restore it in a LATER batch. One batch does not work (checked
+ * on the emulator): attributes reach the native view only when the batch
+ * flushes, so the flag's two writes collapse into its final value and the
+ * setValue meets the filter. iOS never filters a programmatic write; the
+ * bracket is harmless there.
+ */
+function pushSetValue(el: ShadowElement, value: string): void {
+  if (!el._readonly) {
+    pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value });
+    return;
+  }
+  if (!pendingReadonlyWrites.has(el)) pushOp(OP.SET_PROP, el.id, 'readonly', false);
+  pendingReadonlyWrites.set(el, value);
+  if (readonlyWriteScheduled) return;
+  readonlyWriteScheduled = true;
+  // A macrotask: the lift's batch flushes on a microtask (scheduleFlush),
+  // so it always reaches the main thread before this runs.
+  setTimeout(flushPendingReadonlyWrites, 0);
 }
 
 /** Register an input/textarea for a deferred initial-value setValue (coalesced). */
@@ -176,6 +225,8 @@ export function resetNodeOpsState(): void {
   nativeEventSlots.clear();
   pendingInitialValues.clear();
   initialValueFlushScheduled = false;
+  pendingReadonlyWrites.clear();
+  readonlyWriteScheduled = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -747,7 +798,7 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
             pendingInitialValues.delete(el);
           }
           if (next !== el._lastInputValue) {
-            pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
+            pushSetValue(el, next);
             // The programmatic write replaces whatever the user had typed;
             // track it so the next echo comparison stays correct.
             el._lastInputValue = next;
@@ -762,13 +813,25 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
         // needs nothing extra (the attribute covers it). (#404)
         el._pendingInitialValue = next;
         scheduleInitialValueSync(el);
+        // Also seed the native `default-value` in the mount batch. Android's
+        // field puts a `readonly` InputFilter in front of every text write,
+        // setValue included, so the deferred setValue above never lands on a
+        // readonly field and it shows its placeholder. The `default-value`
+        // setter is the one write that passes that filter, and it applies
+        // only before the node is ready, which is this batch. On iOS the same
+        // text is written again by the deferred setValue either way. (#1231)
+        pushOp(OP.SET_PROP, el.id, 'default-value', next);
       } else if (el._pendingInitialValue !== undefined) {
         // Re-patched to empty while still uninserted — supersede the earlier
         // non-empty stash so the deferred setValue can't emit a stale value.
         el._pendingInitialValue = undefined;
         pendingInitialValues.delete(el);
+        pushOp(OP.SET_PROP, el.id, 'default-value', '');
       }
     } else {
+      if (key === 'readonly' && (el.type === 'input' || el.type === 'textarea')) {
+        el._readonly = Boolean(nextValue);
+      }
       pushOp(OP.SET_PROP, el.id, key, nextValue);
     }
     scheduleFlush();

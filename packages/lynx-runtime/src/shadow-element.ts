@@ -60,6 +60,12 @@ export class ShadowElement {
   // (#404). `undefined` when nothing pending.
   _pendingInitialValue: string | undefined = undefined;
 
+  // Whether this <input>/<textarea> carries a truthy `readonly` attribute.
+  // Android's native field rejects every text write while readonly, the
+  // setValue UI method included, so nodeOps lifts the flag around a
+  // programmatic write (#1231).
+  _readonly = false;
+
   constructor(type: string, forceId?: number) {
     this.id = forceId !== undefined ? forceId : ShadowElement.nextId++;
     this.type = type;
