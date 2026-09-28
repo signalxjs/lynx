@@ -39,7 +39,7 @@
  * popup's anatomy declares — the runtime stamps the RESOLVED side (after
  * flipping) through `partBag`, exactly like the web behavior does.
  */
-import { defineInjectable, defineProvide, effect, onUnmounted, useScreen, useViewportRect } from '@sigx/lynx';
+import { defineInjectable, defineProvide, effect, onUnmounted, signal, useScreen, useViewportRect } from '@sigx/lynx';
 import type { ElementLayout, LayoutChangeEvent, MainThread, MainThreadRef } from '@sigx/lynx';
 
 /**
@@ -62,12 +62,20 @@ interface OverlayOrigin {
     rect(): ElementLayout | null;
     frame(): ElementLayout | null;
     measure(): void;
+    /**
+     * The outlet's height with no keyboard: the tallest the host has laid it
+     * out at the current width. What `keyboardOverlap` compares against, so
+     * a window that resized for the keyboard (Android `adjustResize`) is not
+     * lifted twice (#1232).
+     */
+    fullHeight(): number;
 }
 
 const useOverlayOriginInjectable = defineInjectable<OverlayOrigin>(() => ({
     rect: () => null,
     frame: () => null,
     measure: () => {},
+    fullHeight: () => 0,
 }));
 
 /**
@@ -81,8 +89,36 @@ export function provideOverlayOrigin(
     read: () => ElementLayout | null,
     measure: () => void = () => {},
     frame: () => ElementLayout | null = () => null,
+    fullHeight: () => number = () => read()?.height ?? 0,
 ): void {
-    defineProvide(useOverlayOriginInjectable, () => ({ rect: read, frame, measure }));
+    defineProvide(useOverlayOriginInjectable, () => ({ rect: read, frame, measure, fullHeight }));
+}
+
+/**
+ * Track the tallest height a box has had at its current width — the
+ * outlet's no-keyboard height (`OverlayOrigin.fullHeight`). A width change
+ * (rotation, split view) starts over. Returns a reader to call with the
+ * current size; pure bookkeeping, so it tests without a host. @internal
+ */
+export function tallestAtWidth(): (size: { width: number; height: number } | null) => number {
+    let width = 0;
+    let tallest = 0;
+    return (size) => {
+        if (!size || !(size.width > 0) || !(size.height > 0)) return tallest;
+        if (Math.abs(size.width - width) > EPSILON) {
+            width = size.width;
+            tallest = size.height;
+        } else if (size.height > tallest) {
+            tallest = size.height;
+        }
+        return tallest;
+    };
+}
+
+/** The nearest outlet's no-keyboard height (see `tallestAtWidth`), reactive. @internal */
+export function useOutletFullHeight(): () => number {
+    const origin = useOverlayOriginInjectable();
+    return () => origin.fullHeight();
 }
 
 /**
@@ -401,6 +437,52 @@ export function settleRect(
     };
 }
 
+/**
+ * An ancestor that moves its subtree with a TRANSFORM — a dialog panel's
+ * open animation (daisy's `zero-daisy-pop`: scale 0.95 → 1) — and so fires
+ * no layout event when it stops (#1233). An anchored popup opened inside
+ * the panel measured its trigger mid-animation; on iOS two measurements
+ * taken before the animation visibly moves agree, the settle loop ended,
+ * and the list stayed anchored where the trigger was at scale 0.95 (about
+ * 8pt right of it on a phone). The ancestor bumps `settled()` whenever its
+ * motion ends; every anchored popup under it re-measures once per bump.
+ */
+interface AncestorMotion {
+    /** A counter bumped each time an ancestor's motion ends. Reactive. */
+    settled(): number;
+}
+
+const useAncestorMotionInjectable = defineInjectable<AncestorMotion>(() => ({ settled: () => 0 }));
+
+export interface AncestorMotionHandle {
+    /** The ancestor's motion ended (an animation or transition end, or a fallback timer). */
+    bump(): void;
+    /**
+     * Provide the motion to the subtree. Call where the subtree resolves its
+     * injections — for a portaled panel, inside its `PortalScope` setup. The
+     * enclosing ancestors' motion (captured when the handle was created)
+     * counts too, so a popup in a dialog in a dialog follows both panels.
+     */
+    provide(): void;
+}
+
+/**
+ * The mover's half of `AncestorMotion`: call in the moving component's
+ * setup (it captures the enclosing motion there), `bump()` when the motion
+ * ends, and `provide()` to the subtree. @internal
+ */
+export function createAncestorMotion(): AncestorMotionHandle {
+    const parent = useAncestorMotionInjectable();
+    const own = signal({ count: 0 });
+    const motion: AncestorMotion = { settled: () => parent.settled() + own.count };
+    return {
+        bump: () => {
+            own.count++;
+        },
+        provide: () => defineProvide(useAncestorMotionInjectable, () => motion),
+    };
+}
+
 export type LynxPlacement =
     | 'top' | 'top-start' | 'top-end'
     | 'bottom' | 'bottom-start' | 'bottom-end'
@@ -634,6 +716,20 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
             return !!frame && !containedFrame(origin.rect(), frame);
         },
     });
+
+    // An ancestor's transform ending moves the anchor without a layout event
+    // (#1233): re-measure once per bump, and only while open. A kick is a
+    // handful of batched measurements (`kickTicks`), so a bump costs a
+    // bounded burst per open popup, never a loop (#1200).
+    const motion = useAncestorMotionInjectable();
+    let seenMotion = motion.settled();
+    const followMotion = effect(() => {
+        const count = motion.settled();
+        if (count === seenMotion) return;
+        seenMotion = count;
+        if (isOpen()) settle.kick();
+    });
+    onUnmounted(() => followMotion.stop());
 
     /** The resolved placement, in OUTLET coordinates. */
     const position = (): ResolvedPosition | null => {

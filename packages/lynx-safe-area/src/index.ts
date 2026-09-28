@@ -19,6 +19,11 @@ export {
   readGlobalSafeArea,
   GLOBAL_PROPS_KEY,
 } from './globals.js';
+
+// Provider-free live channel: the same `safeAreaChanged` subscription the
+// provider uses, for a library that must follow the insets (the keyboard,
+// say) without requiring the app to mount a <SafeAreaProvider> (#1232).
+export { subscribeSafeArea } from './events.js';
 export type { RawSafeAreaProps } from './globals.js';
 
 export { ZERO_INSETS } from './types.js';

@@ -32,8 +32,8 @@
  * than an overlay silently z-fighting in place.
  */
 import type { Define, LayoutChangeEvent } from '@sigx/lynx';
-import { component, createLogger, defineInjectable, defineProvide, onUnmounted, signal, useScreen, useViewportRect } from '@sigx/lynx';
-import { containedFrame, fixedOutletRect, provideOverlayOrigin, settleRect } from '../behaviors/position.js';
+import { component, createLogger, defineInjectable, defineProvide, effect, onUnmounted, signal, useScreen, useViewportRect } from '@sigx/lynx';
+import { containedFrame, fixedOutletRect, provideOverlayOrigin, settleRect, tallestAtWidth } from '../behaviors/position.js';
 import type { ThemeProviderProps } from '../theme/ThemeProvider.js';
 import { ThemeProvider } from '../theme/ThemeProvider.js';
 
@@ -266,7 +266,18 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     // batch by function identity, so this host's loop and every anchored
     // popup under it measure the frame once per batch (#1200).
     const measureFrame = (): void => frame.measure();
-    provideOverlayOrigin(outletRect, measureFrame, () => frame.rect.value);
+    // The outlet's no-keyboard height (#1232): the host lives as long as the
+    // app, so the first layouts it sees are the window without a keyboard,
+    // and an Android window that later shrinks for one keeps its full
+    // height here — the dialog then knows the keyboard no longer overlaps.
+    // Fed eagerly: a reader that only looked when a dialog opened over an
+    // already-resized window would take the shrunken height as the full one.
+    const tallest = tallestAtWidth();
+    const feedTallest = effect(() => {
+        tallest(outletRect());
+    });
+    onUnmounted(() => feedTallest.stop());
+    provideOverlayOrigin(outletRect, measureFrame, () => frame.rect.value, () => tallest(outletRect()));
     // The frame is measured on LAYOUT, and a push transition is a transform:
     // the host inside a screen sliding in measures a screen width to the
     // right, pokes out of the outlet, and `containedFrame` drops it — every

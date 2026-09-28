@@ -218,6 +218,25 @@ The platform spellings to know:
   per batch, and each burst is capped (about two seconds of motion), so a
   screen with dozens of popups costs what one does. A custom overlay built
   on `createAnchorPosition` passes `isOpen` to get the same gating.
+  An ancestor's transform fires no layout event either: a Select opened
+  inside an OPENING dialog measured its trigger under the panel's open
+  scale and stayed ~8pt off (#1233). The Dialog panel reports when its
+  open animation or transition ends (`bindanimationend` /
+  `bindtransitionend`, plus two fallback timers per open), and every open
+  anchored popup inside it re-measures once, a bounded burst.
+- **Dialog avoids the soft keyboard** (#1232). The panel renders through
+  the portal, so an app cannot wrap it in a `KeyboardAvoidingView`; it
+  makes room itself. While open it follows the keyboard height from the
+  native safe-area publisher (`@sigx/lynx-safe-area`'s provider-free
+  `subscribeSafeArea`; no `<SafeAreaProvider>` needed, and without the
+  native module the height stays 0). The backdrop pads its bottom by the
+  keyboard's overlap when that reaches higher than the safe frame, so the
+  panel centres in what is still visible. The overlap is measured against
+  the outlet's no-keyboard height, so an Android window that resized for
+  the keyboard (`adjustResize`) is not lifted twice. The panel is capped
+  at the visible box and its body is always a vertical `scroll-view`:
+  a panel taller than the space scrolls inside instead of running under
+  the keyboard, and the keyboard rising never remounts the focused field.
 - **Press feedback has two tiers.** Every pressable part (Button, a Tabs
   tab, an Accordion trigger, the Popover/Dialog triggers and closes, the
   Select trigger and items, the Toast action and close, a Toggle, each

@@ -152,6 +152,20 @@ export interface LynxCommonAttributes
     bindlayoutchange?: LynxEventHandler;
     catchlayoutchange?: LynxEventHandler;
 
+    /**
+     * CSS animation / transition lifecycle on this element. The engine sends
+     * them only to an element that binds them. A transform animation moves
+     * the element without a layout event, so these are how code that
+     * measures (an anchored popup) learns it stopped moving.
+     */
+    bindanimationstart?: LynxEventHandler;
+    bindanimationend?: LynxEventHandler;
+    bindanimationiteration?: LynxEventHandler;
+    bindanimationcancel?: LynxEventHandler;
+    bindtransitionstart?: LynxEventHandler;
+    bindtransitionend?: LynxEventHandler;
+    bindtransitioncancel?: LynxEventHandler;
+
     // sigx event handler aliases (onX style)
     onTap?: LynxEventHandler;
     onLongpress?: LynxEventHandler;
