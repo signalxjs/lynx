@@ -31,6 +31,7 @@ import {
 import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
 import { Field, Input, Textarea } from '@sigx/lynx-zero';
 import { Alert, Card } from '@sigx/lynx-zero';
+import { Badge, Kbd, Status } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
@@ -1053,6 +1054,86 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     <Card.Root size="xs" color="accent">
                         <Card.Body><text>A bare xs card: root and body only.</text></Card.Body>
                     </Card.Root>
+                </Col>
+            ),
+        },
+    },
+    // ── Wave 3, display (W3A #1234) ──────────────────────────────────────
+    badge: {
+        cell: (c) => (
+            <Badge.Root color={c.color} size={c.size}>
+                {bool(c.props['dot'])
+                    ? <Badge.Dot color={str(c.props['dotColor'])} running={bool(c.props['running'])} />
+                    : null}
+                <text>Tag</text>
+            </Badge.Root>
+        ),
+        extras: {
+            // Each role's dot on an uncoloured pill, at rest and running,
+            // then the uncoloured dot (the pill's own ink).
+            dots: () => (
+                <Col gap={8}>
+                    {COLORS.map((color) => (
+                        <Row key={color} gap={8} align="center">
+                            <Badge.Root><Badge.Dot color={color} /><text>{color}</text></Badge.Root>
+                            <Badge.Root><Badge.Dot color={color} running /><text>running</text></Badge.Root>
+                            <Badge.Root color={color}><Badge.Dot color={color} /><text>same role</text></Badge.Root>
+                        </Row>
+                    ))}
+                    <Row gap={8} align="center">
+                        <Badge.Root><Badge.Dot /><text>ink dot</text></Badge.Root>
+                        <Badge.Root><Badge.Dot running /><text>ink running</text></Badge.Root>
+                        <Badge.Root label="3 unread" color="error"><text>3</text></Badge.Root>
+                    </Row>
+                </Col>
+            ),
+        },
+    },
+    status: {
+        cell: (c) => <Status.Root color={c.color} size={c.size} label={str(c.props['label'])} />,
+        extras: {
+            // The dot decorating the text beside it, every size.
+            'with-text': () => (
+                <Col gap={10}>
+                    {SIZES.map((size, index) => (
+                        <Row key={size} gap={8} align="center">
+                            <Status.Root size={size} color={(['success', 'warning', 'error', 'info', 'neutral'] as const)[index]} />
+                            <text>{`${size} — ${(['Online', 'Away', 'Busy', 'Syncing', 'Offline'] as const)[index]}`}</text>
+                        </Row>
+                    ))}
+                    <Row gap={8} align="center">
+                        <Status.Root />
+                        <text>uncoloured (base-content)</text>
+                    </Row>
+                </Col>
+            ),
+        },
+    },
+    kbd: {
+        cell: (c) => (
+            <Kbd.Root color={c.color} size={c.size}>
+                <text>{str(c.props['glyph']) ?? 'K'}</text>
+            </Kbd.Root>
+        ),
+        extras: {
+            // A shortcut in running text at every size, then a coloured cap.
+            shortcut: () => (
+                <Col gap={10}>
+                    {SIZES.map((size) => (
+                        <Row key={size} gap={4} align="center">
+                            <text>{`${size}: press`}</text>
+                            <Kbd.Root size={size} label="Command"><text>⌘</text></Kbd.Root>
+                            <Kbd.Root size={size}><text>K</text></Kbd.Root>
+                            <text>to search</text>
+                        </Row>
+                    ))}
+                    <Row gap={4} align="center">
+                        <Kbd.Root color="primary"><text>Ctrl</text></Kbd.Root>
+                        <text>+</text>
+                        <Kbd.Root color="primary"><text>Shift</text></Kbd.Root>
+                        <text>+</text>
+                        <Kbd.Root color="primary"><text>P</text></Kbd.Root>
+                    </Row>
                 </Col>
             ),
         },

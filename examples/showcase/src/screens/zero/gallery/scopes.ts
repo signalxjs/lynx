@@ -737,6 +737,79 @@ export const GALLERY_SCOPES = {
             };
         },
     },
+    // ── Wave 3, display (W3A #1234): badge, status, kbd ──────────────────
+    // Flag-less scopes (the anatomies declare no pressed/focus flags): the
+    // states are the parts and the one machine state, `running`.
+    badge: {
+        title: 'Badge',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            // The status dot (zero#130) following the pill's colour.
+            { id: 'dot', label: 'dot', props: { dot: true } },
+            { id: 'running', label: 'dot running', props: { dot: true, running: true } },
+            // The dot's own colour beats the pill's (#94).
+            { id: 'dot-own', label: 'dot=success', props: { dot: true, dotColor: 'success' } },
+        ],
+        // `dots`: every coloured dot on an uncoloured pill (at rest and
+        // running), and the uncoloured dot — the pill's ink.
+        extras: ['dots'],
+        cellWidth: 81,
+        // A pill: padding `--space-2xs…xs` × `--space-sm…xl`, `--text-xs…md`
+        // at `--leading-normal` (1.5), a hairline border. The widest state
+        // carries the 0.5em dot and its 0.375em gap before "Tag".
+        cell: (size) => {
+            const font = ramp(12, 12, 12, 14, 16)[size];
+            const py = ramp(0, 0, 2, 2, 4)[size];
+            const px = ramp(6, 8, 12, 12, 16)[size];
+            return {
+                width: 2 * BORDER + 2 * px + 0.875 * font + textWidth('Tag', font),
+                height: 2 * BORDER + 2 * py + 1.5 * font,
+            };
+        },
+    },
+    status: {
+        title: 'Status',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            DEFAULT,
+            // Same paint, named for the reader (an `image` element).
+            { id: 'labelled', label: 'labelled', props: { label: 'Online' } },
+        ],
+        // `with-text`: the dot beside the text it decorates, every size.
+        extras: ['with-text'],
+        cellWidth: 60,
+        // `--size-selector * 1.5…3.5`; the halo (a box-shadow a quarter of
+        // that) spills into the column padding like a focus ring.
+        cell: (size) => {
+            const dot = ramp(6, 8, 10, 12, 14)[size];
+            return { width: dot + dot / 2, height: dot + dot / 2 };
+        },
+    },
+    kbd: {
+        title: 'Kbd',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'key', label: 'key' },
+            { id: 'word', label: 'word', props: { glyph: 'Shift' } },
+            { id: 'glyph', label: 'glyph', props: { glyph: '⌘' } },
+        ],
+        // `shortcut`: a key combination in running text, every size.
+        extras: ['shortcut'],
+        cellWidth: 81,
+        // The cap: a hairline border with a doubled bottom edge, padding
+        // `--space-2xs…xs` × `--space-xs…lg` (the base is 2xs/md minus the
+        // border), `--text-xs…md` at 1.5. The widest key is "Shift".
+        cell: (size) => {
+            const font = ramp(12, 12, 12, 14, 16)[size];
+            const py = ramp(0, 0, 1, 2, 4)[size];
+            const px = ramp(4, 6, 7, 8, 12)[size];
+            return {
+                width: 2 * BORDER + 2 * px + textWidth('Shift', font),
+                height: 3 * BORDER + 2 * py + 1.5 * font,
+            };
+        },
+    },
 } as const satisfies Record<string, GalleryScope>;
 
 export type GalleryScopeId = keyof typeof GALLERY_SCOPES;

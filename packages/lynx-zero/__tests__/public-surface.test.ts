@@ -153,6 +153,10 @@ describe('public runtime exports', () => {
                 // ── components (zero wave 3 — display: alert, card, W3B #1235) ──
                 'Alert',
                 'Card',
+                // ── components (zero wave 3 — display, W3A #1234) ──
+                'Badge',
+                'Kbd',
+                'Status',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',
@@ -219,6 +223,13 @@ describe('load-bearing signatures', () => {
         expectTypeOf(zero.Card.Description).toBeFunction();
         expectTypeOf(zero.Card.Body).toBeFunction();
         expectTypeOf(zero.Card.Footer).toBeFunction();
+    });
+
+    it('Badge, Status and Kbd are compounds with the zero parts', () => {
+        expectTypeOf(zero.Badge.Root).toBeFunction();
+        expectTypeOf(zero.Badge.Dot).toBeFunction();
+        expectTypeOf(zero.Status.Root).toBeFunction();
+        expectTypeOf(zero.Kbd.Root).toBeFunction();
     });
 
     it('the controller keeps the legacy handle shape', () => {

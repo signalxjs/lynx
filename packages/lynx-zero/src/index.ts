@@ -148,3 +148,11 @@ export type {
     CardBandEnds, CardMediaProps, CardPartProps, CardRootProps, CardTextProps,
 } from './components/card/Card.js';
 export { Card } from './components/card/Card.js';
+
+// ── Components (zero wave 3 — display: badge, status, kbd, W3A #1234) ────
+export type { BadgeDotProps, BadgeRootProps } from './components/badge/Badge.js';
+export { Badge } from './components/badge/Badge.js';
+export type { StatusRootProps } from './components/status/Status.js';
+export { Status } from './components/status/Status.js';
+export type { KbdRootProps } from './components/kbd/Kbd.js';
+export { Kbd } from './components/kbd/Kbd.js';
