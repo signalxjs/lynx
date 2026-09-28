@@ -696,7 +696,8 @@ export const GALLERY_SCOPES = {
     // gets lynx-zero's drawn segments, and its placement drops the segment on
     // its side. No flags or machine states in the anatomy: the states are
     // the label forms. `vertical`: vertical rules between items, bare and
-    // labelled.
+    // labelled. The thickness is daisy's block-size/inline-size, which
+    // lynx sees as height/width from zero#479 on (#1250).
     divider: {
         title: 'Divider',
         axes: { color: COLORS, size: SIZES },
@@ -788,7 +789,9 @@ export const GALLERY_SCOPES = {
         // Fluid width. Padding (`--space-2xs…xl` × `--space-sm…2xl`) around
         // the icon column (a --text-lg glyph and `--space-md`), the title
         // over the description (both --text-sm, `--space-sm` apart), and the
-        // close button's corner (a --text-md glyph and `--space-md`).
+        // close button's corner (a --text-md glyph and `--space-md`). From
+        // zero#479 the close is a 20pt square chip (#1253): its pressed wash
+        // and focus ring are squares, not tall ovals.
         cell: (size) => {
             const py = ramp(2, 4, 8, 12, 16)[size];
             const px = ramp(6, 8, 12, 16, 20)[size];
@@ -883,7 +886,9 @@ export const GALLERY_SCOPES = {
         cellWidth: 81,
         // The cap: a hairline border with a doubled bottom edge, padding
         // `--space-2xs…xs` × `--space-xs…lg` (the base is 2xs/md minus the
-        // border), `--text-xs…md` at 1.5. The widest key is "Shift".
+        // border), `--text-xs…md` at 1.5. The widest key is "Shift". From
+        // zero#479 the cap is set in Menlo on iOS (#1254); Android keeps
+        // the system face until #1260.
         cell: (size) => {
             const font = ramp(12, 12, 12, 14, 16)[size];
             const py = ramp(0, 0, 1, 2, 4)[size];
