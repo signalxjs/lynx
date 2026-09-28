@@ -150,6 +150,9 @@ describe('public runtime exports', () => {
                 'Field',
                 'Input',
                 'Textarea',
+                // ── components (zero wave 3 — display: alert, card, W3B #1235) ──
+                'Alert',
+                'Card',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',
@@ -201,6 +204,21 @@ describe('load-bearing signatures', () => {
         expectTypeOf(zero.NUMBER_INPUT_SPIN_INTERVAL).toBeNumber();
         expectTypeOf(zero.Fieldset.Root).toBeFunction();
         expectTypeOf(zero.Fieldset.Legend).toBeFunction();
+    });
+
+    it('Alert and Card are compounds with the zero parts (#1235)', () => {
+        expectTypeOf(zero.Alert.Root).toBeFunction();
+        expectTypeOf(zero.Alert.Icon).toBeFunction();
+        expectTypeOf(zero.Alert.Title).toBeFunction();
+        expectTypeOf(zero.Alert.Description).toBeFunction();
+        expectTypeOf(zero.Alert.Close).toBeFunction();
+        expectTypeOf(zero.Card.Root).toBeFunction();
+        expectTypeOf(zero.Card.Media).toBeFunction();
+        expectTypeOf(zero.Card.Header).toBeFunction();
+        expectTypeOf(zero.Card.Title).toBeFunction();
+        expectTypeOf(zero.Card.Description).toBeFunction();
+        expectTypeOf(zero.Card.Body).toBeFunction();
+        expectTypeOf(zero.Card.Footer).toBeFunction();
     });
 
     it('the controller keeps the legacy handle shape', () => {

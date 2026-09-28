@@ -620,6 +620,84 @@ How it behaves on lynx:
   CheckboxGroup, RadioGroup, Toggle, ToggleGroup) do not read the Fieldset
   yet ([#1208](https://github.com/signalxjs/lynx/issues/1208)).
 
+## Alert and Card (zero wave 3)
+
+`Alert` is a message the user can dismiss: `root` / `icon` / `title` /
+`description` / `close`. `Card` is a surface with a conventional interior:
+`root` / `media` / `header` / `title` / `description` / `body` / `footer`.
+Both carry the skin's `color` and `size` axes on the root.
+
+```tsx
+import { Alert, Button, Card } from '@sigx/lynx-zero';
+
+<Alert.Root color="warning" model={() => state.showQuota}>
+    <Alert.Icon><text>⚠</text></Alert.Icon>
+    <Alert.Title>Approaching your quota</Alert.Title>
+    <Alert.Description>You have used 92% of this month's allowance.</Alert.Description>
+    <Alert.Close />
+</Alert.Root>
+
+<Card.Root color="primary">
+    <Card.Media><image src={cover} mode="aspectFill" style={{ width: '100%', height: '120px' }} /></Card.Media>
+    <Card.Header>
+        <Card.Title>Monthly report</Card.Title>
+        <Card.Description>Updated 4 minutes ago</Card.Description>
+    </Card.Header>
+    <Card.Body><text>Revenue is up 12%.</text></Card.Body>
+    <Card.Footer><Button color="primary"><text>Open</text></Button></Card.Footer>
+</Card.Root>
+```
+
+| `Alert.Root` prop | Type | Default | Notes |
+|---|---|---|---|
+| `model` / `defaultOpen` | `boolean` | `true` | Whether the alert is shown. `openChange` fires when Close hides it. |
+| `color` / `size` | skin axes | skin default | Size moves the box's padding. |
+
+| `Alert.Close` prop | Type | Default | Notes |
+|---|---|---|---|
+| `disabled` | `boolean` | `false` | No press, no close; announced disabled. |
+| `label` | `string` | `"Close"` | The accessible name. |
+| `pressFeel` | `boolean` | `true` | `false` turns off the main-thread press scale. The `pressed` flag stays. |
+
+`Card.Root` takes `color` / `size`. Every other part takes `class` and
+children only.
+
+How they behave on lynx:
+
+- **A closed alert unmounts.** Lynx has no `hidden` attribute, so
+  unmounting is how the anatomy's `hiddenIn: ['closed']` is kept (the Tabs
+  panel precedent). A tap on `Alert.Close` sets the model to `false`.
+- **No live region.** Lynx has no `role="alert"` or `aria-live`. The root
+  is not an accessible element, because on iOS that would hide its text from
+  the reader. The title and description are read as plain text. zero's
+  `live` and `finalFocus` props are not taken, since this platform has
+  nothing for them to drive.
+- **Alert parts.** `Alert.Icon` is decoration and sits outside the
+  accessibility tree. `Alert.Title` and `Alert.Description` are `text` parts,
+  so pass them a string. `Alert.Close` is a `view` with the `button` trait
+  and tier-2 press feedback. It carries the `disabled` and `pressed` flags,
+  and draws `×` when it has no children. `focus-visible` is reachable
+  through `ForceStates` only.
+- **Presence mods (a rendering detail).** The web skin lays the alert out
+  on a grid, but lynx has no grid and no `:has()`. So the root tracks
+  whether an Icon and a Close are rendered, and stamps `with-icon` and
+  `with-close` on the title and description (`zx-m-with-icon`,
+  `zx-m-with-close`). The skin uses them to reserve the icon's column and
+  the close button's corner.
+- **Card parts are views; the title and description are text.** The title
+  carries the `header` trait. There is no `asChild`, because lynx has no
+  `<article>` or `<figure>` to render instead. Put an `<image>` inside
+  `Card.Media`, and size it yourself: a lynx image has no intrinsic size.
+  On iOS a view's clip has not reliably rounded a filled child's corners
+  ([#1218](https://github.com/signalxjs/lynx/issues/1218)). If your image's
+  corners paint square there, give the image the same corner radius.
+- **Media's ends are stamped.** The skin rounds the corners that the media
+  band shares with the card. The web selects them with `:first-child` and
+  `:last-child`, which lynx lacks. Instead the root tracks its bands in
+  mount order and stamps `first` / `last` on `Card.Media` (`zx-m-first` /
+  `zx-m-last`). A band mounted later, such as a conditional one, joins the
+  end of that order.
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the
