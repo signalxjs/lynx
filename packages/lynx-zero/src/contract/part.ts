@@ -26,6 +26,7 @@ import {
     axisClass,
     dataAttr,
     flagClass,
+    layoutClass,
     modClass,
     orientationClass,
     partClass,
@@ -65,6 +66,13 @@ export interface PartBagOptions {
     mods?: Record<string, boolean | undefined>;
     orientation?: 'horizontal' | 'vertical';
     placement?: string;
+    /**
+     * Layout attributes the part's anatomy declares (`dock`, `measure`, …):
+     * each stamps `data-l-<attr>="<value>"` and the `zx-l-<attr>-<value>`
+     * class the skin's layout rules select on (a drawer panel's
+     * `data-l-dock="sheet"`). Unset values render nothing.
+     */
+    layout?: Record<string, string | undefined>;
     /** Consumer classes, appended last so they can override by order. */
     class?: string;
     /**
@@ -112,6 +120,9 @@ export function partBag(anatomy: Anatomy, part: string, options: PartBagOptions 
     }
     if (options.orientation) classes.push(orientationClass(options.orientation));
     if (options.placement) classes.push(placementClass(options.placement));
+    for (const [attr, value] of Object.entries(options.layout ?? {})) {
+        if (value !== undefined) classes.push(layoutClass(attr, value));
+    }
     if (options.class) classes.push(options.class);
 
     const bag: LynxPartProps = {
@@ -123,6 +134,9 @@ export function partBag(anatomy: Anatomy, part: string, options: PartBagOptions 
     if (options.state) bag['data-state'] = options.state;
     if (options.orientation) bag['data-orientation'] = options.orientation;
     if (options.placement) bag['data-placement'] = options.placement;
+    for (const [attr, value] of Object.entries(options.layout ?? {})) {
+        if (value !== undefined) bag[`data-l-${attr}`] = value;
+    }
     for (const [flag, on] of Object.entries(flags ?? {})) {
         const value = dataAttr(on);
         if (value !== undefined) bag[`data-${flag}`] = value;

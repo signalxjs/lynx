@@ -1302,6 +1302,103 @@ How they behave on lynx:
   keyboard), and `lazyMount` (inactive panels never render). `focus-visible`
   is reachable through `ForceStates` only, as on every lynx-zero part.
 
+## Drawer and Tooltip (zero wave 5, overlays)
+
+The overlay scopes of [#1277](https://github.com/signalxjs/lynx/issues/1277).
+Drawer is an edge panel: a side sheet for navigation or filters, or a sheet
+from the top or bottom. Tooltip is a short label anchored to its trigger,
+opened by a long press.
+
+```tsx
+import { Drawer, Tooltip } from '@sigx/lynx-zero';
+
+<Drawer.Root model={() => state.nav} placement="start" onClose={(d) => log(d.reason)}>
+    <Drawer.Trigger><text>Menu</text></Drawer.Trigger>
+    <Drawer.Panel>
+        <Drawer.Title>Navigation</Drawer.Title>
+        …links…
+        <Drawer.Close><text>Close</text></Drawer.Close>
+    </Drawer.Panel>
+</Drawer.Root>
+
+<Tooltip.Root placement="top">
+    <Tooltip.Trigger label="Save"><text>💾</text></Tooltip.Trigger>
+    <Tooltip.Popup>
+        <text>Save the document</text>
+        <Tooltip.Arrow />
+    </Tooltip.Popup>
+</Tooltip.Root>
+```
+
+| Part / prop | Type | Default | Notes |
+|---|---|---|---|
+| `Drawer.Root` `model` / `defaultOpen` | `boolean` | `false` | Open state. `openChange` fires on change. |
+| `Drawer.Root` `placement` | `'start' \| 'end' \| 'top' \| 'bottom'` | `'start'` | The edge. `start` is the left edge and `end` the right one (lynx has no right-to-left flow). |
+| `Drawer.Root` `modal` | `boolean` | `true` | `true`: a sheet in the overlay outlet, over a dim. `false`: the panel renders in place while open (`data-l-dock="inline"`), with no dim and no dismiss layer. |
+| `Drawer.Root` `dismissible` | `boolean` | `true` | Whether a tap on the dim or the back button closes it. The drawer still consumes a back press when this is `false`. |
+| `Drawer.Root` `close` event | `{ reason, value? }` | — | Fires once per close, after `openChange(false)`. `reason` is `close` (Drawer.Close), `backdrop`, `escape` (a back-button dismissal) or `programmatic` (a model write). `value` is the closing `Drawer.Close`'s `value`. |
+| `Drawer.Root` `color` / `size` | skin axes | skin default | Carried by the trigger; every part stamps them. |
+| `Drawer.Panel` `measure` | `number \| 'full'` | the skin's cap | The panel's width in px, or the whole window. For `top` / `bottom` a number narrows the sheet and centres it. |
+| `Drawer.Trigger` / `Drawer.Close` | `disabled`, `label`, `pressFeel` | — | Buttons with the `pressed` flag and the main-thread press scale. The trigger's status says expanded or collapsed. |
+| `Drawer.Close` `value` | `string` | — | Reported on the `close` event. |
+| `Drawer.Title` `visuallyHidden` | `boolean` | `false` | Kept for the reader, out of layout and paint. |
+| `Tooltip.Root` `model` / `defaultOpen` | `boolean` | `false` | Open state. `openChange` fires on change. |
+| `Tooltip.Root` `placement` / `offset` | a side (`top`, `bottom-start`, …) / px | `'top'` / `8` | The preferred side. It flips when that side has no room, and the resolved side is stamped as `data-placement`. |
+| `Tooltip.Root` `closeDelay` | `number` (ms) | `1500` (`TOOLTIP_CLOSE_DELAY`) | How long the popup stays after the finger lifts. |
+| `Tooltip.Trigger` | `disabled`, `label` | — | A long press opens the popup. A disabled trigger never does. `label` names the trigger for the reader. |
+| `Tooltip.Arrow` | — | — | The mark on the popup edge that faces the trigger, pointing at its centre. |
+
+How they behave on lynx:
+
+- **The drawer is an overlay.** Like Dialog, the panel and the dim render
+  in the overlay outlet (`ZeroRoot`), and closed means unmounted. A tap on
+  the dim closes the drawer through the dismiss stack, innermost layer
+  first, and a tap inside the panel never reaches the dim.
+- **The edge geometry is set by the component, not the skin.** The web
+  recipe sizes the sheet with `100dvh` and `85dvh` and pins it with logical
+  insets. Lynx does not resolve those against the outlet, and Android does
+  not resolve logical insets at all. So the dim lays the panel out on its
+  edge with flexbox: a side panel stretches to the full height, and a
+  top or bottom sheet takes the full width and at most 85% of the window's
+  height. A side panel is 85% of the window wide, and the skin caps it
+  (daisy: `20rem`), which gives the web's `min(20rem, 85vw)`. `measure`
+  replaces that.
+- **Safe frame and keyboard.** The panel's paper reaches the screen edges.
+  Its content is padded by the safe frame on the edges it touches, so links
+  never sit under the status bar or the home indicator. When the keyboard
+  rises, the bottom padding grows to clear it. The content is a scroll
+  body, so a long list scrolls inside the panel.
+- **The slide.** The skin animates the panel in from its edge (the
+  `targets.lynx` keyframes). When the animation ends, anchored popups
+  inside the panel, such as a Select, measure again.
+- **Tooltip: a long press instead of hover.** A touch screen has no hover
+  and no keyboard focus. A long press on the trigger opens the tooltip, and
+  lifting the finger starts `closeDelay`. A plain tap goes to the trigger's
+  content, so a Button inside still presses. A tap on the popup closes it
+  at once. A tooltip opened by `model` or `defaultOpen` stays open until
+  the app closes it.
+- **Tooltip: no light dismiss.** As with the web's `popover="manual"`, the
+  tooltip covers nothing and takes no back press. Taps elsewhere belong to
+  the page.
+- **The arrow is placed by the component.** The web strategy writes
+  `--arrow-x` / `--arrow-y`, and the recipe picks the edge from the
+  popup's placement. Lynx CSS has no descendant selectors and inline custom
+  properties are not reliable, so `Tooltip.Arrow` sets its own position: an
+  8px square turned 45°, half outside the popup edge that faces the
+  trigger, at the trigger's centre. It stays inside the popup when the
+  popup is clamped to a screen edge. The skin paints it.
+- **Not carried:** the drawer's responsive `modal={{ below }}` mode and
+  `dock-above` (lynx compiles no media queries), swipe to dismiss and its
+  `swiping` flag, `initialFocus` / `finalFocus` / `preventScroll` (lynx has
+  no document focus or scroll to manage), `escapeKeyDown` /
+  `interactOutside` (there is no keyboard, and the dim is the only
+  outside), the root's `label` (lynx cannot name a container without
+  hiding its children from the reader, so use a visible or `visuallyHidden`
+  `Drawer.Title`), and `asChild`. The tooltip does not carry
+  `Tooltip.Group` or `openDelay`, which are hover timing, or
+  `aria-describedby`, which lynx cannot express. Its trigger declares no
+  `pressed` or `focus-visible` flag.
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the

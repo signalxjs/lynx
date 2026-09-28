@@ -38,6 +38,8 @@ import { Breadcrumbs, Navbar } from '@sigx/lynx-zero';
 import { Menu, NavList } from '@sigx/lynx-zero';
 import { Pagination, Steps } from '@sigx/lynx-zero';
 import { TreeView } from '@sigx/lynx-zero';
+import { Drawer, Tooltip } from '@sigx/lynx-zero';
+import type { DrawerMeasure, DrawerPlacement } from '@sigx/lynx-zero';
 import type { ToastItem, ToastStatus } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
@@ -1865,7 +1867,142 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             ),
         },
     },
+    drawer: {
+        cell: (c) => (
+            <Drawer.Root color={c.color} size={c.size}>
+                <Drawer.Trigger disabled={bool(c.props['disabled'])}><text>Open</text></Drawer.Trigger>
+                <Drawer.Panel><Drawer.Title>Never opened</Drawer.Title></Drawer.Panel>
+            </Drawer.Root>
+        ),
+        extras: {
+            start: () => <DrawerOpen placement="start" />,
+            end: () => <DrawerOpen placement="end" />,
+            top: () => <DrawerOpen placement="top" />,
+            bottom: () => <DrawerOpen placement="bottom" />,
+            'close-states': () => (
+                <Drawer.Root defaultOpen dismissible={false} color="primary">
+                    <Drawer.Trigger><text>Open drawer</text></Drawer.Trigger>
+                    <Drawer.Panel>
+                        <Drawer.Title>Close states</Drawer.Title>
+                        <Col gap={12} align="flex-start">
+                            <text class="zg-note">held (forced pressed)</text>
+                            <ForceStates flags={{ pressed: true }}><Drawer.Close><text>Close</text></Drawer.Close></ForceStates>
+                            <text class="zg-note">focus-visible (forced)</text>
+                            <ForceStates flags={{ 'focus-visible': true }}><Drawer.Close><text>Close</text></Drawer.Close></ForceStates>
+                            <text class="zg-note">disabled</text>
+                            <Drawer.Close disabled><text>Close</text></Drawer.Close>
+                        </Col>
+                    </Drawer.Panel>
+                </Drawer.Root>
+            ),
+            measure: () => <DrawerOpen placement="start" measure={240} />,
+            // Focus the field: the sheet's content lifts above the keyboard.
+            keyboard: () => (
+                <Drawer.Root defaultOpen dismissible={false} placement="bottom">
+                    <Drawer.Trigger><text>Open drawer</text></Drawer.Trigger>
+                    <Drawer.Panel>
+                        <Drawer.Title>Leave a note</Drawer.Title>
+                        <Field.Root>
+                            <Field.Label>Note</Field.Label>
+                            <Input.Root defaultValue="" label="Note">
+                                <Input.Control><Input.Input /></Input.Control>
+                            </Input.Root>
+                        </Field.Root>
+                        <Row gap={8} justify="flex-end">
+                            <Drawer.Close><text>Send</text></Drawer.Close>
+                        </Row>
+                    </Drawer.Panel>
+                </Drawer.Root>
+            ),
+        },
+    },
+    tooltip: {
+        cell: (c) => (
+            <Tooltip.Root color={c.color} size={c.size}>
+                <Tooltip.Trigger disabled={bool(c.props['disabled'])}><text>Tip</text></Tooltip.Trigger>
+                <Tooltip.Popup><text>Never opened</text></Tooltip.Popup>
+            </Tooltip.Root>
+        ),
+        extras: {
+            // One per side, open at mount, arrows at the trigger's centre.
+            open: () => (
+                <Col gap={72} align="center" padding={{ top: 48 }}>
+                    <TipOpen placement="top" color="primary" />
+                    <TipOpen placement="bottom" color="accent" />
+                    <Row gap={140} align="center">
+                        <TipOpen placement="left" />
+                        <TipOpen placement="right" />
+                    </Row>
+                </Col>
+            ),
+            // Triggers against the screen edges: the popup clamps inside the
+            // frame, the arrow keeps pointing at the trigger.
+            edge: () => (
+                <Col gap={96} padding={{ top: 48 }}>
+                    <Row justify="space-between">
+                        <TipOpen placement="top" label="L" text="Clamped to the left edge" />
+                        <TipOpen placement="top" label="R" text="Clamped to the right edge" />
+                    </Row>
+                    <Row justify="space-between">
+                        <TipOpen placement="bottom-start" label="start" text="bottom-start" />
+                        <TipOpen placement="bottom-end" label="end" text="bottom-end" />
+                    </Row>
+                </Col>
+            ),
+            // Live: hold a trigger — the tooltip opens; lift — it closes
+            // 1.5s later. A tap on the button inside still presses it.
+            'long-press': () => (
+                <Col gap={28} align="center" padding={{ top: 48 }}>
+                    <text class="zg-note">Hold a trigger to open its tooltip; lift to close.</text>
+                    <Tooltip.Root>
+                        <Tooltip.Trigger label="Save"><text>Save</text></Tooltip.Trigger>
+                        <Tooltip.Popup><text>Save the document</text><Tooltip.Arrow /></Tooltip.Popup>
+                    </Tooltip.Root>
+                    <Tooltip.Root placement="bottom" closeDelay={3000}>
+                        <Tooltip.Trigger label="Share"><text>Share (3s)</text></Tooltip.Trigger>
+                        <Tooltip.Popup><text>Stays 3 seconds after release</text><Tooltip.Arrow /></Tooltip.Popup>
+                    </Tooltip.Root>
+                    <Tooltip.Root>
+                        <Tooltip.Trigger disabled><text>Disabled</text></Tooltip.Trigger>
+                        <Tooltip.Popup><text>Never shows</text><Tooltip.Arrow /></Tooltip.Popup>
+                    </Tooltip.Root>
+                </Col>
+            ),
+        },
+    },
 };
+
+/** A drawer open at mount on `placement`: title, a few links, Close. */
+const DrawerOpen = component<Define.Prop<'placement', DrawerPlacement, true> & Define.Prop<'measure', DrawerMeasure, false>>(
+    ({ props }) => () => (
+        <Drawer.Root defaultOpen dismissible={false} placement={props.placement} color="primary">
+            <Drawer.Trigger><text>Open drawer</text></Drawer.Trigger>
+            <Drawer.Panel measure={props.measure}>
+                <Drawer.Title>{`Drawer · ${props.placement}${props.measure ? ` · ${props.measure}pt` : ''}`}</Drawer.Title>
+                <Col gap={12}>
+                    <text>Inbox</text>
+                    <text>Drafts</text>
+                    <text>Archive</text>
+                    <Row justify="flex-start"><Drawer.Close><text>Close</text></Drawer.Close></Row>
+                </Col>
+            </Drawer.Panel>
+        </Drawer.Root>
+    ),
+);
+
+type TipOpenProps =
+    & Define.Prop<'placement', 'top' | 'bottom' | 'left' | 'right' | 'bottom-start' | 'bottom-end', true>
+    & Define.Prop<'color', string, false>
+    & Define.Prop<'label', string, false>
+    & Define.Prop<'text', string, false>;
+
+/** A tooltip open at mount, with its arrow. */
+const TipOpen = component<TipOpenProps>(({ props }) => () => (
+    <Tooltip.Root defaultOpen placement={props.placement} color={props.color}>
+        <Tooltip.Trigger><text>{props.label ?? props.placement}</text></Tooltip.Trigger>
+        <Tooltip.Popup><text>{props.text ?? `Tooltip · ${props.placement}`}</text><Tooltip.Arrow /></Tooltip.Popup>
+    </Tooltip.Root>
+));
 
 /** The nav-list `sidebar` extra: two groups, a live current page. */
 const NavSidebar = component(() => {

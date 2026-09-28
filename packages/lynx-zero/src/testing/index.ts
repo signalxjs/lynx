@@ -27,6 +27,7 @@ import {
     MOD_ATTR_PREFIX,
     axisClass,
     flagClass,
+    layoutClass,
     modClass,
     orientationClass,
     partClass,
@@ -277,6 +278,7 @@ export function expectClassGrammar(root: ConformanceNode, anatomy: Anatomy, opti
             if (attr === 'data-state') expected.add(stateClass(value));
             else if (attr === 'data-orientation') expected.add(orientationClass(value));
             else if (attr === 'data-placement') expected.add(placementClass(value));
+            else if (attr.startsWith('data-l-')) expected.add(layoutClass(attr.slice(7), value));
             else if (CONTRACT_VALUE_ATTRS.has(attr) || customAxisAttrs.has(attr)) {
                 expected.add(axisClass(attr.slice(5), value));
             } else if (attr.startsWith(MOD_ATTR_PREFIX)) {
