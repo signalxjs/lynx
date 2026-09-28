@@ -505,6 +505,136 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143, #404)', () => {
     expect(deferred[0]![3]).toEqual({ value: 'seed' });
   });
 
+  // Android's native field runs every text write, setValue included, through
+  // a readonly InputFilter that rejects it. `default-value` is the one write
+  // that passes it, and only in the mount batch (#1231).
+  it('initial mount also seeds default-value in the mount batch (#1231)', () => {
+    const parent = nodeOps.createElement('view');
+    const el = nodeOps.createElement('textarea');
+    drainOps();
+
+    nodeOps.patchProp(el, 'readonly', null, true);
+    nodeOps.patchProp(el, 'value', null, 'seed');
+    nodeOps.insert(el, parent);
+    const mount = parseOps(drainOps());
+    expect(mount.find(r => r[0] === OP.SET_PROP && r[1] === el.id && r[2] === 'default-value' && r[3] === 'seed')).toBeDefined();
+  });
+
+  it('an empty initial value writes no default-value (#1231)', () => {
+    const parent = nodeOps.createElement('view');
+    const el = nodeOps.createElement('input');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', null, '');
+    nodeOps.insert(el, parent);
+    expect(parseOps(drainOps()).find(r => r[0] === OP.SET_PROP && r[2] === 'default-value')).toBeUndefined();
+  });
+
+  it('re-patching to empty before insert resets default-value (#1231)', () => {
+    const parent = nodeOps.createElement('view');
+    const el = nodeOps.createElement('input');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', null, 'seed');
+    nodeOps.patchProp(el, 'value', 'seed', '');
+    nodeOps.insert(el, parent);
+    const defaults = parseOps(drainOps()).filter(r => r[0] === OP.SET_PROP && r[2] === 'default-value');
+    expect(defaults.map(r => r[3])).toEqual(['seed', '']);
+  });
+
+  function readonlyField(initial: string): ReturnType<typeof nodeOps.createElement> {
+    const parent = nodeOps.createElement('view');
+    const el = nodeOps.createElement('input');
+    nodeOps.patchProp(el, 'readonly', null, true);
+    nodeOps.patchProp(el, 'value', null, initial);
+    nodeOps.insert(el, parent);
+    flushPendingInitialValues();
+    vi.runAllTimers();
+    drainOps();
+    return el;
+  }
+
+  it('a programmatic write to a readonly field lifts readonly, then writes and restores it in a later batch (#1231)', () => {
+    const el = readonlyField('a');
+
+    nodeOps.patchProp(el, 'value', 'a', 'b');
+    const first = parseOps(drainOps());
+    // Batch 1: the flag is lifted and nothing is written yet. The flag's
+    // two writes must not share a batch, or they collapse natively.
+    expect(first.find(r => r[0] === OP.SET_PROP && r[2] === 'readonly' && r[3] === false)).toBeDefined();
+    expect(invokeOps(first)).toHaveLength(0);
+
+    vi.runAllTimers();
+    const second = parseOps(drainOps());
+    const invokeAt = second.findIndex(r => r[0] === OP.INVOKE_UI_METHOD);
+    const restoreAt = second.findIndex(r => r[0] === OP.SET_PROP && r[2] === 'readonly' && r[3] === true);
+    expect(second[invokeAt]![2]).toBe('setValue');
+    expect(second[invokeAt]![3]).toEqual({ value: 'b' });
+    expect(restoreAt).toBeGreaterThan(invokeAt);
+  });
+
+  it('coalesces several readonly writes into one lift and the latest text (#1231)', () => {
+    const el = readonlyField('a');
+
+    nodeOps.patchProp(el, 'value', 'a', 'b');
+    nodeOps.patchProp(el, 'value', 'b', 'c');
+    const first = parseOps(drainOps());
+    expect(first.filter(r => r[0] === OP.SET_PROP && r[2] === 'readonly')).toHaveLength(1);
+
+    vi.runAllTimers();
+    const invokes = invokeOps(parseOps(drainOps()));
+    expect(invokes).toHaveLength(1);
+    expect(invokes[0]![3]).toEqual({ value: 'c' });
+  });
+
+  it('restores the CURRENT readonly when it changed while the write waited (#1231)', () => {
+    const el = readonlyField('a');
+
+    nodeOps.patchProp(el, 'value', 'a', 'b');
+    nodeOps.patchProp(el, 'readonly', true, false);
+    drainOps();
+
+    vi.runAllTimers();
+    const second = parseOps(drainOps());
+    const restores = second.filter(r => r[0] === OP.SET_PROP && r[2] === 'readonly');
+    expect(restores.map(r => r[3])).toEqual([false]);
+  });
+
+  it('a write after readonly turned off, while a readonly write waits, is not overwritten by it (#1231)', () => {
+    const el = readonlyField('a');
+
+    nodeOps.patchProp(el, 'value', 'a', 'b');
+    nodeOps.patchProp(el, 'readonly', true, false);
+    nodeOps.patchProp(el, 'value', 'b', 'c');
+    drainOps();
+
+    vi.runAllTimers();
+    const invokes = invokeOps(parseOps(drainOps()));
+    expect(invokes.map(r => r[3])).toEqual([{ value: 'c' }]);
+  });
+
+  it('drops a readonly write whose element unmounted while it waited (#1231)', () => {
+    const el = readonlyField('a');
+
+    nodeOps.patchProp(el, 'value', 'a', 'b');
+    nodeOps.remove(el);
+    drainOps();
+
+    vi.runAllTimers();
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
+  it('a write to an editable field is not bracketed (#1231)', () => {
+    const { el } = mountField('input', 'a');
+    nodeOps.patchProp(el, 'readonly', null, false);
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', 'a', 'b');
+    const records = parseOps(drainOps());
+    expect(records.find(r => r[0] === OP.SET_PROP && r[2] === 'readonly')).toBeUndefined();
+    expect(invokeOps(records)).toHaveLength(1);
+  });
+
   it('programmatic update emits SET_PROP + INVOKE_UI_METHOD setValue', () => {
     const { el } = mountField('input', 'a');
 

@@ -91,6 +91,45 @@ const PLANS = [
 ];
 
 /** The render half of the registry — one entry per scope in `scopes.ts`. */
+/**
+ * Readonly fields whose value changes after mount (#1231). Android's field
+ * rejects every text write while readonly, so the runtime lifts the flag
+ * around the write. The values flip once, 600ms after mount, then hold, so a
+ * settled shot shows the later values ("after") and never the mount ones.
+ */
+const ReadonlyUpdate = component(({ onMounted, onUnmounted }) => {
+    const st = signal({ text: 'at mount', notes: 'at mount', qty: 1 as number | null });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    onMounted(() => {
+        timer = setTimeout(() => {
+            st.text = 'after';
+            st.notes = 'after\nmount';
+            st.qty = 7;
+        }, 600);
+    });
+    onUnmounted(() => { if (timer !== undefined) clearTimeout(timer); });
+    return () => (
+        <Col gap={10}>
+            <Input.Root readonly model={() => st.text} label="Readonly input">
+                <Input.Label>Readonly input, updated after mount</Input.Label>
+                <Input.Control><Input.Input placeholder="placeholder" /></Input.Control>
+            </Input.Root>
+            <Textarea.Root readonly model={() => st.notes} label="Readonly textarea">
+                <Textarea.Label>Readonly textarea, updated after mount</Textarea.Label>
+                <Textarea.Textarea placeholder="placeholder" />
+            </Textarea.Root>
+            <NumberInput.Root readonly model={() => st.qty} label="Readonly number">
+                <NumberInput.Label>Readonly number, updated after mount</NumberInput.Label>
+                <NumberInput.Control>
+                    <NumberInput.DecrementTrigger />
+                    <NumberInput.Input placeholder="0" />
+                    <NumberInput.IncrementTrigger />
+                </NumberInput.Control>
+            </NumberInput.Root>
+        </Col>
+    );
+});
+
 const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
     button: {
         cell: (c) => (
@@ -793,6 +832,7 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     </view>
                 </Col>
             ),
+            'readonly-update': () => <ReadonlyUpdate />,
         },
     },
     textarea: {
