@@ -95,6 +95,10 @@ export function checkApk(apk) {
         if (!m) continue;
         const [, abi, lib] = m;
         const raw = buf.subarray(entry.dataOffset, entry.dataOffset + entry.compSize);
+        // APKs store (0) or deflate (8) entries; anything else is unreadable here.
+        if (entry.method !== 0 && entry.method !== 8) {
+            throw new Error(`${entry.name}: unsupported zip compression method ${entry.method}`);
+        }
         const elf = entry.method === 0 ? raw : inflateRawSync(raw);
         const align = minLoadAlign(elf);
         const problems = [];

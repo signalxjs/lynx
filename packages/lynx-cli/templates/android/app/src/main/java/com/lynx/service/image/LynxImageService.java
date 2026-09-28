@@ -145,6 +145,9 @@ public class LynxImageService implements ILynxImageService, ILynxImageServiceExt
             imageRequestInfo, new ImageInfo(image.getWidth(), image.getHeight(), false));
         return;
       }
+      // sigx: not the static fast path — the fetch below takes its own
+      // reference, so release the cached one instead of leaking it.
+      CloseableReference.closeSafely(closeableReference);
     }
     Fresco.getImagePipeline()
         .fetchDecodedImage(imageRequest, imageRequestInfo.getCallerContext())

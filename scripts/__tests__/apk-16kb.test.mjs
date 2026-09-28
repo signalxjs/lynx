@@ -96,6 +96,14 @@ describe('checkApk', () => {
         expect(failures[0]).toMatch(/zip offset \d+ \(not a multiple of 16384\)/);
     });
 
+    it('rejects a compression method other than stored or deflate', () => {
+        const apk = zip([{ name: 'lib/arm64-v8a/liba.so', data: elf64([16384]), stored: true }]);
+        // Rewrite the method field (local header and central directory) to 12 (bzip2).
+        apk.writeUInt16LE(12, 8);
+        apk.writeUInt16LE(12, apk.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02])) + 10);
+        expect(() => checkApk(apk)).toThrow(/unsupported zip compression method 12/);
+    });
+
     it('reports 32-bit ABIs as information, never failures', () => {
         const apk = zip([{ name: 'lib/armeabi-v7a/liba.so', data: elf64([4096]) }]);
         const result = checkApk(apk);
