@@ -965,7 +965,61 @@ export const GALLERY_SCOPES = {
         cell: (size) => ({ width: SPINNER[size], height: SPINNER[size] }),
         settleTolerance: 0.05,
     },
+    // ── Wave 4, navigation (W4B #1257) ───────────────────────────────────
+    // Navbar is pure composition (no states, no flags): the states are the
+    // section sets. Each cell is a bar in a fixed 157pt box (the bar is
+    // fluid; start and end share the slack).
+    navbar: {
+        title: 'Navbar',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'ends', label: 'start + end' },
+            { id: 'center', label: 'start·center·end', props: { center: true } },
+        ],
+        // `compose`: real bars — a brand + button, a centred title between
+        // icon buttons, a neutral bar with ghost actions.
+        extras: ['compose'],
+        cellWidth: 163,
+        // `min-height` 2.5/3/4/5/6rem; the xl content is three --text-lg
+        // words inside `--space-sm` padding.
+        cell: (size) => ({ width: NAVBAR_CELL_WIDTH, height: ramp(40, 48, 64, 80, 96)[size] }),
+    },
+    // Breadcrumbs: the link states are the trail's (`active` on the current
+    // crumb); the flags live on the ellipsis trigger only, so the pressed /
+    // focus cells are collapsed trails with the trigger forced.
+    breadcrumbs: {
+        title: 'Breadcrumbs',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'trail', label: 'trail (last current)' },
+            { id: 'collapsed', label: 'collapsed', props: { collapsed: true } },
+            {
+                id: 'pressed', label: '… pressed', flags: { pressed: true }, parts: ['ellipsis-trigger'],
+                props: { collapsed: true },
+            },
+            {
+                id: 'focus', label: '… focus-visible', flags: { 'focus-visible': true }, parts: ['ellipsis-trigger'],
+                props: { collapsed: true },
+            },
+        ],
+        // `collapse`: live trails — tap … to expand — with other
+        // before/after counts, and a custom separator.
+        extras: ['collapse'],
+        cellWidth: 163,
+        // "Home / Docs / Kit" at --text-xs…lg: three labels, two separators,
+        // four `--space-xs` gaps, inside the list's `--space-xs` block padding.
+        cell: (size) => {
+            const font = ramp(12, 12, 14, 16, 18)[size];
+            return {
+                width: textWidth('HomeDocsKit', font) + 2 * textWidth('/', font) + 4 * 4,
+                height: 2 * 4 + lineHeight(font),
+            };
+        },
+    },
 } as const satisfies Record<string, GalleryScope>;
+
+/** The fixed box a navbar gallery cell gives its (fluid) bar — `ZeroGallery.tsx` renders it. */
+export const NAVBAR_CELL_WIDTH = 157;
 
 export type GalleryScopeId = keyof typeof GALLERY_SCOPES;
 

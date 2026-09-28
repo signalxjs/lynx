@@ -175,3 +175,10 @@ export type { SpinnerRootProps } from './components/spinner/Spinner.js';
 export { Spinner } from './components/spinner/Spinner.js';
 // Toast.Indicator + promise toasts (#1196).
 export type { ToastIndicatorProps, ToastInput, ToastPromiseOptions, ToastStatus } from './components/toast/Toast.js';
+// ── Components (zero wave 4 — navigation: navbar, breadcrumbs, W4B #1257) ──
+export type { NavbarRootProps, NavbarSectionProps } from './components/navbar/Navbar.js';
+export { Navbar } from './components/navbar/Navbar.js';
+export type {
+    BreadcrumbsCollapse, BreadcrumbsEllipsisTriggerProps, BreadcrumbsLinkProps, BreadcrumbsPartProps, BreadcrumbsRootProps,
+} from './components/breadcrumbs/Breadcrumbs.js';
+export { Breadcrumbs, breadcrumbsHidden } from './components/breadcrumbs/Breadcrumbs.js';

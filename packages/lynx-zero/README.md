@@ -939,6 +939,87 @@ How they behave on lynx:
   merge into), and the skins' `prefers-reduced-motion` stops (lynx emits no
   `@media`, so the spinner and the skeleton pulse keep moving).
 
+## Navbar and Breadcrumbs (zero wave 4, navigation)
+
+The navigation scopes of [#1257](https://github.com/signalxjs/lynx/issues/1257).
+`Navbar` is the header bar: `root` / `start` / `center` / `end`.
+`Breadcrumbs` is the trail to the current screen: `root` / `list` / `item` /
+`link` / `separator`, plus `ellipsis` / `ellipsis-trigger` for a collapsed
+trail. Both carry the skin's `color` and `size` axes on the root.
+
+```tsx
+import { Breadcrumbs, Button, Navbar } from '@sigx/lynx-zero';
+
+<Navbar.Root color="primary">
+    <Navbar.Start><text>Acme</text></Navbar.Start>
+    <Navbar.Center><text>Inbox</text></Navbar.Center>
+    <Navbar.End><Button variant="ghost" size="sm"><text>Sign in</text></Button></Navbar.End>
+</Navbar.Root>
+
+<Breadcrumbs.Root maxItems={3}>
+    <Breadcrumbs.List>
+        <Breadcrumbs.Item>
+            <Breadcrumbs.Link onPress={() => nav.navigate('/')}><text>Home</text></Breadcrumbs.Link>
+            <Breadcrumbs.Separator />
+        </Breadcrumbs.Item>
+        <Breadcrumbs.Ellipsis>
+            <Breadcrumbs.EllipsisTrigger />
+            <Breadcrumbs.Separator />
+        </Breadcrumbs.Ellipsis>
+        {/* …middle items… */}
+        <Breadcrumbs.Item>
+            <Breadcrumbs.Link current><text>Anatomy</text></Breadcrumbs.Link>
+        </Breadcrumbs.Item>
+    </Breadcrumbs.List>
+</Breadcrumbs.Root>
+```
+
+| Part / prop | Type | Default | Notes |
+|---|---|---|---|
+| `Navbar.Root` `color` / `size` | skin axes | skin default | `color` refills the whole bar with the role pair; `size` steps its height. Every section is optional. |
+| `Breadcrumbs.Root` `maxItems` | `number` | — | Collapse the trail when it has more items than this. Absent: never collapses. |
+| `Breadcrumbs.Root` `itemsBeforeCollapse` / `itemsAfterCollapse` | `number` | `1` / `1` | Items kept before / after the ellipsis while collapsed. |
+| `Breadcrumbs.Root` `model:expanded` / `defaultExpanded` | `boolean` | `false` | Whether a collapsible trail shows every item. `expandedChange` fires when the trigger expands it. |
+| `Breadcrumbs.Root` `color` / `size` | skin axes | skin default | `color` inks the current crumb; `size` steps the type. |
+| `Breadcrumbs.Link` `current` / `label` | `boolean` / `string` | `false` / — | `current` stamps `active` (every other link `inactive`). Emits `press`. |
+| `Breadcrumbs.Separator` | children | `/` | A `<text>` glyph; pass your own (`›`). |
+| `Breadcrumbs.EllipsisTrigger` `label` / `pressFeel` | `(n) => string` / `boolean` | `"Show N more breadcrumbs"` / `true` | Draws `…` when it has no children. |
+
+`breadcrumbsHidden(total, options)` is the collapse rule as a pure function
+(the trail indices a collapse hides), exported for apps that render their
+own overflow menu.
+
+How they behave on lynx:
+
+- **Every part is a view.** Lynx has no `<header>`, `<nav>`, `<ol>`,
+  `<li>` or `<a>`, and no landmarks. Neither root is an accessible element,
+  because on iOS that would hide its content from the reader. Put labels in
+  `<text>`: they take the part's ink and size through CSS inheritance
+  (`enableCSSInheritance`, as the showcase sets it). The root row and its
+  sections lay out as explicit `flex-direction: row` rows in the skin.
+- **A link is a tap target, not a URL.** There is no browser to follow an
+  `href`, so `Breadcrumbs.Link` emits `press` and the app navigates. It is
+  announced with the `link` trait; the current one is announced `selected`,
+  the nearest native spelling of `aria-current="page"`. The link anatomy
+  declares no flags, so a link has no pressed or focus paint.
+- **The separator is a real part.** daisy draws its separator with
+  `::before`, which lynx drops. Place `Breadcrumbs.Separator` inside each
+  item after its link (not in the last item), so it hides with its item. It
+  sits outside the accessibility tree.
+- **Collapse is absence.** Lynx has no `hidden` attribute, so a collapsed
+  item (`closed`) and the ellipsis outside a collapse render nothing, which
+  is how the anatomy's `hiddenIn: ['closed']` is kept (the Tabs precedent).
+  The items join the trail in mount order; an item mounted later, such as a
+  conditional one, joins the end of that order. Place the ellipsis right
+  after the leading `itemsBeforeCollapse` items: lynx cannot compare node
+  positions, so a misplaced one is not warned about.
+- **The ellipsis trigger** is a `view` with the `button` trait, tier-2
+  press feedback and the `pressed` flag, announced `collapsed`. A tap sets
+  `expanded`. `focus-visible` is reachable through `ForceStates` only, and
+  moving focus to the first revealed link is web-only.
+- **Not carried:** `asChild` (no element to merge into), `href`, the
+  root's landmark `label`, and the web keyboard handling.
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the

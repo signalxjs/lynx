@@ -34,13 +34,14 @@ import { Alert, Card } from '@sigx/lynx-zero';
 import { Badge, Kbd, Status } from '@sigx/lynx-zero';
 import { Divider, EmptyState, Stats } from '@sigx/lynx-zero';
 import { Avatar, AvatarGroup, Skeleton, Spinner } from '@sigx/lynx-zero';
+import { Breadcrumbs, Navbar } from '@sigx/lynx-zero';
 import type { ToastItem, ToastStatus } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
 import {
     BLOCK_GAP, CELL_PAD, COLORS, FRAME_PADDING, GALLERY_SCOPES, LABEL_GAP, LABEL_WIDTH, LINE_GAP, SIZES,
-    TEXT_FIELD_WIDTH, gallerySections, matrixOf, parseSection,
+    NAVBAR_CELL_WIDTH, TEXT_FIELD_WIDTH, gallerySections, matrixOf, parseSection,
 } from './scopes.js';
 
 /** What one matrix cell renders: the swept axis value plus the state's props. */
@@ -72,6 +73,9 @@ const str = (value: unknown): string | undefined => (typeof value === 'string' ?
 
 /** A text field is fluid: its cell gives it a fixed width (`TEXT_FIELD_WIDTH`). */
 const FIELD_BOX = { width: `${TEXT_FIELD_WIDTH}px` };
+
+/** A navbar cell: the fluid bar in a fixed box. */
+const NAVBAR_BOX = { width: `${NAVBAR_CELL_WIDTH}px` };
 
 /** A divider cell: a fixed-width box the rule spans, one label line tall. */
 const DIVIDER_CELL = { width: '70px', minHeight: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' };
@@ -1463,6 +1467,80 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             ),
         },
     },
+    // ── Wave 4, navigation (W4B #1257) ───────────────────────────────────
+    navbar: {
+        cell: (c) => (
+            <view style={NAVBAR_BOX}>
+                <Navbar.Root color={c.color} size={c.size}>
+                    <Navbar.Start><text>Acme</text></Navbar.Start>
+                    {bool(c.props['center']) ? <Navbar.Center><text>Inbox</text></Navbar.Center> : null}
+                    <Navbar.End><text>Me</text></Navbar.End>
+                </Navbar.Root>
+            </view>
+        ),
+        extras: {
+            // What an app builds: brand + action, a centred title between
+            // icon buttons, a coloured bar with ghost actions, a small bar.
+            compose: () => (
+                <Col gap={14}>
+                    <Navbar.Root>
+                        <Navbar.Start><text style={{ fontWeight: '700' }}>Acme</text></Navbar.Start>
+                        <Navbar.End><Button color="primary" size="sm"><text>Sign in</text></Button></Navbar.End>
+                    </Navbar.Root>
+                    <Navbar.Root color="neutral">
+                        <Navbar.Start><Button variant="ghost" size="sm" label="Menu"><text>☰</text></Button></Navbar.Start>
+                        <Navbar.Center><text style={{ fontWeight: '700' }}>Inbox</text></Navbar.Center>
+                        <Navbar.End><Button variant="ghost" size="sm" label="Search"><text>⌕</text></Button></Navbar.End>
+                    </Navbar.Root>
+                    <Navbar.Root color="primary">
+                        <Navbar.Start><text>Projects</text></Navbar.Start>
+                        <Navbar.End>
+                            <Button variant="ghost" size="sm"><text>New</text></Button>
+                            <Button variant="ghost" size="sm"><text>Share</text></Button>
+                        </Navbar.End>
+                    </Navbar.Root>
+                    <Navbar.Root size="xs" color="accent">
+                        <Navbar.Start><text>xs bar</text></Navbar.Start>
+                        <Navbar.End><text>end</text></Navbar.End>
+                    </Navbar.Root>
+                    <Navbar.Root>
+                        <Navbar.Center><text>Center only</text></Navbar.Center>
+                    </Navbar.Root>
+                </Col>
+            ),
+        },
+    },
+    breadcrumbs: {
+        cell: (c) => (
+            <BreadcrumbTrail
+                color={c.color}
+                size={c.size}
+                labels={bool(c.props['collapsed']) ? ['Home', 'Zero', 'Docs', 'Guide', 'Kit'] : ['Home', 'Docs', 'Kit']}
+                maxItems={bool(c.props['collapsed']) ? 3 : undefined}
+            />
+        ),
+        extras: {
+            // Live: tap … to expand each trail.
+            collapse: () => (
+                <Col gap={16}>
+                    <text>maxItems 3 (1 before, 1 after) — tap … to expand</text>
+                    <BreadcrumbTrail labels={['Home', 'Library', 'Zero', 'Anatomy', 'Page']} maxItems={3} />
+                    <text>2 before, 2 after, color primary</text>
+                    <BreadcrumbTrail
+                        color="primary"
+                        labels={['Home', 'Library', 'Zero', 'Kit', 'Anatomy', 'Page']}
+                        maxItems={4}
+                        before={2}
+                        after={2}
+                    />
+                    <text>custom separator ›, size lg</text>
+                    <BreadcrumbTrail size="lg" labels={['Home', 'Docs', 'Page']} separator="›" />
+                    <text>long trail wraps</text>
+                    <BreadcrumbTrail labels={['Home', 'Documents', 'Add Document', 'Settings', 'Notifications', 'Current page']} />
+                </Col>
+            ),
+        },
+    },
 };
 
 /** A live alert for the `compose` extra: × dismisses it, the button restores it. */
@@ -1510,6 +1588,49 @@ const ToastsOpen = component<Define.Prop<'placement', 'top' | 'bottom', true>>((
     toaster.show({ title: 'Deleted', description: 'One item removed.', color: 'error', action: { label: 'Undo' }, duration: 0 });
     toaster.show({ title: 'Title only', duration: 0 });
     return () => <Toast.Viewport placement={props.placement} toaster={toaster} />;
+});
+
+type BreadcrumbTrailProps =
+    & Define.Prop<'labels', readonly string[], true>
+    & Define.Prop<'color', string, false>
+    & Define.Prop<'size', string, false>
+    & Define.Prop<'maxItems', number, false>
+    & Define.Prop<'before', number, false>
+    & Define.Prop<'after', number, false>
+    & Define.Prop<'separator', string, false>;
+
+/**
+ * One breadcrumb trail, the last label current. The ellipsis sits after the
+ * leading `before` items, where the collapse leaves the gap.
+ */
+const BreadcrumbTrail = component<BreadcrumbTrailProps>(({ props }) => () => {
+    const last = props.labels.length - 1;
+    const before = props.before ?? 1;
+    const sep = (): JSXElement => (props.separator ? <Breadcrumbs.Separator>{props.separator}</Breadcrumbs.Separator> : <Breadcrumbs.Separator />);
+    const item = (label: string, i: number): JSXElement => (
+        <Breadcrumbs.Item key={label}>
+            <Breadcrumbs.Link current={i === last}><text>{label}</text></Breadcrumbs.Link>
+            {i === last ? null : sep()}
+        </Breadcrumbs.Item>
+    );
+    return (
+        <Breadcrumbs.Root
+            color={props.color}
+            size={props.size}
+            maxItems={props.maxItems}
+            itemsBeforeCollapse={props.before}
+            itemsAfterCollapse={props.after}
+        >
+            <Breadcrumbs.List>
+                {props.labels.slice(0, before).map((label, i) => item(label, i))}
+                <Breadcrumbs.Ellipsis>
+                    <Breadcrumbs.EllipsisTrigger />
+                    {sep()}
+                </Breadcrumbs.Ellipsis>
+                {props.labels.slice(before).map((label, i) => item(label, i + before))}
+            </Breadcrumbs.List>
+        </Breadcrumbs.Root>
+    );
 });
 
 function forced(state: GalleryState, node: JSXElement): JSXElement {
