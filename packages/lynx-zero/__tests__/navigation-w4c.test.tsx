@@ -438,6 +438,11 @@ describe('Steps', () => {
         conforms(container, 'steps');
     });
 
+    it('reserves the empty value for "no current step"', () => {
+        expect(() => render(<Steps.Root><Steps.Item value="" /></Steps.Root>)).toThrow(/reserved/);
+        expect(() => render(<Steps.Root><Steps.Content value="" /></Steps.Root>)).toThrow(/reserved/);
+    });
+
     it('a touch drives the pressed flag; an inert item never presses', async () => {
         const { container } = render(<Rail step="a" linear />);
         await flush();

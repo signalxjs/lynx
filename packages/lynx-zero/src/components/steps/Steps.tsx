@@ -277,7 +277,15 @@ export type StepsItemProps =
     & Define.Prop<'class', string, false>
     & Define.Slot<'default'>;
 
+/** `''` is the model's "no current step": a part carrying it could never be current. */
+function assertStepValue(value: string, part: string): void {
+    if (value === '') {
+        throw new Error(`[@sigx/lynx-zero] Steps.${part}: the value "" is reserved for "no current step" — give it a non-empty value`);
+    }
+}
+
 const StepsItem = component<StepsItemProps>(({ props, slots, onUnmounted }) => {
+    assertStepValue(props.value, 'Item');
     const steps = useStepsContext();
     const axes = provideCarriedAxes(anatomy, 'item', () => ({ color: props.color }));
     const disabled = (): boolean => !!props.disabled || steps.disabled();
@@ -391,6 +399,7 @@ export type StepsContentProps =
     & Define.Slot<'default'>;
 
 const StepsContent = component<StepsContentProps>(({ props, slots, onMounted, onUnmounted }) => {
+    assertStepValue(props.value, 'Content');
     const steps = useStepsContext();
     const axes = useVariantAxes();
     onUnmounted(joinAfterMount(onMounted, steps.joinWizard));
