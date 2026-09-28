@@ -25,6 +25,9 @@
         "sourceDir": "android",
         "dependencies": [
             "androidx.work:work-runtime-ktx:2.10.0"
+        ],
+        "proguardRules": [
+            "-keep class * extends androidx.room.RoomDatabase { <init>(); }"
         ]
     }
 }

@@ -1422,6 +1422,9 @@ const MANAGED_ANDROID_FILES = [
     'gradlew.bat',
     'app/src/main/kotlin/__package__/MainActivity.kt',
     'app/src/main/kotlin/__package__/SigxProductionResources.kt',
+    // CSS generic font families on Android (#1260). Managed so apps
+    // scaffolded before it existed pick it up — the generated registry calls it.
+    'app/src/main/kotlin/__package__/SigxGenericFonts.kt',
     // Vendored Lynx image service, compiled against the template's Fresco pin
     // (see app/build.gradle.kts and #1251). Managed so a Fresco bump and the
     // sources it compiles against always travel together.

@@ -887,9 +887,11 @@ How they behave on lynx:
   browser's UA style for `<kbd>`. Lynx has no UA sheet, so the daisy skin
   sets `font-family: Menlo, monospace` on the root, and the glyph's
   `<text>` inherits it (signalxjs/zero#479, #1254). iOS resolves Menlo.
-  Android Lynx does not resolve the CSS generic families (#1260), so the
-  cap keeps the system face there unless the app declares an `@font-face`
-  named `monospace`.
+  Android Lynx does not resolve the CSS generic families on its own, so
+  `@sigx/lynx-cli`'s Android host maps `monospace`, `serif` and
+  `sans-serif` onto the system faces (#1260) and the cap is mono there
+  too. Projects generated before that pick it up on the next
+  `sigx prebuild`.
 - **Not carried:** `asChild` on Badge (lynx has no element to merge onto,
   so a pressable badge is a Badge inside the pressable) and the `<kbd>`
   element's semantics (lynx has no such element).

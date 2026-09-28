@@ -426,6 +426,28 @@ export function adbReverse(deviceId: string, port: number): boolean {
 }
 
 /**
+ * Forward every port an Android dev client talks to over `localhost` (#1275):
+ * the bundle HTTP port AND the log/reload WS port (`httpPort + 1`). The
+ * native `DevServerReporter` posts `/__sigx/device-error` to the bundle URL's
+ * host on the WS port, and the bundle URL host is `localhost` on Android —
+ * so without the second forward every device error/warn report fails with
+ * "Failed to connect to localhost/127.0.0.1:<wsPort>" and never reaches the
+ * `sigx dev` terminal.
+ *
+ * Returns the ports that were actually forwarded (for teardown bookkeeping).
+ * `reverse` is injectable for tests.
+ */
+export function adbReverseDevPorts(
+    deviceId: string,
+    httpPort: number,
+    wsPort: number,
+    reverse: (deviceId: string, port: number) => boolean = adbReverse,
+): number[] {
+    const ports = httpPort === wsPort ? [httpPort] : [httpPort, wsPort];
+    return ports.filter((p) => reverse(deviceId, p));
+}
+
+/**
  * Tear down a forward created by {@link adbReverse}. Called on dev-server
  * shutdown so we don't leave a stale `tcp:<port>` mapping lingering on the
  * device's adbd after the server is gone. Best-effort: it runs synchronously

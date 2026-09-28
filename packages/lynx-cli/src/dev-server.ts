@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { request as httpRequest } from 'node:http';
 import { getAllLanIPs } from './network.js';
 import { generateQR } from '@sigx/terminal';
-import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, iosDerivedDataPath, adbReverse, adbReverseRemove, forceStopApp, getDeviceCpuAbi, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
+import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, iosDerivedDataPath, adbReverseDevPorts, adbReverseRemove, forceStopApp, getDeviceCpuAbi, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
 import { debugInstallGradleArgs, runGradleWithDx } from './android-run.js';
 import { spawnCommand } from './util/spawn-command.js';
@@ -293,7 +293,8 @@ interface DevControlOpts {
     variant?: string;
     /** Centralized teardown: removes adb forwards + kills the rspeedy tree. */
     shutdown: () => void;
-    /** Create an `adb reverse` forward AND record it for teardown. Keyboard
+    /** Create the `adb reverse` forwards (bundle port + log/WS port) AND record
+     *  them for teardown. Keyboard
      *  relaunch paths must use this (not `adbReverse` directly) so the mapping
      *  is removed on shutdown. */
     addReverse: (deviceId: string, port: number) => void;
@@ -1140,8 +1141,10 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     // shutdown so we don't leave stale tcp forwards lingering on a device's
     // adbd after the dev server is gone.
     const reverseForwards = new Set<string>();
+    // Forwards the bundle HTTP port AND the log/reload WS port — the dev
+    // client's device-error reporter posts to `localhost:<wsPort>` (#1275).
     const addReverse = (deviceId: string, port: number): void => {
-        if (adbReverse(deviceId, port)) reverseForwards.add(`${deviceId}|${port}`);
+        for (const p of adbReverseDevPorts(deviceId, port, wsPort)) reverseForwards.add(`${deviceId}|${p}`);
     };
     // Drop every forward we created. Idempotent (clears the set), so it's safe
     // to call from both the graceful shutdown and the child-exit handler.
