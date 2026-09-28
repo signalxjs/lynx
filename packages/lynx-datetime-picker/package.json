@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-datetime-picker",
-    "version": "0.33.1",
+    "version": "0.34.0",
     "description": "Native date/time/datetime picker (UIDatePicker / DatePickerDialog) for sigx-lynx",
     "type": "module",
     "sideEffects": false,

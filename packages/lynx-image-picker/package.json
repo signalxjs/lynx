@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-image-picker",
-    "version": "0.33.1",
+    "version": "0.34.0",
     "description": "Image picker for sigx-lynx",
     "type": "module",
     "sideEffects": false,

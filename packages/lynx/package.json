@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx",
-    "version": "0.33.1",
+    "version": "0.34.0",
     "description": "sigx-lynx framework",
     "type": "module",
     "sideEffects": [
