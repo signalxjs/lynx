@@ -140,7 +140,14 @@ dependencies {
     implementation("org.lynxsdk.lynx:primjs:4.0.0")
 
     // Lynx Services
-    implementation("org.lynxsdk.lynx:lynx-service-image:4.0.1")
+    // No `lynx-service-image` artifact: the published AAR is compiled against
+    // Fresco 2.3.0, whose native libraries are not 16 KB page-aligned (any
+    // image load crashes on 16 KB-page devices), and it is binary-incompatible
+    // with Fresco 3.x (CloseableImage became an interface → invokevirtual
+    // IncompatibleClassChangeError). The same classes (package
+    // `com.lynx.service.image`, Apache-2.0, from lynx 4.0.1) are vendored as
+    // managed sources under app/src/main/java and compiled against the Fresco
+    // pinned below. See signalxjs/lynx#1251.
     implementation("org.lynxsdk.lynx:lynx-service-log:4.0.1")
     implementation("org.lynxsdk.lynx:lynx-service-http:4.0.1")
 
@@ -153,12 +160,18 @@ dependencies {
     // must track the Lynx SDK above.
     kapt("org.lynxsdk.lynx:lynx-processor:4.0.1")
 
-    // Image loading (required by Lynx image service)
-    implementation("com.facebook.fresco:fresco:2.3.0")
-    implementation("com.facebook.fresco:animated-gif:2.3.0")
-    implementation("com.facebook.fresco:animated-webp:2.3.0")
-    implementation("com.facebook.fresco:webpsupport:2.3.0")
-    implementation("com.facebook.fresco:animated-base:2.3.0")
+    // Image loading (required by the Lynx image service above). Fresco 3.4.0
+    // is the first release whose native libraries are 16 KB page-aligned
+    // (Android 15+ 16 KB-page devices refuse to dlopen anything less); keep
+    // every Fresco artifact on the same version.
+    implementation("com.facebook.fresco:fresco:3.6.0")
+    implementation("com.facebook.fresco:animated-gif:3.6.0")
+    implementation("com.facebook.fresco:animated-webp:3.6.0")
+    implementation("com.facebook.fresco:webpsupport:3.6.0")
+    implementation("com.facebook.fresco:animated-base:3.6.0")
+    // The image service's CloseableImage subclass needs HasExtraData on the
+    // compile classpath; Fresco 3.x only declares it as a runtime dependency.
+    implementation("com.facebook.fresco:middleware:3.6.0")
 
     // HTTP client
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

@@ -1392,6 +1392,22 @@ function formatScaleLiteral(value: number): string {
  * applying the old Kotlin plugin) or a stale Gradle 8 wrapper fails to
  * configure, so an upgrade must carry all of them.
  */
+/**
+ * The Lynx image service (`com.lynx.service.image`, Apache-2.0, lynx 4.0.1)
+ * vendored into the Android template in place of the `lynx-service-image`
+ * artifact. The published AAR is compiled against Fresco 2.3.0, whose native
+ * libraries are not 16 KB page-aligned, and it cannot run on Fresco 3.x
+ * (binary-incompatible). Compiling the same sources in the app against the
+ * template's Fresco pin fixes both. See issue #1251.
+ */
+export const VENDORED_IMAGE_SERVICE_FILES = [
+    'app/src/main/java/com/lynx/service/image/FrescoReleasableImage.java',
+    'app/src/main/java/com/lynx/service/image/LynxImageService.java',
+    'app/src/main/java/com/lynx/service/image/decoder/LoopCountModifyingBackend.java',
+    'app/src/main/java/com/lynx/service/image/decoder/MultiPostProcessor.java',
+    'app/src/main/java/com/lynx/service/image/utils/ImageUtils.java',
+];
+
 const MANAGED_ANDROID_FILES = [
     'app/src/main/AndroidManifest.xml',
     'app/src/main/res/values/themes.xml',
@@ -1406,6 +1422,10 @@ const MANAGED_ANDROID_FILES = [
     'gradlew.bat',
     'app/src/main/kotlin/__package__/MainActivity.kt',
     'app/src/main/kotlin/__package__/SigxProductionResources.kt',
+    // Vendored Lynx image service, compiled against the template's Fresco pin
+    // (see app/build.gradle.kts and #1251). Managed so a Fresco bump and the
+    // sources it compiles against always travel together.
+    ...VENDORED_IMAGE_SERVICE_FILES,
 ];
 
 /** Binary managed files, copied byte-for-byte (see {@link MANAGED_ANDROID_FILES}). */

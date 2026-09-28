@@ -176,6 +176,7 @@ pnpm lint          # oxlint packages
 pnpm lint:fix
 pnpm version:check # enforce lockstep versions across publishable packages
 pnpm verify:pack   # publish dry-run
+pnpm check:apk-16kb <app.apk>   # assert packaged .so load on 16 KB-page Android (#1251)
 ```
 
 ## Packages

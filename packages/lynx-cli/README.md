@@ -243,6 +243,38 @@ with `useScreen()` / `useOrientation()`.
 Existing projects pick the wiring up on the next `sigx prebuild`
 (AndroidManifest / App.swift / ContentView are managed files).
 
+## Android 16 KB page size
+
+Android 15+ devices can run with 16 KB memory pages (newer Pixels, and the
+`16k` emulator images), and Google Play requires apps to support them. On such
+a device the system refuses to load any native library linked for 4 KB pages.
+The Android template keeps every native dependency 16 KB-compatible:
+
+- Image loading uses **Fresco 3.6.0**. Fresco 3.4.0 is the first release whose
+  native libraries are 16 KB-aligned; with Fresco 2.x, every `<image>` crashed
+  the app on a 16 KB device.
+- The Lynx image service (`com.lynx.service.image.LynxImageService`) is compiled
+  from sources vendored into the template (`app/src/main/java/com/lynx/service/image/`,
+  Apache-2.0, from Lynx 4.0.1). It replaces the `org.lynxsdk.lynx:lynx-service-image`
+  artifact, which is built against Fresco 2.x and fails on Fresco 3.x at runtime.
+  The class name is unchanged, so `App.kt` needs no edit.
+
+Existing projects pick this up on the next `sigx prebuild`. `app/build.gradle.kts`
+and the vendored sources are managed files. Don't add `lynx-service-image` back
+as a dependency, since its classes would clash with the vendored ones. Keep any
+Fresco artifacts you add on the template's version.
+
+To check a built APK, run this from a clone of this repo. It needs no Android SDK:
+
+```bash
+pnpm check:apk-16kb path/to/app.apk
+```
+
+It fails if a 64-bit library has a `LOAD` segment aligned below 16 KB, or if an
+uncompressed library is stored at an offset that is not 16 KB-aligned. The SDK
+equivalents are `zipalign -c -P 16 -v 4 app.apk` and `llvm-readelf -lW lib.so`.
+A run on a 16 KB emulator image is still the final check.
+
 ## Standalone use
 
 You normally don't depend on this package directly — `npm create @sigx@latest` adds it as a dev dependency for Lynx templates. If you're integrating into an existing project:
