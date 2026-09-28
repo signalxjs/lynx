@@ -1616,6 +1616,117 @@ How it behaves on lynx:
   `hidden-input` (lynx has no forms). A tag's `focus-visible` is reachable
   only through `ForceStates`.
 
+## FileUpload, Chat and ChatLog (zero wave 5)
+
+The scopes of [#1276](https://github.com/signalxjs/lynx/issues/1276).
+FileUpload holds a list of picked files. Chat is one message row, and
+ChatLog is the scrolling transcript around the rows that follows its
+newest message.
+
+```tsx
+import { Avatar, Chat, ChatLog, FileUpload } from '@sigx/lynx-zero';
+import type { FileUploadFile } from '@sigx/lynx-zero';
+import { FilePicker } from '@sigx/lynx-file-picker';
+
+<FileUpload.Root
+    model={() => state.files}
+    accept="image/*,application/pdf"
+    multiple
+    maxFileSize={10_000_000}
+    pick={async ({ multiple, types }) => {
+        const result = await FilePicker.pick({ multiple, types });
+        return result.cancelled ? [] : result.assets;
+    }}
+    onFilesReject={(rejected) => showErrors(rejected)}
+>
+    <FileUpload.Label>Attachments</FileUpload.Label>
+    <FileUpload.Dropzone><text>Tap to add files</text></FileUpload.Dropzone>
+    <FileUpload.Trigger><text>Browse…</text></FileUpload.Trigger>
+    <FileUpload.ItemGroup>
+        {(files: FileUploadFile[]) => files.map((f) => (
+            <FileUpload.Item key={f.uri ?? f.name} file={f}>
+                <FileUpload.ItemName />
+                <FileUpload.ItemSize />
+                <FileUpload.ItemRemove />
+            </FileUpload.Item>
+        ))}
+    </FileUpload.ItemGroup>
+    <FileUpload.ClearTrigger><text>Clear</text></FileUpload.ClearTrigger>
+</FileUpload.Root>
+
+<ChatLog.Root label="Conversation with Ada" class="thread">
+    <ChatLog.Content>
+        {state.messages.map((m) => (
+            <Chat.Root key={m.id} placement={m.mine ? 'end' : 'start'} color={m.mine ? 'primary' : undefined}>
+                {m.mine ? null : (
+                    <Chat.Avatar>
+                        <Avatar.Root size="md"><Avatar.Fallback><text>AL</text></Avatar.Fallback></Avatar.Root>
+                    </Chat.Avatar>
+                )}
+                <Chat.Header>{`${m.author} · ${m.time}`}</Chat.Header>
+                <Chat.Bubble>{m.text}</Chat.Bubble>
+                <Chat.Footer>{m.status}</Chat.Footer>
+            </Chat.Root>
+        ))}
+    </ChatLog.Content>
+    <ChatLog.JumpTrigger />
+</ChatLog.Root>
+```
+
+| Part / prop | Type | Default | Notes |
+|---|---|---|---|
+| `FileUpload.Root` `model` / `defaultFiles` | `FileUploadFile[]` | `[]` | `filesChange` fires on change. A `FileUploadFile` is `{ name, size, mimeType?, type?, uri?, lastModified? }`. A `@sigx/lynx-file-picker` asset is one as-is. |
+| `FileUpload.Root` `pick` | `({ accept, multiple, types }) => files \| Promise<files>` | — | Opens the platform picker. `types` holds `accept`'s MIME entries, the list `FilePicker.pick` takes. Resolve to `[]` or `null` on cancel. `pickError` fires if it throws or rejects. One pick runs at a time. |
+| `FileUpload.Root` `accept` / `multiple` | `string` / `boolean` | — / `false` | `multiple` appends across picks, deduped by `uri` (else name + size + lastModified). Single mode replaces. |
+| `FileUpload.Root` `maxFiles` / `minFileSize` / `maxFileSize` / `validate` | `number` / `(file) => code(s) \| null` | — | Checked on every candidate. Refused files never join the model. `filesReject` reports them once per pick as `{ file, errors }[]`, where `errors` are `invalid-type`, `too-large`, `too-small`, `too-many` or your codes. |
+| `FileUpload.Root` `disabled` / `invalid` / `required` / `color` / `size` | `boolean` / skin axes | the enclosing Field's | Inside a `Field.Root` the field's flags apply, and a tap on its label opens the picker. |
+| `FileUpload.Trigger` / `Dropzone` / `Label` | — | — | Each opens the picker on a tap. The trigger is a `button`-trait view, and `label` names it when its content is not text. |
+| `FileUpload.Item` `file` / `invalid` | `FileUploadFile` / `boolean` | — | `invalid` is for an app rendering a rejected file through Item. |
+| `FileUpload.ItemName` / `ItemSize` | — | the file's name / `1.5 kB` | `<text>` parts. Children replace the default. The name ellipsizes on one line. |
+| `FileUpload.ItemRemove` / `ClearTrigger` `label` | `string` | `"Remove <name>"` / `"Clear files"` | With no children, Remove draws `×`. ClearTrigger renders nothing while the model is empty. |
+| `Chat.Root` `placement` | `'start' \| 'end'` | `'start'` | `start` is the other party, and `end` is your own rows. `color` / `size` paint the bubble. |
+| `Chat.Root` `avatarGap` | `number` (px) | `8` | The room kept between the avatar and the column. |
+| `Chat.Avatar` / `Header` / `Bubble` / `Footer` | — | — | Avatar is a slot, so put zero's `Avatar` or an `<image>` in it. The other three wrap a string in a `<text>`. |
+| `ChatLog.Root` `model:following` / `defaultFollowing` | `boolean` | `true` | Whether the log follows its tail. `followingChange` fires on change. Writing `true` jumps to the end. |
+| `ChatLog.Root` `threshold` / `label` / `color` / `size` | `number` / `string` / skin axes | `24` | `threshold` is the distance from the end, in px, that still counts as at the end. `label` names the scroller for the reader. Give the root a height through `class` or a flex parent. |
+| `ChatLog.Content` | — | — | The rows go here. It renders the native scroller. |
+| `ChatLog.JumpTrigger` `label` | `string` | `"Jump to latest"` | Its name, and its text when it has no children. It is only mounted while the log is not following. |
+
+How they behave on lynx:
+
+- **The picker is the app's.** Lynx has no `<input type="file">`, so the
+  `input` part is not rendered and the root takes a `pick` callback.
+  lynx-zero takes no native dependency. Wire `@sigx/lynx-file-picker` as
+  above, `@sigx/lynx-image-picker` for photos, or any other source.
+  Constraints run on whatever the picker returns, because not every picker
+  filters by type. There is no form to post to and no constraint
+  validation, so `invalid` is yours to set.
+- **Drag-and-drop is web-only.** A phone has no desktop to drag from. The
+  Dropzone is a large tap target for the picker, and the `highlighted` flag
+  (root and dropzone) is never driven. It is reachable through
+  `ForceStates` only.
+- **Chat placement is the root's.** `zx-p-start` / `zx-p-end` is stamped
+  on the root only, as the anatomy declares. The skin aligns the column and
+  squares the bubble's tail corner from there, with physical corners
+  because lynx has no RTL flow. Lynx has no grid, so the avatar is taken
+  out of flow and pinned to the row's bottom corner on the placement's
+  side. The root measures it and reserves its width plus `avatarGap`
+  beside the column, so an Avatar of any size sits clear of the bubble.
+- **ChatLog follows its tail.** The root is the frame, and Content renders
+  a native vertical `scroll-view` with the rows inside it. While following,
+  every change in the content's height scrolls to the end through the
+  scroll-view's `scrollTo` method, re-checked a few times in case native
+  has not laid the new row out yet. Scrolling up more than `threshold`
+  lets go, and the jump trigger appears floating over the frame's foot.
+  Scrolling back to the end, or tapping the trigger, follows again. The
+  trigger's dock never takes a tap meant for the rows.
+- **Not carried:** drag-and-drop, `directory` and `capture` (the picker
+  decides), form participation (`name` / `form`), the log's `role="log"`
+  live region (lynx has none), anchoring rows prepended above the reader
+  ("load earlier"), a short transcript gathering at the foot, `asChild`
+  on the chat row and the jump trigger, and keyboard focus. `focus-visible`
+  is reachable through `ForceStates` only, as on every lynx-zero part.
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the

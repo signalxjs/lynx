@@ -38,6 +38,9 @@ import { Breadcrumbs, Navbar } from '@sigx/lynx-zero';
 import { Menu, NavList } from '@sigx/lynx-zero';
 import { Pagination, Steps } from '@sigx/lynx-zero';
 import { TreeView } from '@sigx/lynx-zero';
+import { Chat, ChatLog, FileUpload } from '@sigx/lynx-zero';
+import type { FileRejection, FileUploadFile } from '@sigx/lynx-zero';
+import { FilePicker } from '@sigx/lynx-file-picker';
 import { Drawer, Tooltip } from '@sigx/lynx-zero';
 import type { DrawerMeasure, DrawerPlacement } from '@sigx/lynx-zero';
 import { Carousel, Table } from '@sigx/lynx-zero';
@@ -47,6 +50,7 @@ import type { ToastItem, ToastStatus } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
 import type { GalleryAxis, GalleryScope, GalleryScopeId, GalleryState } from './scopes.js';
+import { CHAT_CELL_WIDTH, CHAT_LOG_BOX, FILE_UPLOAD_WIDTH } from './scopes.js';
 import {
     BLOCK_GAP, CELL_PAD, COLORS, FRAME_PADDING, GALLERY_SCOPES, LABEL_GAP, LABEL_WIDTH, LINE_GAP, SIZES,
     NAV_CELL_WIDTH, NAVBAR_CELL_WIDTH, STEPS_RAIL_WIDTH, TEXT_FIELD_WIDTH, gallerySections, matrixOf, parseSection,
@@ -2237,6 +2241,124 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             ),
         },
     },
+    // ── Wave 5 / W5D: file-upload, chat, chat-log (#1276) ──
+    'file-upload': {
+        cell: (c) => (
+            <view style={{ width: `${FILE_UPLOAD_WIDTH}px` }}>
+                <FileUpload.Root
+                    color={c.color}
+                    size={c.size}
+                    disabled={bool(c.props['disabled'])}
+                    invalid={bool(c.props['invalid'])}
+                    defaultFiles={[UPLOAD_FILES[0]!]}
+                >
+                    <FileUpload.Trigger><text>Browse</text></FileUpload.Trigger>
+                    <UploadItems />
+                </FileUpload.Root>
+            </view>
+        ),
+        extras: {
+            // The dropzone: resting, highlighted (forced — lynx has no drag
+            // source), disabled; the size ramp; a coloured highlight.
+            dropzone: () => (
+                <Col gap={10}>
+                    <text class="zg-label">resting · highlighted (forced) · disabled</text>
+                    <Row gap={8} align="flex-start">
+                        <view style={DROP_BOX}><UploadDropzone /></view>
+                        <ForceStates flags={{ highlighted: true }}>
+                            <view style={DROP_BOX}><UploadDropzone /></view>
+                        </ForceStates>
+                        <view style={DROP_BOX}><UploadDropzone disabled /></view>
+                    </Row>
+                    <text class="zg-label">xs · lg · highlighted secondary / error</text>
+                    <Row gap={8} align="flex-start">
+                        <view style={DROP_BOX}><UploadDropzone size="xs" /></view>
+                        <view style={DROP_BOX}><UploadDropzone size="lg" /></view>
+                        <ForceStates flags={{ highlighted: true }}>
+                            <Col gap={8}>
+                                <view style={DROP_BOX}><UploadDropzone color="secondary" size="sm" /></view>
+                                <view style={DROP_BOX}><UploadDropzone color="error" size="sm" /></view>
+                            </Col>
+                        </ForceStates>
+                    </Row>
+                </Col>
+            ),
+            // Several files, the clear trigger, a rejected file rendered
+            // invalid; then held and focus-visible on every button.
+            list: () => (
+                <Col gap={12}>
+                    <text class="zg-label">three files · clear · a rejected file (invalid)</text>
+                    <UploadList />
+                    <text class="zg-label">held (trigger, ×, clear) · focus-visible</text>
+                    <Row gap={8} align="flex-start">
+                        <ForceStates flags={{ pressed: true }}>
+                            <view style={{ width: '176px' }}><UploadList compact /></view>
+                        </ForceStates>
+                        <ForceStates flags={{ 'focus-visible': true }}>
+                            <view style={{ width: '176px' }}><UploadList compact /></view>
+                        </ForceStates>
+                    </Row>
+                </Col>
+            ),
+            live: () => <UploadLive />,
+        },
+    },
+    chat: {
+        cell: (c) => (
+            <view style={{ width: `${CHAT_CELL_WIDTH}px` }}>
+                <Chat.Root placement={c.props['placement'] === 'end' ? 'end' : 'start'} color={c.color} size={c.size}>
+                    {bool(c.props['avatar']) ? <Chat.Avatar><ChatFace initials="AL" /></Chat.Avatar> : null}
+                    {bool(c.props['meta']) ? <Chat.Header>You · 12:46</Chat.Header> : null}
+                    <Chat.Bubble>Hello!</Chat.Bubble>
+                    {bool(c.props['meta']) ? <Chat.Footer>Seen</Chat.Footer> : null}
+                </Chat.Root>
+            </view>
+        ),
+        extras: {
+            thread: () => <ChatThread />,
+            // Long text wraps inside the bubble's 90% cap, on both sides and
+            // beside an avatar.
+            long: () => (
+                <view style={{ width: '360px' }}>
+                    <Chat.Root>
+                        <Chat.Avatar><ChatFace initials="AL" /></Chat.Avatar>
+                        <Chat.Bubble>{LONG_LINE}</Chat.Bubble>
+                    </Chat.Root>
+                    <Chat.Root placement="end" color="primary">
+                        <Chat.Bubble>{LONG_LINE}</Chat.Bubble>
+                    </Chat.Root>
+                    <Chat.Root size="sm" color="neutral">
+                        <Chat.Header>Grace · 09:12</Chat.Header>
+                        <Chat.Bubble>{LONG_LINE}</Chat.Bubble>
+                        <Chat.Footer>Delivered</Chat.Footer>
+                    </Chat.Root>
+                    <Chat.Root placement="end" size="lg" color="accent">
+                        <Chat.Avatar><ChatFace initials="ME" /></Chat.Avatar>
+                        <Chat.Bubble>{LONG_LINE}</Chat.Bubble>
+                    </Chat.Root>
+                </view>
+            ),
+        },
+    },
+    'chat-log': {
+        cell: (c) => (
+            <view style={{ width: `${CHAT_LOG_BOX.width}px`, height: `${CHAT_LOG_BOX.height}px`, display: 'flex', flexDirection: 'column' }}>
+                <ChatLog.Root class="zg-chat-log" color={c.color} size={c.size} defaultFollowing={!bool(c.props['up'])}>
+                    <ChatLog.Content>
+                        {['Hi there', 'Hey!', 'Lunch?', 'Sure'].map((text, i) => (
+                            <Chat.Root key={text} placement={i % 2 ? 'end' : 'start'} size="xs">
+                                <Chat.Bubble>{text}</Chat.Bubble>
+                            </Chat.Root>
+                        ))}
+                    </ChatLog.Content>
+                    <ChatLog.JumpTrigger />
+                </ChatLog.Root>
+            </view>
+        ),
+        extras: {
+            live: () => <ChatLogLive />,
+        },
+    },
 };
 
 /** A drawer open at mount on `placement`: title, a few links, Close. */
@@ -2420,6 +2542,171 @@ const ComboboxTags = component<ComboboxTagsProps>(({ props }) => () => (
         />
     </view>
 ));
+
+// ── W5D (#1276): file-upload, chat, chat-log helpers ─────────────────────
+
+/** Canned files — what a picker would return (`FilePickerAsset`-shaped). */
+const UPLOAD_FILES: readonly FileUploadFile[] = [
+    { name: 'photo.png', size: 1536, mimeType: 'image/png', uri: 'file:///gallery/photo.png' },
+    { name: 'report.pdf', size: 2_400_000, mimeType: 'application/pdf', uri: 'file:///gallery/report.pdf' },
+    { name: 'notes-from-the-long-meeting.txt', size: 12_345, mimeType: 'text/plain', uri: 'file:///gallery/notes.txt' },
+];
+const REJECTED_FILE: FileUploadFile = { name: 'movie.mov', size: 48_000_000, mimeType: 'video/quicktime' };
+
+/** A dropzone cell: a fixed box the (fluid) zone fills. */
+const DROP_BOX = { width: '112px' };
+
+/** The item rows for the model, each with name, size and remove. */
+const UploadItems = component<Define.Prop<'rejected', boolean, false>>(({ props }) => () => (
+    <FileUpload.ItemGroup>
+        {(files: FileUploadFile[]) => [
+            ...files.map((f) => (
+                <FileUpload.Item key={f.uri ?? f.name} file={f}>
+                    <FileUpload.ItemName />
+                    <FileUpload.ItemSize />
+                    <FileUpload.ItemRemove />
+                </FileUpload.Item>
+            )),
+            props.rejected
+                ? (
+                    <FileUpload.Item key="rejected" file={REJECTED_FILE} invalid>
+                        <FileUpload.ItemName />
+                        <FileUpload.ItemSize>too large</FileUpload.ItemSize>
+                    </FileUpload.Item>
+                )
+                : null,
+        ]}
+    </FileUpload.ItemGroup>
+));
+
+type UploadDropzoneProps =
+    & Define.Prop<'color', string, false>
+    & Define.Prop<'size', string, false>
+    & Define.Prop<'disabled', boolean, false>;
+
+const UploadDropzone = component<UploadDropzoneProps>(({ props }) => () => (
+    <FileUpload.Root color={props.color} size={props.size} disabled={props.disabled}>
+        <FileUpload.Dropzone><text>Tap to add files</text></FileUpload.Dropzone>
+    </FileUpload.Root>
+));
+
+const UploadList = component<Define.Prop<'compact', boolean, false>>(({ props }) => () => (
+    <FileUpload.Root multiple defaultFiles={props.compact ? [UPLOAD_FILES[0]!] : [...UPLOAD_FILES]} color="primary">
+        {props.compact ? null : <FileUpload.Label>Attachments</FileUpload.Label>}
+        <FileUpload.Trigger><text>Browse…</text></FileUpload.Trigger>
+        <UploadItems rejected={!props.compact} />
+        <FileUpload.ClearTrigger><text>Clear all</text></FileUpload.ClearTrigger>
+    </FileUpload.Root>
+));
+
+/**
+ * A working upload field: the native file picker where the module is
+ * linked, else a canned picker that hands back the next demo file — either
+ * way the constraints run (images and PDFs, at most 3, under 10 MB).
+ */
+const UploadLive = component(() => {
+    const st = signal({ files: [] as FileUploadFile[], rejected: '' , next: 0 });
+    const pick = async ({ multiple, types }: { multiple: boolean; types: string[] }): Promise<readonly FileUploadFile[]> => {
+        if (FilePicker.isAvailable()) {
+            const result = await FilePicker.pick({ multiple, types });
+            return result.cancelled ? [] : result.assets;
+        }
+        const demo = [...UPLOAD_FILES, REJECTED_FILE];
+        const file = demo[st.next % demo.length]!;
+        st.next += 1;
+        return [file];
+    };
+    return () => (
+        <Col gap={10}>
+            <text class="zg-note">
+                {FilePicker.isAvailable() ? 'Native picker (images, PDFs; max 3, < 10 MB).' : 'Canned picker: each tap adds the next demo file.'}
+            </text>
+            <FileUpload.Root
+                model={() => st.files}
+                multiple
+                accept="image/*,application/pdf,text/plain"
+                maxFiles={3}
+                maxFileSize={10_000_000}
+                pick={pick}
+                onFilesReject={(r: FileRejection[]) => { st.rejected = r.map((x) => `${x.file.name}: ${x.errors.join(', ')}`).join(' · '); }}
+            >
+                <FileUpload.Label>Attachments</FileUpload.Label>
+                <FileUpload.Dropzone><text>Tap to add files</text></FileUpload.Dropzone>
+                <FileUpload.Trigger><text>Browse…</text></FileUpload.Trigger>
+                <UploadItems />
+                <FileUpload.ClearTrigger><text>Clear all</text></FileUpload.ClearTrigger>
+            </FileUpload.Root>
+            {st.rejected ? <text class="zg-label">{`Rejected — ${st.rejected}`}</text> : null}
+        </Col>
+    );
+});
+
+/** An initials avatar for the chat rows (reuses Avatar: no image → the fallback). */
+const ChatFace = component<Define.Prop<'initials', string, true> & Define.Prop<'color', string, false>>(({ props }) => () => (
+    <Avatar.Root size="md" color={props.color}>
+        <Avatar.Fallback><text>{props.initials}</text></Avatar.Fallback>
+    </Avatar.Root>
+));
+
+const LONG_LINE = 'A longer message that has to wrap onto several lines inside the bubble, which stops short of the row.';
+
+/** The chat `thread` extra: a conversation in a sized log. */
+const ChatThread = component(() => () => (
+    <view style={{ width: '370px' }}>
+        <Chat.Root>
+            <Chat.Avatar><ChatFace initials="AL" color="secondary" /></Chat.Avatar>
+            <Chat.Header>Ada · 12:45</Chat.Header>
+            <Chat.Bubble>The contract is the anatomy.</Chat.Bubble>
+        </Chat.Root>
+        <Chat.Root>
+            <Chat.Avatar><ChatFace initials="AL" color="secondary" /></Chat.Avatar>
+            <Chat.Bubble>Everything else is a skin.</Chat.Bubble>
+            <Chat.Footer>Delivered</Chat.Footer>
+        </Chat.Root>
+        <Chat.Root placement="end" color="primary">
+            <Chat.Avatar><ChatFace initials="ME" /></Chat.Avatar>
+            <Chat.Header>You · 12:46</Chat.Header>
+            <Chat.Bubble>Agreed.</Chat.Bubble>
+            <Chat.Footer>Seen 12:47</Chat.Footer>
+        </Chat.Root>
+        {(['info', 'success', 'warning', 'error'] as const).map((color, i) => (
+            <Chat.Root key={color} placement={i % 2 ? 'end' : 'start'} color={color}>
+                <Chat.Bubble>{color}</Chat.Bubble>
+            </Chat.Root>
+        ))}
+        <Chat.Root size="xs"><Chat.Bubble>xs</Chat.Bubble></Chat.Root>
+        <Chat.Root size="xl" placement="end" color="accent"><Chat.Bubble>xl</Chat.Bubble></Chat.Root>
+    </view>
+));
+
+/**
+ * The chat-log `live` extra: Send appends a row (the log follows it to the
+ * end); scroll up to let go — the jump trigger appears — and Jump returns.
+ */
+const ChatLogLive = component(() => {
+    const st = signal({ rows: 6, following: true });
+    return () => (
+        <Col gap={10}>
+            <text class="zg-note">{st.following ? 'Following the tail' : 'Scrolled up — not following'}</text>
+            <view style={{ height: '300px', display: 'flex', flexDirection: 'column' }}>
+                <ChatLog.Root class="zg-chat-log" label="Live thread" model:following={() => st.following}>
+                    <ChatLog.Content>
+                        {Array.from({ length: st.rows }, (_, i) => (
+                            <Chat.Root key={i} placement={i % 3 === 2 ? 'end' : 'start'} color={i % 3 === 2 ? 'primary' : undefined}>
+                                <Chat.Bubble>{`Message ${i + 1}${i % 4 === 1 ? ' — a longer one, to wrap onto a second line' : ''}`}</Chat.Bubble>
+                            </Chat.Root>
+                        ))}
+                    </ChatLog.Content>
+                    <ChatLog.JumpTrigger />
+                </ChatLog.Root>
+            </view>
+            <Row gap={8}>
+                <Button size="sm" color="primary" onPress={() => { st.rows += 1; }}><text>Send</text></Button>
+                <Button size="sm" variant="outline" onPress={() => { st.rows += 5; }}><text>Burst ×5</text></Button>
+            </Row>
+        </Col>
+    );
+});
 
 /** The nav-list `sidebar` extra: two groups, a live current page. */
 const NavSidebar = component(() => {
