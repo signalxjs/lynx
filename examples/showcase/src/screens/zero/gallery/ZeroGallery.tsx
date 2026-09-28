@@ -36,6 +36,7 @@ import { Divider, EmptyState, Stats } from '@sigx/lynx-zero';
 import { Avatar, AvatarGroup, Skeleton, Spinner } from '@sigx/lynx-zero';
 import { Breadcrumbs, Navbar } from '@sigx/lynx-zero';
 import { Menu, NavList } from '@sigx/lynx-zero';
+import { TreeView } from '@sigx/lynx-zero';
 import type { ToastItem, ToastStatus } from '@sigx/lynx-zero';
 import { ForceStates } from '@sigx/lynx-zero/testing';
 import { pageThemeOf } from './page-theme.js';
@@ -1651,6 +1652,94 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             sidebar: () => <NavSidebar />,
         },
     },
+    'tree-view': {
+        cell: (c) => (
+            <TreeCell
+                color={c.color}
+                size={c.size}
+                selected={str(c.props['value']) ?? 'a'}
+                closed={bool(c.props['closed'])}
+                loading={bool(c.props['loading'])}
+                nodeDisabled={bool(c.props['nodeDisabled'])}
+                disabled={bool(c.props['disabled'])}
+            />
+        ),
+        extras: {
+            checkable: () => (
+                <Col gap={16}>
+                    <text class="zg-note">a checked · Dir mixed · c disabled · All checked (collapsed) · right: boxes on selected rows</text>
+                    <Row gap={12} align="flex-start">
+                        <view style={TREE_BOX}><CheckTree /></view>
+                        <view style={TREE_BOX}><CheckTree selected={['a', 'dir']} color="secondary" /></view>
+                    </Row>
+                    <text class="zg-note">held (all rows) · focus (all rows)</text>
+                    <Row gap={12} align="flex-start">
+                        <view style={TREE_BOX}>
+                            <ForceStates flags={{ pressed: true }}><CheckTree selected={['a']} /></ForceStates>
+                        </view>
+                        <view style={TREE_BOX}>
+                            <ForceStates flags={{ 'focus-visible': true }}><CheckTree /></ForceStates>
+                        </view>
+                    </Row>
+                    <text class="zg-note">root disabled</text>
+                    <view style={TREE_BOX}><CheckTree disabled /></view>
+                </Col>
+            ),
+            multiple: () => (
+                <Col gap={16}>
+                    {(['primary', 'accent', 'neutral'] as const).map((color) => (
+                        <TreeView.Root key={color} multiple color={color} defaultValue={['a', 'b']} defaultExpandedValues={['dir']}>
+                            <TreeView.Label>{`multiple · ${color}`}</TreeView.Label>
+                            <TreeView.Tree>
+                                <TreeView.Branch value="dir">
+                                    <TreeView.BranchTrigger><TreeView.BranchIndicator /><text>Dir</text></TreeView.BranchTrigger>
+                                    <TreeView.BranchContent>
+                                        <TreeView.Item value="a"><text>a (selected)</text></TreeView.Item>
+                                        <TreeView.Item value="c"><text>c</text></TreeView.Item>
+                                    </TreeView.BranchContent>
+                                </TreeView.Branch>
+                                <TreeView.Item value="b"><text>b (selected)</text></TreeView.Item>
+                            </TreeView.Tree>
+                        </TreeView.Root>
+                    ))}
+                </Col>
+            ),
+            indicator: () => (
+                <Col gap={16}>
+                    <text class="zg-note">expandOnClick=false: the row selects, the › toggles</text>
+                    <TreeView.Root expandOnClick={false} defaultValue="src" defaultExpandedValues={['src', 'lib']}>
+                        <TreeView.Label>Files</TreeView.Label>
+                        <TreeView.Tree>
+                            <TreeView.Branch value="src">
+                                <TreeView.BranchTrigger><TreeView.BranchIndicator /><text>src</text></TreeView.BranchTrigger>
+                                <TreeView.BranchContent>
+                                    <TreeView.Branch value="lib">
+                                        <TreeView.BranchTrigger><TreeView.BranchIndicator /><text>lib</text></TreeView.BranchTrigger>
+                                        <TreeView.BranchContent>
+                                            <TreeView.Item value="lib/a.ts"><text>a.ts</text></TreeView.Item>
+                                            <TreeView.Item value="lib/b.ts" disabled><text>b.ts (disabled)</text></TreeView.Item>
+                                        </TreeView.BranchContent>
+                                    </TreeView.Branch>
+                                    <TreeView.Branch value="remote" loading>
+                                        <TreeView.BranchTrigger><TreeView.BranchIndicator /><text>remote (loading)</text></TreeView.BranchTrigger>
+                                        <TreeView.BranchContent />
+                                    </TreeView.Branch>
+                                    <TreeView.Branch value="vendor" disabled>
+                                        <TreeView.BranchTrigger><TreeView.BranchIndicator /><text>vendor (disabled)</text></TreeView.BranchTrigger>
+                                        <TreeView.BranchContent>
+                                            <TreeView.Item value="vendor/x.ts"><text>x.ts</text></TreeView.Item>
+                                        </TreeView.BranchContent>
+                                    </TreeView.Branch>
+                                    <TreeView.Item value="index.ts"><text>index.ts</text></TreeView.Item>
+                                </TreeView.BranchContent>
+                            </TreeView.Branch>
+                            <TreeView.Item value="README.md"><text>README.md</text></TreeView.Item>
+                        </TreeView.Tree>
+                    </TreeView.Root>
+                </Col>
+            ),
+        },
+    },
 };
 
 /** The nav-list `sidebar` extra: two groups, a live current page. */
@@ -1688,6 +1777,81 @@ const NavSidebar = component(() => {
         </view>
     );
 });
+
+/** A half-width column for the side-by-side trees (a plain view: Col/Row drop `style`). */
+const TREE_BOX = { width: '180px' };
+
+type TreeCellProps =
+    & Define.Prop<'color', string, false>
+    & Define.Prop<'size', string, false>
+    /** The selected node ('' = none). Not `value`: that name collides with emit. */
+    & Define.Prop<'selected', string, true>
+    & Define.Prop<'closed', boolean, false>
+    & Define.Prop<'loading', boolean, false>
+    & Define.Prop<'nodeDisabled', boolean, false>
+    & Define.Prop<'disabled', boolean, false>;
+
+/** One tree-view cell: "Dir" (open unless `closed`) over "a", then "b". */
+const TreeCell = component<TreeCellProps>(({ props }) => () => (
+    <TreeView.Root
+        color={props.color}
+        size={props.size}
+        defaultValue={props.selected}
+        defaultExpandedValues={props.closed ? [] : ['dir']}
+        disabled={props.disabled}
+    >
+        <TreeView.Tree>
+            <TreeView.Branch value="dir" loading={props.loading}>
+                <TreeView.BranchTrigger><TreeView.BranchIndicator /><text>Dir</text></TreeView.BranchTrigger>
+                <TreeView.BranchContent>
+                    <TreeView.Item value="a"><text>a</text></TreeView.Item>
+                </TreeView.BranchContent>
+            </TreeView.Branch>
+            <TreeView.Item value="b" disabled={props.nodeDisabled}><text>b</text></TreeView.Item>
+        </TreeView.Tree>
+    </TreeView.Root>
+));
+
+type CheckTreeProps =
+    & Define.Prop<'selected', readonly string[], false>
+    & Define.Prop<'color', string, false>
+    & Define.Prop<'disabled', boolean, false>;
+
+/**
+ * A checkable tree: "Dir" mixed (a checked, b not, c disabled), "All"
+ * collapsed but checked (x, y — its leaves stay registered), and "d". With `selected`, a multiple selection is in use
+ * too, so the boxes sit on selected rows.
+ */
+const CheckTree = component<CheckTreeProps>(({ props }) => () => (
+    <TreeView.Root
+        checkable
+        multiple
+        color={props.color}
+        disabled={props.disabled}
+        defaultValue={[...(props.selected ?? [])]}
+        defaultCheckedValues={['a', 'x', 'y']}
+        defaultExpandedValues={['dir']}
+    >
+        <TreeView.Tree>
+            <TreeView.Branch value="dir">
+                <TreeView.BranchTrigger><TreeView.NodeCheckbox /><TreeView.BranchIndicator /><text>Dir</text></TreeView.BranchTrigger>
+                <TreeView.BranchContent>
+                    <TreeView.Item value="a"><TreeView.NodeCheckbox /><text>a</text></TreeView.Item>
+                    <TreeView.Item value="b"><TreeView.NodeCheckbox /><text>b</text></TreeView.Item>
+                    <TreeView.Item value="c" disabled><TreeView.NodeCheckbox /><text>c</text></TreeView.Item>
+                </TreeView.BranchContent>
+            </TreeView.Branch>
+            <TreeView.Branch value="all">
+                <TreeView.BranchTrigger><TreeView.NodeCheckbox /><TreeView.BranchIndicator /><text>All</text></TreeView.BranchTrigger>
+                <TreeView.BranchContent>
+                    <TreeView.Item value="x"><TreeView.NodeCheckbox /><text>x</text></TreeView.Item>
+                    <TreeView.Item value="y"><TreeView.NodeCheckbox /><text>y</text></TreeView.Item>
+                </TreeView.BranchContent>
+            </TreeView.Branch>
+            <TreeView.Item value="d"><TreeView.NodeCheckbox /><text>d</text></TreeView.Item>
+        </TreeView.Tree>
+    </TreeView.Root>
+));
 
 /** A live alert for the `compose` extra: × dismisses it, the button restores it. */
 const AlertLive = component(() => {

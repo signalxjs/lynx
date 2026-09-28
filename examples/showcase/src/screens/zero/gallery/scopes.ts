@@ -1073,6 +1073,41 @@ export const GALLERY_SCOPES = {
         cellWidth: NAV_CELL_WIDTH + CELL_PAD,
         cell: (size) => ({ width: NAV_CELL_WIDTH, height: 2 * NAV_LINK_PAD[size] + lineHeight(NAV_TEXT[size]) }),
     },
+    // ── Wave 4 / W4D: tree-view (#1256) ──
+    // Three rows: the branch "Dir" (open) over its leaf "a", then the
+    // top-level leaf "b" — "a" selected unless a state says otherwise.
+    // Forced flags land on every row (item and branch-trigger declare them).
+    'tree-view': {
+        title: 'TreeView',
+        axes: { color: COLORS, size: SIZES },
+        states: [
+            { id: 'default', label: 'a sel' },
+            { id: 'branch', label: 'Dir sel', props: { value: 'dir' } },
+            { id: 'pressed', label: 'pressed', flags: { pressed: true } },
+            { id: 'focus', label: 'focus', flags: { 'focus-visible': true } },
+            { id: 'closed', label: 'closed', props: { closed: true } },
+            { id: 'loading', label: 'loading', props: { loading: true } },
+            { id: 'node-disabled', label: 'b dis', props: { nodeDisabled: true } },
+            { id: 'disabled', label: 'disabled', props: { disabled: true } },
+        ],
+        // `checkable`: node check boxes — checked leaf, a tri-state branch, a
+        // disabled leaf, a box on a selected row, and held. `multiple`: two
+        // rows selected. `indicator`: expandOnClick={false}, a deeper tree.
+        extras: ['checkable', 'multiple', 'indicator'],
+        cellWidth: 81,
+        // Rows are `--space-sm` × `--space-md` padding around one line of
+        // `--tree-text` (xs, xs, sm, md, lg); the leaf under the branch is
+        // indented by the content's `--space-lg`; the tree gap is
+        // `--space-2xs` (between "Dir" and "b" — the branch column has none).
+        cell: (size) => {
+            const font = ramp(12, 12, 14, 16, 18)[size];
+            const rowH = 2 * 6 + lineHeight(font);
+            return {
+                width: Math.max(2 * 8 + textWidth('›', font) + 8 + textWidth('Dir', font), 12 + 2 * 8 + textWidth('a', font)),
+                height: 3 * rowH + 2,
+            };
+        },
+    },
 } as const satisfies Record<string, GalleryScope>;
 
 /** The fixed box a navbar gallery cell gives its (fluid) bar — `ZeroGallery.tsx` renders it. */

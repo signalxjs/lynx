@@ -1145,6 +1145,84 @@ How they behave on lynx:
   anchor is a follow-up), `keyshortcuts`, the `Menubar` identity (`value`
   on `Menu.Root`), `asChild`, and `NavList.Root`'s landmark `label`.
 
+## TreeView (zero wave 4, navigation)
+
+zero's `tree-view` scope from [#1256](https://github.com/signalxjs/lynx/issues/1256).
+It shows nested branches that expand and collapse, with single or multiple
+selection and an optional tri-state check model.
+
+```tsx
+import { TreeView } from '@sigx/lynx-zero';
+
+<TreeView.Root model={() => state.selected} defaultExpandedValues={['src']}>
+    <TreeView.Label>Files</TreeView.Label>
+    <TreeView.Tree>
+        <TreeView.Branch value="src">
+            <TreeView.BranchTrigger>
+                <TreeView.BranchIndicator /><text>src</text>
+            </TreeView.BranchTrigger>
+            <TreeView.BranchContent>
+                <TreeView.Item value="src/index.ts"><text>index.ts</text></TreeView.Item>
+            </TreeView.BranchContent>
+        </TreeView.Branch>
+        <TreeView.Item value="README.md"><text>README.md</text></TreeView.Item>
+    </TreeView.Tree>
+</TreeView.Root>
+
+// Checkable: boxes in the rows; a branch's state derives from its leaves.
+<TreeView.Root model:checkedValues={() => state.checked}>
+    …<TreeView.Item value="a"><TreeView.NodeCheckbox /><text>a</text></TreeView.Item>…
+</TreeView.Root>
+```
+
+| Part / prop | Type | Default | Notes |
+|---|---|---|---|
+| `TreeView.Root` `model` / `defaultValue` | `string` (`string[]` under `multiple`) | `''` / `[]` | The selection. `valueChange` fires on change. `''` means "nothing selected" in single mode, so a node cannot use it as its value. |
+| `TreeView.Root` `multiple` | `boolean` | `false` | A tap toggles a node in or out of the selection. |
+| `TreeView.Root` `model:expandedValues` / `defaultExpandedValues` | `string[]` | `[]` | The open branches. `expandedValuesChange` fires on change. |
+| `TreeView.Root` `expandOnClick` | `boolean` | `true` | A tap on a branch row toggles it as well as selecting it. With `false`, the row only selects and the `BranchIndicator` toggles. |
+| `TreeView.Root` `model:checkedValues` / `defaultCheckedValues` / `checkable` | `string[]` / `boolean` | — | The checked leaf values. Setting any of the three makes the tree checkable. `checkedValuesChange` fires on change. |
+| `TreeView.Root` `disabled` / `color` / `size` / `pressFeel` | `boolean` / skin axes / `boolean` | — / skin default / `false` | `disabled` disables every node. `pressFeel` adds the main-thread scale to the rows. |
+| `TreeView.Item` / `TreeView.Branch` `value` | `string` | required | The node's identity. |
+| `TreeView.Item` / `TreeView.Branch` `disabled` | `boolean` | `false` | The node takes no taps and shows no press. It keeps its selection and check state. |
+| `TreeView.Branch` `loading` | `boolean` | `false` | The indicator shows `loading` whatever the expansion. The content shows it only while open. |
+| `TreeView.Item` / `TreeView.BranchTrigger` `label` | `string` | the row's text | The accessible name, for rows whose text reads badly aloud. |
+| `TreeView.BranchIndicator` | slot | `›` | The default glyph is a `<text>` part. With a slot, the part is a `<view>` wrapping your content. The skin turns it while the branch is open. |
+| `TreeView.NodeCheckbox` | slot | `✓` / `−` | The node's check box, placed in an `Item` or a `BranchTrigger`. Tapping it toggles the check and does not select or expand the row. |
+
+How it behaves on lynx:
+
+- **Taps, no keyboard.** A tap on a leaf selects it. A tap on a branch row
+  selects the branch and toggles it. Under `multiple` a tap toggles the node
+  in or out of the selection. There are no modifier keys, so there is no
+  range selection. zero's roving focus, typeahead and arrow keys are not
+  wired. `focus-visible` is still in the anatomy: the skin draws it and
+  `ForceStates` shows it, but nothing sets it at runtime.
+- **Checkable.** A branch is `checked` when every enabled leaf below it is,
+  and `indeterminate` when only some are. Toggling a branch checks or
+  unchecks all its enabled leaves, and a disabled leaf keeps its value. When
+  the tree is checkable and has no selection model (no `multiple`, `model`
+  or `defaultValue`), a tap on a leaf row toggles its check instead, and no
+  row is announced as selected.
+- **Collapsed content stays mounted.** A closed `BranchContent` renders with
+  `display: none` and the anatomy's `hidden` attribute, the way the web
+  keeps its subtree in the DOM. Its nodes stay registered, so a collapsed
+  branch still shows the right check state.
+- **The reader.** Each row is one accessible element (a `button`). Its
+  status lists checked, unchecked or mixed, then selected, then expanded or
+  collapsed, then disabled. The root, the tree and the branch wrapper are
+  not accessible elements. The indicator and the check box are hidden from
+  the reader, because the row already says what they show.
+- **Press.** A row gets the `pressed` flag while touched. It does not scale
+  (daisy's rows darken instead) unless you set `pressFeel` on the Root.
+- **Indentation** comes from the skin: `branch-content` has a left padding
+  (a physical one, since Android ignores the logical spelling), and the
+  nesting adds it up.
+- **Not carried:** `asChild` on rows (there is no DOM element to merge
+  into), `aria-level` (lynx has no equivalent), and the skins' right-to-left
+  indicator mirror and `prefers-reduced-motion` stop (lynx emits neither
+  `:dir()` nor `@media`).
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the
