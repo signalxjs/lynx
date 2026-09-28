@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **`@sigx/zero` and `@sigx/zero-daisyui` pinned to 0.14.0** ([#1248](https://github.com/signalxjs/lynx/issues/1248)). 0.14.0 carries the Wave 3 (#1140) daisy lynx targets that the 0.34.0 `@sigx/lynx-zero` display scopes were waiting on: alert and card ([signalxjs/zero#431](https://github.com/signalxjs/zero/pull/431)), badge, status and kbd ([signalxjs/zero#430](https://github.com/signalxjs/zero/pull/430)), divider, stats and empty-state ([signalxjs/zero#433](https://github.com/signalxjs/zero/pull/433)), and avatar, avatar-group, skeleton, spinner and the toast indicator ([signalxjs/zero#434](https://github.com/signalxjs/zero/pull/434)). It also keeps the textarea focus ring's base-100 gap on Android ([signalxjs/zero#435](https://github.com/signalxjs/zero/pull/435)).
+
 ## [0.34.0] - 2026-09-28
 
 ### Added
