@@ -41,6 +41,7 @@
  */
 import { defineInjectable, defineProvide, effect, onUnmounted, signal, useScreen, useViewportRect } from '@sigx/lynx';
 import type { ElementLayout, LayoutChangeEvent, MainThread, MainThreadRef } from '@sigx/lynx';
+import { acquireKeyboard, keyboardHeight, keyboardOverlap } from './keyboard.js';
 
 /**
  * The overlay outlet's own viewport rect, plus the SAFE FRAME inside it.
@@ -166,6 +167,22 @@ export function containedFrame(origin: ElementLayout | null, frame: ElementLayou
         && frame.top + frame.height <= origin.top + origin.height + EPSILON
         && frame.left + frame.width <= origin.left + origin.width + EPSILON;
     return inside ? frame : null;
+}
+
+/**
+ * The safe frame with the soft keyboard's overlap cut off its bottom — the
+ * box an anchored popup over a text field may use (#1278). `overlap` is how
+ * far the keyboard covers the OUTLET from its bottom edge (`keyboardOverlap`).
+ * Without a keyboard, or an outlet, the frame is returned as it is; a
+ * keyboard that would leave no room at all is ignored rather than producing
+ * an empty box. Pure, over fake rects. @internal
+ */
+export function keyboardFrame(outlet: ElementLayout | null, frame: ElementLayout | null, overlap: number): ElementLayout | null {
+    if (!outlet || !(overlap > 0)) return frame;
+    const base = containedFrame(outlet, frame) ?? outlet;
+    const bottom = Math.min(base.top + base.height, outlet.top + outlet.height - overlap);
+    if (bottom - base.top <= 0) return frame;
+    return { ...base, bottom, height: bottom - base.top };
 }
 
 /**
@@ -665,6 +682,8 @@ export interface LynxAnchorPosition {
     track: () => void;
     /** The resolved position in OUTLET coordinates, or null until both nodes have measured. */
     position(): ResolvedPosition | null;
+    /** The anchor's last measured viewport rect — a listbox takes its width (`--anchor-width` on the web). */
+    anchorRect(): ElementLayout | null;
     /** The absolute inline style for the floating element. */
     style(): Record<string, string | number>;
     /**
@@ -715,6 +734,13 @@ export interface CreateAnchorPositionOptions extends AnchorPositionOptions {
      * open.
      */
     isOpen?: () => boolean;
+    /**
+     * Keep the popup out from under the soft keyboard (#1278): while open,
+     * follow the keyboard (`acquireKeyboard`) and flip/clamp against the
+     * part of the safe frame it leaves visible — a combobox's list under a
+     * raised keyboard opens above its field instead. Default false.
+     */
+    avoidKeyboard?: boolean;
 }
 
 /**
@@ -778,13 +804,38 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
     });
     onUnmounted(() => followMotion.stop());
 
+    // The keyboard is followed only while open, so a screen of closed
+    // comboboxes subscribes nothing (the dialog's rule, #1232).
+    let releaseKeyboard: (() => void) | null = null;
+    if (options.avoidKeyboard) {
+        const followKeyboard = effect(() => {
+            if (isOpen()) releaseKeyboard ??= acquireKeyboard();
+            else {
+                releaseKeyboard?.();
+                releaseKeyboard = null;
+            }
+        });
+        onUnmounted(() => {
+            followKeyboard.stop();
+            releaseKeyboard?.();
+            releaseKeyboard = null;
+        });
+    }
+    /** The frame to flip/clamp against — trimmed by the keyboard under `avoidKeyboard`. */
+    const frame = (): ElementLayout | null => {
+        if (!options.avoidKeyboard) return origin.frame();
+        const outlet = origin.rect();
+        const overlap = keyboardOverlap(keyboardHeight(), outlet?.height ?? 0, origin.fullHeight());
+        return keyboardFrame(outlet, origin.frame(), overlap);
+    };
+
     /** The resolved placement, in OUTLET coordinates. */
     const position = (): ResolvedPosition | null => {
         const a = anchor.rect.value;
         const f = floating.rect.value;
         const v = screen.value;
         return a && f && v.width > 0
-            ? computeFramedPosition(a, { width: f.width, height: f.height }, origin.rect(), origin.frame(), v, options)
+            ? computeFramedPosition(a, { width: f.width, height: f.height }, origin.rect(), frame(), v, options)
             : null;
     };
 
@@ -813,6 +864,7 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
             if (isOpen()) settle.kick();
         },
         position,
+        anchorRect: () => anchor.rect.value,
         style: () => {
             const p = position();
             // `height: max-content`: the outlet layer is 0×0 (#1190), and lynx

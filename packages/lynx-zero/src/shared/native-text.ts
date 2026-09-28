@@ -125,20 +125,33 @@ export interface InvokableElement {
  * not-yet-native element is a no-op here, never an unhandled rejection.
  */
 export function focusNative(el: InvokableElement | null | undefined): void {
+    invokeNative(el, 'focus');
+}
+
+/**
+ * Blur a native text field through its `blur` UI method — the soft keyboard
+ * goes down with it (a combobox after a pick, #1278). Same seam as
+ * `focusNative`.
+ */
+export function blurNative(el: InvokableElement | null | undefined): void {
+    invokeNative(el, 'blur');
+}
+
+function invokeNative(el: InvokableElement | null | undefined, method: 'focus' | 'blur'): void {
     if (!el) return;
     if (typeof el.invoke === 'function') {
         try {
-            const result = el.invoke('focus', {});
+            const result = el.invoke(method, {});
             if (result && typeof (result as Promise<unknown>).catch === 'function') {
                 (result as Promise<unknown>).catch(() => {});
             }
         } catch {
-            // No native node yet — nothing to focus.
+            // No native node yet — nothing to call.
         }
         return;
     }
     if (typeof el.id === 'number') {
-        pushOp(OP.INVOKE_UI_METHOD, el.id, 'focus', {});
+        pushOp(OP.INVOKE_UI_METHOD, el.id, method, {});
         scheduleFlush();
     }
 }

@@ -229,3 +229,7 @@ export type {
     TableSort, TableSortDirection,
 } from './components/table/Table.js';
 export { Table, nextTableSort } from './components/table/Table.js';
+
+// ── Components (zero wave 5 — overlays & complex: combobox, W5B #1278) ──
+export type { ComboboxRoot, ComboboxRootProps, ComboboxTagSlotProps } from './components/combobox/Combobox.js';
+export { Combobox } from './components/combobox/Combobox.js';
