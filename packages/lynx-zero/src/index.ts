@@ -182,3 +182,12 @@ export type {
     BreadcrumbsCollapse, BreadcrumbsEllipsisTriggerProps, BreadcrumbsLinkProps, BreadcrumbsPartProps, BreadcrumbsRootProps,
 } from './components/breadcrumbs/Breadcrumbs.js';
 export { Breadcrumbs, breadcrumbsHidden } from './components/breadcrumbs/Breadcrumbs.js';
+
+// ── Components (zero wave 4 — navigation: menu, nav-list, W4A #1259) ─────
+export type {
+    MenuCheckboxItemProps, MenuItemProps, MenuRadioGroupProps, MenuRadioItemProps, MenuRootProps,
+    MenuSubProps, MenuSubTriggerProps, MenuTriggerProps,
+} from './components/menu/Menu.js';
+export { Menu } from './components/menu/Menu.js';
+export type { NavListLinkProps, NavListPartProps, NavListRootProps } from './components/nav-list/NavList.js';
+export { NavList } from './components/nav-list/NavList.js';

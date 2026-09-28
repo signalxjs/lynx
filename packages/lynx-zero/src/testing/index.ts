@@ -94,12 +94,20 @@ function attributeValue(raw: unknown): string | null {
     return String(raw);
 }
 
-function wrap(node: ConformanceNode): ElementLike {
+/**
+ * `bridges` maps a portaled node to its logical parent: the parent walk of
+ * every node BELOW it crosses the portal boundary too, so a part two portals
+ * deep (a submenu's item: sub-popup → popup) still finds its ancestors.
+ */
+function wrap(node: ConformanceNode, bridges?: ReadonlyMap<ConformanceNode, ConformanceNode>): ElementLike {
     return {
         getAttribute: (name) => attributeValue(node.props[name]),
         getAttributeNames: () =>
             Object.keys(node.props).filter((name) => attributeValue(node.props[name]) !== null),
-        parent: () => (node.parent ? wrap(node.parent) : null),
+        parent: () => {
+            const parent = bridges?.get(node) ?? node.parent;
+            return parent ? wrap(parent, bridges) : null;
+        },
     };
 }
 
@@ -138,19 +146,26 @@ export function expectAnatomy(root: ConformanceNode, anatomy: Anatomy, options: 
         if (part !== null && !firstOfPart.has(part)) firstOfPart.set(part, node);
     }
     const carrier = Object.prototype.hasOwnProperty.call(anatomy.parts, 'root') ? 'root' : anatomy.partNames()[0];
+    // Each portaled node's logical parent, so every walk crosses its portal.
+    const bridges = new Map<ConformanceNode, ConformanceNode>();
+    for (const node of nodes) {
+        const part = attributeValue(node.props['data-part']);
+        if (part === null || !portaled?.includes(part)) continue;
+        const declaredParent = anatomy.parts[part]?.parent;
+        const logical = declaredParent !== undefined ? firstOfPart.get(declaredParent) : undefined;
+        if (logical) bridges.set(node, logical);
+    }
     const mapped = nodes.map((node) => {
         const part = attributeValue(node.props['data-part']);
         const props = part !== null && part !== carrier
             ? withoutPushedDownAxes(node, part, anatomy, carrier, firstOfPart.get(carrier))
             : node.props;
-        if (part !== null && portaled?.includes(part)) {
-            const declaredParent = anatomy.parts[part]?.parent;
-            const logical = declaredParent !== undefined ? firstOfPart.get(declaredParent) : undefined;
-            // Descendants keep their REAL chain — it passes through this
-            // same part node, so only the portal boundary is bridged.
-            if (logical) return wrap({ props, children: node.children, parent: logical });
-        }
-        return props === node.props ? wrap(node) : wrap({ props, children: node.children, parent: node.parent });
+        // Descendants keep their REAL chain up to a portaled node, where the
+        // bridge takes the walk to its logical parent.
+        const parent = bridges.get(node) ?? node.parent;
+        return props === node.props && parent === node.parent
+            ? wrap(node, bridges)
+            : wrap({ props, children: node.children, parent }, bridges);
     });
     expectAnatomyElements(mapped, anatomy, oracleOptions);
 }

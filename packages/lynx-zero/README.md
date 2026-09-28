@@ -1020,6 +1020,111 @@ How they behave on lynx:
 - **Not carried:** `asChild` (no element to merge into), `href`, the
   root's landmark `label`, and the web keyboard handling.
 
+## Menu and NavList (zero wave 4, navigation)
+
+`Menu` is zero's menu button: a trigger, then an anchored popup of actions.
+The popup can hold checkbox rows, a radio set and submenus. `NavList` is the
+list of links that an app's sidebar or drawer is made of. Both use zero's
+`menu` and `nav-list` anatomies.
+
+```tsx
+import { Menu, NavList } from '@sigx/lynx-zero';
+
+<Menu.Root onSelect={(value) => run(value)}>
+    <Menu.Trigger><text>Actions</text></Menu.Trigger>
+    <Menu.Popup>
+        <Menu.Item value="rename"><text>Rename</text><Menu.Shortcut>⌘R</Menu.Shortcut></Menu.Item>
+        <Menu.Item value="archive" disabled><text>Archive</text></Menu.Item>
+        <Menu.Separator />
+        <Menu.CheckboxItem value="wrap" model={() => state.wrap}><text>Word wrap</text></Menu.CheckboxItem>
+        <Menu.RadioGroup model={() => state.sort}>
+            <Menu.GroupLabel>Sort by</Menu.GroupLabel>
+            <Menu.RadioItem value="name"><text>Name</text></Menu.RadioItem>
+            <Menu.RadioItem value="date"><text>Date</text></Menu.RadioItem>
+        </Menu.RadioGroup>
+        <Menu.Sub>
+            <Menu.SubTrigger><text>Share</text></Menu.SubTrigger>
+            <Menu.SubPopup>
+                <Menu.Item value="email"><text>Email</text></Menu.Item>
+            </Menu.SubPopup>
+        </Menu.Sub>
+    </Menu.Popup>
+</Menu.Root>
+
+<NavList.Root color="primary">
+    <NavList.Group>
+        <NavList.Heading>Workspace</NavList.Heading>
+        <NavList.List>
+            <NavList.Item>
+                <NavList.Link current={route() === 'inbox'} onPress={() => nav.push('inbox')}>
+                    <NavList.Icon><text>✉</text></NavList.Icon>
+                    <text>Inbox</text>
+                    <NavList.Meta><Badge.Root size="sm"><text>12</text></Badge.Root></NavList.Meta>
+                </NavList.Link>
+            </NavList.Item>
+        </NavList.List>
+    </NavList.Group>
+</NavList.Root>
+```
+
+| Part | Prop | Type | Default | Notes |
+|---|---|---|---|---|
+| `Menu.Root` | `model` / `defaultOpen` / `onOpenChange` | `boolean` | `false` | Whether the popup is open. |
+| `Menu.Root` | `onSelect` | `(value: string) => void` | — | Fires when a row at any depth is activated, with that row's `value`. |
+| `Menu.Root` | `closeOnSelect` | `boolean` | `true` | Close the whole menu when a plain item is picked. |
+| `Menu.Root` | `placement` / `offset` | `LynxPlacement` / `number` | `'bottom-start'` / `4` | The popup flips to the other side when it does not fit. |
+| `Menu.Root` | `color` / `size` | skin axes | skin default | Worn by the trigger (daisy's btn ramp). |
+| `Menu.Trigger` | `disabled` / `label` | `boolean` / `string` | — | `label` is the accessible name when the content is not text. |
+| `Menu.Item` | `value` (required) / `disabled` / `label` | `string` / `boolean` / `string` | — | A row that runs an action. |
+| `Menu.CheckboxItem` | `value` / `model` / `defaultChecked` / `onCheckedChange` | `string` / `boolean` | `false` | Toggles on tap. The menu stays open unless `closeOnSelect` is set. |
+| `Menu.RadioGroup` | `model` / `defaultValue` / `onValueChange` | `string` | `''` | One value for the `RadioItem`s inside it. Renders the `group` part. |
+| `Menu.RadioItem` | `value` / `closeOnSelect` / `disabled` | `string` / `boolean` | — | Checked while the group's value matches. The menu stays open by default. |
+| `Menu.Sub` | `model` / `defaultOpen` / `onOpenChange` / `placement` / `offset` | `boolean` / … | `false`, `'right-start'` | One submenu level. |
+| `NavList.Root` | `color` / `size` | skin axes | skin default | The current link's ink and fill, and the type and padding ramp. |
+| `NavList.Link` | `current` | `boolean` | `false` | The page the user is on. It sets the `active` state and is announced as selected. |
+| `NavList.Link` | `onPress` / `label` | event / `string` | — | Navigate from `onPress`. There is no `href` on lynx. |
+
+Every part also takes `class`. The rows, triggers and links also take `pressFeel={false}`, which turns off the main-thread press scale.
+
+How they behave on lynx:
+
+- **The popup is the overlay machinery Popover and Select use.** The
+  trigger measures itself, and the popup renders in the `ZeroRoot` outlet at
+  the resolved side, which is stamped as `data-placement`. A tap outside
+  every open level closes the whole menu, as light dismiss does on the web.
+  A tap on the parent level's rows still reaches them. The dismiss stack
+  (`dismissTopLayer`, for a back button) closes the innermost level first.
+- **Touch, not keyboard.** There is no roving focus, no typeahead and no
+  arrow-key navigation. A row is activated by a tap. The row under the
+  finger is stamped `highlighted` and `pressed`, so it gets the skin's
+  hover wash. A sub-trigger opens its submenu on tap, not on hover.
+  `focus-visible` on the trigger is never set live. The gallery forces it.
+- **Submenus on a phone.** A submenu opens beside its sub-trigger in its
+  own outlet entry, above the parent. Two popups side by side do not fit a
+  portrait screen, so when neither side fits, the submenu slides back over
+  its parent instead of running off the screen (the `shift` option of the
+  placement math).
+- **Glyphs are `<text>`.** The web draws the checkbox and radio rows' ✓ and
+  the sub-trigger's › with `::after`, and lynx has no pseudo-elements. So
+  `item-indicator` is a `<text>` that holds ✓ while the row is checked (and
+  is empty, keeping its column, while it is not), and the sub-trigger
+  renders its › as a trailing `<text>`.
+- **Rows and parts.** `GroupLabel`, `Shortcut` and `NavList.Heading` render
+  as lynx `text`, so they take a plain string. `NavList.Icon` and
+  `NavList.Meta` are views, so put a `<text>` glyph, an icon or a `Badge`
+  in them.
+- **`value` rows never emit.** A component with a `value` prop cannot use
+  runtime-core's `emit()`, so `Menu.Root` emits `select` for its rows.
+  `Menu.CheckboxItem` calls its own `onCheckedChange` handler directly.
+- **NavList has no behavior.** Which link is current is known by the
+  router, and the app passes it in as `current`. The link has no `pressed`
+  flag in the anatomy, so a held link gets the main-thread scale and no
+  skin wash. Lynx has no navigation landmark, so the root and groups are
+  plain views. A heading is announced with the `header` trait.
+- **Not carried:** `Menu.Arrow`, `Menu.ContextTrigger` (a long-press
+  anchor is a follow-up), `keyshortcuts`, the `Menubar` identity (`value`
+  on `Menu.Root`), `asChild`, and `NavList.Root`'s landmark `label`.
+
 ## What comes next
 
 The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the
