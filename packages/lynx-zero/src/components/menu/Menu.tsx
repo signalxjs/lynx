@@ -39,7 +39,8 @@
  *   no hover, so a held row stamps `highlighted` (the flag the skins paint
  *   their row wash on) together with `pressed`.
  * - **A sub-trigger opens on tap**, not on hover with intent delays, and
- *   the safe triangle has nothing to do.
+ *   the safe triangle has nothing to do. As on the web, one sub-chain is
+ *   open per level: opening a submenu closes a sibling open beside it.
  * - **Light dismiss closes the chain.** A tap outside every open level (the
  *   root popup's transparent surface) closes the menu and every submenu,
  *   as the web's light dismiss does; a tap on the parent level's rows
@@ -60,7 +61,7 @@
  * calls its own `onCheckedChange` handler directly (see there).
  */
 import type { Define } from '@sigx/lynx';
-import { component, compound, defineInjectable, defineProvide, effect, onUnmounted } from '@sigx/lynx';
+import { component, compound, defineInjectable, defineProvide, effect, onUnmounted, untrack } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import type { ControllableState } from '@sigx/zero/behaviors/core';
 import { createControllableState, createInertState } from '@sigx/zero/behaviors/core';
@@ -98,6 +99,34 @@ interface MenuLevel {
     setOpen(next: boolean): void;
     position: LynxAnchorPosition;
     placement(): LynxPlacement;
+    /**
+     * A child submenu of this level opened: it becomes the level's one open
+     * child, and the sibling that held that slot closes (#1273).
+     */
+    childOpened(child: MenuLevel): void;
+    /** A child submenu closed or unmounted: it gives the slot back. */
+    childClosed(child: MenuLevel): void;
+}
+
+/**
+ * The one-open-child slot a level keeps for its submenus. The web's menu
+ * keeps one sub-chain open per level: opening a submenu closes any sibling
+ * open beside it (Base UI's menu does this through its parent's active
+ * index). Here the parent level holds the open child, so a sibling opening
+ * by tap, `defaultOpen` or a two-way model closes the one before it.
+ */
+function createChildSlot(): Pick<MenuLevel, 'childOpened' | 'childClosed'> {
+    let active: MenuLevel | null = null;
+    return {
+        childOpened: (child) => {
+            const previous = active;
+            active = child;
+            if (previous && previous !== child) previous.setOpen(false);
+        },
+        childClosed: (child) => {
+            if (active === child) active = null;
+        },
+    };
 }
 
 interface MenuContext extends MenuLevel {
@@ -110,6 +139,8 @@ const inertLevel = (): MenuLevel => ({
     setOpen: () => {},
     position: null as unknown as LynxAnchorPosition,
     placement: () => 'bottom-start',
+    childOpened: () => {},
+    childClosed: () => {},
 });
 
 const useMenuContext = defineInjectable<MenuContext | null>(() => null);
@@ -151,6 +182,7 @@ const MenuRoot = component<MenuRootProps>(({ props, slots, emit }) => {
         },
         position,
         placement: () => position.position()?.placement ?? props.placement ?? 'bottom-start',
+        ...createChildSlot(),
         select: (value, closeOverride) => {
             emit('select', value);
             if (closeOverride ?? props.closeOnSelect ?? true) state.value = false;
@@ -495,6 +527,9 @@ export type MenuSubProps =
     & Define.Slot<'default'>;
 
 const MenuSub = component<MenuSubProps>(({ props, slots, emit }) => {
+    // The level this submenu opens from: the submenu whose popup holds it,
+    // or the root popup (whose bridge provides no sub level).
+    const parent: MenuLevel | null = useMenuSubContext() ?? useMenuContext();
     const state = createControllableState<boolean>(
         () => props.model,
         props.defaultOpen ?? false,
@@ -516,7 +551,18 @@ const MenuSub = component<MenuSubProps>(({ props, slots, emit }) => {
         },
         position,
         placement: () => position.position()?.placement ?? props.placement ?? 'right-start',
+        ...createChildSlot(),
     };
+    // Siblings are mutually exclusive (#1273): an opening submenu claims its
+    // parent's one child slot, which closes the sibling that held it. Every
+    // way in counts: a tap, `defaultOpen`, or a model the app flips.
+    effect(() => {
+        const open = state.value;
+        // Untracked: closing the sibling reads its state, which is not this
+        // effect's dependency.
+        untrack(() => (open ? parent?.childOpened(level) : parent?.childClosed(level)));
+    });
+    onUnmounted(() => parent?.childClosed(level));
     defineProvide(useMenuSubContext, () => level);
     return () => slots.default?.();
 }, { name: 'Menu.Sub' });

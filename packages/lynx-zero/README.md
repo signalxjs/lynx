@@ -1017,6 +1017,17 @@ How they behave on lynx:
   `<text>`: they take the part's ink and size through CSS inheritance
   (`enableCSSInheritance`, as the showcase sets it). The root row and its
   sections lay out as explicit `flex-direction: row` rows in the skin.
+- **A section never breaks a word.** On the web, a start or end section
+  shares the slack (`flex: 1 1 0%`) but never shrinks below its longest
+  word, because of the flex item's automatic minimum. Lynx has no automatic
+  minimum, and its `min-width` takes no intrinsic keyword. So the daisy skin's
+  lynx section starts each end from its content (`flex-basis: auto`), never
+  shrinks it, and splits the slack between the ends. The centre never
+  shrinks either, as in daisy. A bar narrower than its content overflows
+  whole instead of wrapping `Acme` as `Acm` / `e` (#1274). There is one
+  difference from the web. With a centre and ends of unequal width, the
+  centre sits off-centre by half the difference. This arrives with the zero
+  release that carries signalxjs/zero#500.
 - **A link is a tap target, not a URL.** There is no browser to follow an
   `href`, so `Breadcrumbs.Link` emits `press` and the app navigates. It is
   announced with the `link` trait; the current one is announced `selected`,
@@ -1099,7 +1110,7 @@ import { Menu, NavList } from '@sigx/lynx-zero';
 | `Menu.CheckboxItem` | `value` / `model` / `defaultChecked` / `onCheckedChange` | `string` / `boolean` | `false` | Toggles on tap. The menu stays open unless `closeOnSelect` is set. |
 | `Menu.RadioGroup` | `model` / `defaultValue` / `onValueChange` | `string` | `''` | One value for the `RadioItem`s inside it. Renders the `group` part. |
 | `Menu.RadioItem` | `value` / `closeOnSelect` / `disabled` | `string` / `boolean` | — | Checked while the group's value matches. The menu stays open by default. |
-| `Menu.Sub` | `model` / `defaultOpen` / `onOpenChange` / `placement` / `offset` | `boolean` / … | `false`, `'right-start'` | One submenu level. |
+| `Menu.Sub` | `model` / `defaultOpen` / `onOpenChange` / `placement` / `offset` | `boolean` / … | `false`, `'right-start'` | One submenu level. Opening it closes a sibling submenu that is open at the same level. |
 | `NavList.Root` | `color` / `size` | skin axes | skin default | The current link's ink and fill, and the type and padding ramp. |
 | `NavList.Link` | `current` | `boolean` | `false` | The page the user is on. It sets the `active` state and is announced as selected. |
 | `NavList.Link` | `onPress` / `label` | event / `string` | — | Navigate from `onPress`. There is no `href` on lynx. |
@@ -1123,7 +1134,11 @@ How they behave on lynx:
   own outlet entry, above the parent. Two popups side by side do not fit a
   portrait screen, so when neither side fits, the submenu slides back over
   its parent instead of running off the screen (the `shift` option of the
-  placement math).
+  placement math). As on the web, each level has at most one open
+  submenu: opening a submenu closes any open sibling, whether it opened by
+  a tap, by `defaultOpen` or through its `model`. A controlled sibling is
+  closed through its model, and `openChange(false)` fires. A nested submenu
+  is a child of its parent level, not a sibling, so its parent stays open.
 - **Glyphs are `<text>`.** The web draws the checkbox and radio rows' ✓ and
   the sub-trigger's › with `::after`, and lynx has no pseudo-elements. So
   `item-indicator` is a `<text>` that holds ✓ while the row is checked (and

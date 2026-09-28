@@ -80,6 +80,9 @@ const FIELD_BOX = { width: `${TEXT_FIELD_WIDTH}px` };
 /** A navbar cell: the fluid bar in a fixed box. */
 const NAVBAR_BOX = { width: `${NAVBAR_CELL_WIDTH}px` };
 
+/** The navbar `squeeze` extra's box: narrower than the bar's content (#1274). */
+const SQUEEZE_BOX = { width: '140px', borderWidth: '1px', borderStyle: 'dashed', borderColor: '#9ca3af' };
+
 /** A divider cell: a fixed-width box the rule spans, one label line tall. */
 const DIVIDER_CELL = { width: '70px', minHeight: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' };
 
@@ -1533,6 +1536,32 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     </Navbar.Root>
                 </Col>
             ),
+            // Bars narrower than their content (#1274): no section text
+            // breaks mid-word. Each section keeps its words whole and the
+            // row overflows its dashed box, as daisy's does. The last bar is
+            // wide enough, with unequal ends: the ends share the slack.
+            squeeze: () => (
+                <Col gap={14}>
+                    <view style={SQUEEZE_BOX}>
+                        <Navbar.Root size="xl">
+                            <Navbar.Start><text>Acme</text></Navbar.Start>
+                            <Navbar.Center><text>Inbox</text></Navbar.Center>
+                            <Navbar.End><text>Me</text></Navbar.End>
+                        </Navbar.Root>
+                    </view>
+                    <view style={SQUEEZE_BOX}>
+                        <Navbar.Root size="lg" color="primary">
+                            <Navbar.Start><text>Dashboard</text></Navbar.Start>
+                            <Navbar.End><text>Settings</text></Navbar.End>
+                        </Navbar.Root>
+                    </view>
+                    <Navbar.Root color="neutral">
+                        <Navbar.Start><text>‹ Back</text></Navbar.Start>
+                        <Navbar.Center><text style={{ fontWeight: '700' }}>Title</text></Navbar.Center>
+                        <Navbar.End><text>⌕</text></Navbar.End>
+                    </Navbar.Root>
+                </Col>
+            ),
         },
     },
     breadcrumbs: {
@@ -1628,6 +1657,45 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                             <Menu.SubPopup><Menu.Item value="pdf"><text>PDF</text></Menu.Item></Menu.SubPopup>
                         </Menu.Sub>
                         <Menu.Item value="close"><text>Close</text></Menu.Item>
+                    </Menu.Popup>
+                </Menu.Root>
+            ),
+            // The sub-trigger's states in one popup: held (forced highlighted
+            // + pressed), disabled, and an open two-level chain (Export ›
+            // Image) — a nested submenu opens beside its parent, which stays
+            // open. Live: tap `Data` and `Image` closes (siblings are
+            // exclusive per level, #1273); tap `Held` and `Export` closes.
+            'sub-states': () => (
+                <Menu.Root defaultOpen>
+                    <Menu.Trigger><text>Edit</text></Menu.Trigger>
+                    <Menu.Popup>
+                        <ForceStates flags={{ highlighted: true, pressed: true }}>
+                            <Menu.Sub>
+                                <Menu.SubTrigger><text>Held</text></Menu.SubTrigger>
+                                <Menu.SubPopup><Menu.Item value="held-a"><text>A</text></Menu.Item></Menu.SubPopup>
+                            </Menu.Sub>
+                        </ForceStates>
+                        <Menu.Sub>
+                            <Menu.SubTrigger disabled><text>Disabled</text></Menu.SubTrigger>
+                            <Menu.SubPopup><Menu.Item value="never"><text>Never</text></Menu.Item></Menu.SubPopup>
+                        </Menu.Sub>
+                        <Menu.Sub defaultOpen>
+                            <Menu.SubTrigger><text>Export</text></Menu.SubTrigger>
+                            <Menu.SubPopup>
+                                <Menu.Item value="pdf"><text>PDF</text></Menu.Item>
+                                <Menu.Sub defaultOpen>
+                                    <Menu.SubTrigger><text>Image</text></Menu.SubTrigger>
+                                    <Menu.SubPopup>
+                                        <Menu.Item value="png"><text>PNG</text></Menu.Item>
+                                        <Menu.Item value="jpeg"><text>JPEG</text></Menu.Item>
+                                    </Menu.SubPopup>
+                                </Menu.Sub>
+                                <Menu.Sub>
+                                    <Menu.SubTrigger><text>Data</text></Menu.SubTrigger>
+                                    <Menu.SubPopup><Menu.Item value="csv"><text>CSV</text></Menu.Item></Menu.SubPopup>
+                                </Menu.Sub>
+                            </Menu.SubPopup>
+                        </Menu.Sub>
                     </Menu.Popup>
                 </Menu.Root>
             ),
