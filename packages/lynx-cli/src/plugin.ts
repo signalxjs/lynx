@@ -34,7 +34,7 @@ function isLynxProject(cwd: string): boolean {
 async function resolveBuildEnv(cwd: string, variant: string | undefined): Promise<void> {
     const { findConfigPath, loadConfig } = await import('./prebuild.js');
     if (!findConfigPath(cwd)) {
-        if (variant) throw new Error(`--variant ${variant} needs a signalx.config.ts (none found in ${cwd}).`);
+        if (variant) throw new Error(`[@sigx/lynx-cli] --variant ${variant} needs a signalx.config.ts (none found in ${cwd}).`);
         return;
     }
     const { resolveConfig } = await import('./config/index.js');

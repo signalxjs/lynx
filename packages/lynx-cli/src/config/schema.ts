@@ -814,7 +814,7 @@ export function requireEnv(name: string): string {
     const value = readEnv(name);
     if (value === undefined) {
         throw new Error(
-            `Missing environment variable ${name} (read by signalx.config.ts). ` +
+            `[@sigx/lynx-cli] Missing environment variable ${name} (read by signalx.config.ts). ` +
             `Set it in CI, or locally in .env.local (git-ignored).`,
         );
     }

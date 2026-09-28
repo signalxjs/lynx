@@ -57,12 +57,12 @@ export function assertJsonEnv(env: unknown): void {
             ? ' (an unset process.env variable? Use requireEnv() or a fallback like `?? \'\'`)'
             : '';
         throw new Error(
-            `signalx.config.ts: ${path} is ${describe(v)} — app env values must be JSON ` +
+            `[@sigx/lynx-cli] signalx.config.ts: ${path} is ${describe(v)} — app env values must be JSON ` +
             `(string, number, boolean, null, arrays, plain objects)${hint}.`,
         );
     };
     if (!isPlainObject(env)) {
-        throw new Error(`signalx.config.ts: env must be a plain object, got ${describe(env)}.`);
+        throw new Error(`[@sigx/lynx-cli] signalx.config.ts: env must be a plain object, got ${describe(env)}.`);
     }
     visit(env, 'env');
 }

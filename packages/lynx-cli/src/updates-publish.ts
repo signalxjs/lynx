@@ -87,7 +87,7 @@ export function checkBuildMarker(
     const markerPath = join(buildRoot, BUILD_MARKER_FILE);
     if (!existsSync(markerPath)) {
         throw new Error(
-            `${markerPath} not found — can't verify which variant this bundle was built for. `
+            `[@sigx/lynx-cli] ${markerPath} not found — can't verify which variant this bundle was built for. `
             + `Rebuild with \`sigx build${variant ? ` --variant ${variant}` : ''}\`, `
             + 'or pass --skip-build-check to publish anyway.',
         );
@@ -96,13 +96,13 @@ export function checkBuildMarker(
     try {
         marker = JSON.parse(readFileSync(markerPath, 'utf-8')) as BuildMarker;
     } catch (err) {
-        throw new Error(`${markerPath} is not valid JSON (${(err as Error).message}). Rebuild, or pass --skip-build-check.`);
+        throw new Error(`[@sigx/lynx-cli] ${markerPath} is not valid JSON (${(err as Error).message}). Rebuild, or pass --skip-build-check.`);
     }
     const built = marker.variant ?? '';
     const wanted = variant ?? '';
     if (built !== wanted) {
         throw new Error(
-            `${buildRoot} was built for ${variantLabel(built)}, but you're publishing for ${variantLabel(wanted)}. `
+            `[@sigx/lynx-cli] ${buildRoot} was built for ${variantLabel(built)}, but you're publishing for ${variantLabel(wanted)}. `
             + (built
                 ? `Pass --variant ${built} to publish it as that variant, or rebuild with \`sigx build${wanted ? ` --variant ${wanted}` : ''}\`.`
                 : `Rebuild with \`sigx build --variant ${wanted}\`, or drop --variant to publish the base build.`),
@@ -151,7 +151,7 @@ export async function runUpdatesPublish(opts: UpdatesPublishOptions): Promise<Pu
         appVersion = raw.version;
         config = resolveConfig(raw, opts.variant);
     } else if (opts.variant) {
-        throw new Error(`--variant ${opts.variant} needs a signalx.config.ts in ${opts.cwd}.`);
+        throw new Error(`[@sigx/lynx-cli] --variant ${opts.variant} needs a signalx.config.ts in ${opts.cwd}.`);
     }
 
     // Guard against publishing a bundle built for another variant (e.g. a
