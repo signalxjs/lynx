@@ -182,6 +182,10 @@ describe('public runtime exports', () => {
                 // ── components (zero wave 4 — navigation, W4C #1258) ──
                 'Pagination',
                 'Steps',
+                // ── components (zero wave 5 — complex, W5C #1279) ──
+                'Carousel',
+                'Table',
+                'nextTableSort',
                 // ── overlays ──
                 'OVERLAY_ROOT_STYLE',
                 'OverlayHost',

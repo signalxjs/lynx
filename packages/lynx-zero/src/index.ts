@@ -217,3 +217,15 @@ export { Drawer } from './components/drawer/Drawer.js';
 export type { TooltipArrowProps, TooltipPopupProps, TooltipRootProps, TooltipTriggerProps } from './components/tooltip/Tooltip.js';
 export { TOOLTIP_CLOSE_DELAY, Tooltip } from './components/tooltip/Tooltip.js';
 export type { ArrowOffset } from './behaviors/position.js';
+
+// ── Components (zero wave 5 — complex: carousel, table, W5C #1279) ───────
+export type {
+    CarouselIndicatorGroupProps, CarouselIndicatorProps, CarouselItemProps, CarouselRootProps, CarouselTriggerProps,
+    CarouselViewportProps,
+} from './components/carousel/Carousel.js';
+export { Carousel } from './components/carousel/Carousel.js';
+export type {
+    TableCaptionProps, TableCellProps, TableColumn, TableHeaderCellProps, TablePartProps, TableRootProps, TableRowProps,
+    TableSort, TableSortDirection,
+} from './components/table/Table.js';
+export { Table, nextTableSort } from './components/table/Table.js';
