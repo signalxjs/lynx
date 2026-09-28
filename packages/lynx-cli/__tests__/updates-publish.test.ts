@@ -3,17 +3,39 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { runUpdatesPublish } from '../src/updates-publish';
+import { runUpdatesPublish, BUILD_MARKER_FILE } from '../src/updates-publish';
+import { envHash } from '../src/config/env';
 
 const silent = { log: () => {}, error: () => {} };
 const tempDirs: string[] = [];
 
-function makeProject(opts: { bundle?: string; sidecar?: object } = {}): string {
+/** `.sigx-build.json` as `@sigx/lynx-plugin` writes it after a build. */
+function writeMarker(dir: string, marker: { variant?: string; env?: object } = {}): void {
+    writeFileSync(join(dir, BUILD_MARKER_FILE), JSON.stringify({
+        variant: marker.variant ?? '',
+        envHash: envHash(marker.env ?? {}),
+        channel: 'production',
+        builtAt: new Date(0).toISOString(),
+    }));
+}
+
+function makeProject(opts: {
+    bundle?: string;
+    sidecar?: object;
+    /** Build marker next to the bundle; `null` = none. Default: a base build. */
+    marker?: { variant?: string; env?: object } | null;
+    /** `signalx.config.mjs` default export. */
+    config?: object;
+} = {}): string {
     const cwd = mkdtempSync(join(tmpdir(), 'sigx-publish-'));
     tempDirs.push(cwd);
     if (opts.bundle !== undefined) {
         mkdirSync(join(cwd, 'dist'), { recursive: true });
         writeFileSync(join(cwd, 'dist', 'main.lynx.bundle'), opts.bundle);
+        if (opts.marker !== null) writeMarker(join(cwd, 'dist'), opts.marker);
+    }
+    if (opts.config !== undefined) {
+        writeFileSync(join(cwd, 'signalx.config.mjs'), `export default ${JSON.stringify(opts.config)};\n`);
     }
     if (opts.sidecar !== undefined) {
         mkdirSync(join(cwd, '.sigx'), { recursive: true });
@@ -23,6 +45,9 @@ function makeProject(opts: { bundle?: string; sidecar?: object } = {}): string {
 }
 
 afterEach(() => {
+    for (const key of ['SIGX_LYNX_ENV', 'SIGX_LYNX_VARIANT', 'SIGX_LYNX_LOGGING', 'SIGX_LYNX_UPDATES_CHANNEL']) {
+        delete process.env[key];
+    }
     for (const dir of tempDirs.splice(0)) {
         rmSync(dir, { recursive: true, force: true });
     }
@@ -137,6 +162,7 @@ describe('updates:publish', () => {
         const artifactDir = join(cwd, 'artifacts');
         mkdirSync(artifactDir, { recursive: true });
         writeFileSync(join(artifactDir, 'main.lynx.bundle'), 'ci artifact bundle');
+        writeMarker(artifactDir);
 
         // Stale dist/ chunks must not block publishing this bundle.
         const ok = await runUpdatesPublish({
@@ -151,5 +177,67 @@ describe('updates:publish', () => {
         await expect(runUpdatesPublish({
             cwd, logger: silent, bundle: 'artifacts/main.lynx.bundle',
         })).rejects.toThrow(/--allow-async-chunks/);
+    });
+});
+
+describe('updates:publish — build check (#1244)', () => {
+    const config = {
+        name: 'demo',
+        version: '2.0.0',
+        env: { api: 'https://api.example.com' },
+        variants: {
+            staging: { env: { api: 'https://staging.example.com' }, updates: { defaultChannel: 'staging' } },
+        },
+    };
+    const stagingEnv = { api: 'https://staging.example.com' };
+    const sidecar = { android: 'fp1-a' };
+
+    function logger() {
+        const warnings: string[] = [];
+        return { warnings, log: () => {}, error: () => {}, warn: (m: string) => { warnings.push(m); } };
+    }
+
+    it('refuses a bundle with no build marker unless --skip-build-check', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar, marker: null });
+        await expect(runUpdatesPublish({ cwd, logger: silent }))
+            .rejects.toThrow(/\.sigx-build\.json not found.*--skip-build-check/);
+        const result = await runUpdatesPublish({ cwd, logger: silent, skipBuildCheck: true });
+        expect(result.updateId).toBeTruthy();
+    });
+
+    it('refuses a staging-built bundle published as the base build', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar, config, marker: { variant: 'staging', env: stagingEnv } });
+        await expect(runUpdatesPublish({ cwd, logger: silent }))
+            .rejects.toThrow(/built for variant 'staging'.*--variant staging/);
+    });
+
+    it('refuses a base-built bundle published as a variant', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar, config, marker: { env: config.env } });
+        await expect(runUpdatesPublish({ cwd, logger: silent, variant: 'staging' }))
+            .rejects.toThrow(/built for the base \(production\) config.*sigx build --variant staging/);
+    });
+
+    it('publishes a matching variant build to the variant\'s channel, without warnings', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar, config, marker: { variant: 'staging', env: stagingEnv } });
+        const log = logger();
+        const result = await runUpdatesPublish({ cwd, logger: log, variant: 'staging' });
+        expect(result.channel).toBe('staging');
+        expect(result.appVersion).toBe('2.0.0');
+        expect(log.warnings).toEqual([]);
+    });
+
+    it('warns (but publishes) when the baked env differs from the resolved config', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar, config, marker: { variant: 'staging', env: { api: 'stale' } } });
+        const log = logger();
+        const result = await runUpdatesPublish({ cwd, logger: log, variant: 'staging' });
+        expect(result.updateId).toBeTruthy();
+        expect(log.warnings).toHaveLength(1);
+        expect(log.warnings[0]).toMatch(/app env baked into this bundle differs/);
+    });
+
+    it('rejects --variant without a signalx.config', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar, marker: { variant: 'staging' } });
+        await expect(runUpdatesPublish({ cwd, logger: silent, variant: 'staging' }))
+            .rejects.toThrow(/needs a signalx\.config\.ts/);
     });
 });

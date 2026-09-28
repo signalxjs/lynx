@@ -371,6 +371,72 @@ if (!isBaseBuild()) showRibbon(variant.toUpperCase());   // "DEV" / "STAGING"
 the Android `<meta-data com.sigx.VARIANT>` and the iOS `SigxVariant` Info.plist
 key. Empty string for the base build.)
 
+## App environment
+
+Per-environment build-time settings, such as the backend URL, feature flags or
+public keys, go in `env` in `signalx.config.ts`. They are typed, set per
+variant, and baked into the JS bundle, OTA bundles included:
+
+```ts
+import { defineLynxConfig, readEnv, requireEnv } from '@sigx/lynx-cli/config';
+
+export default defineLynxConfig({
+  name: 'My App',
+  env: {
+    apiBaseUrl: 'https://api.example.com',
+    features: { newCheckout: false },
+    sentryDsn: requireEnv('SENTRY_DSN'),          // CI secret / .env.local
+    mapsKey: readEnv('MAPS_KEY') ?? '',           // optional
+  },
+  variants: {
+    staging: { env: { apiBaseUrl: 'https://staging.example.com', features: { newCheckout: true } } },
+  },
+});
+```
+
+Read it in app code with `import { env } from '@sigx/lynx'` (`env.apiBaseUrl`).
+It is frozen, and `{}` when no `env` is declared. In `lynx.config.ts`, use
+`appEnv()` from `@sigx/lynx-plugin`. To type `env`, add one file to the app:
+
+```ts
+// src/sigx-env.d.ts
+import type config from '../signalx.config';
+import type { EnvOf } from '@sigx/lynx-cli/config';
+declare global { interface SigxAppEnv extends EnvOf<typeof config> {} }
+export {};
+```
+
+- **Variants** deep-merge `variants.<name>.env` onto the base (objects merge,
+  arrays and scalars replace). They can only override keys the base declares,
+  so a typo'd key is a type error.
+- **Values must be JSON**: strings, numbers, booleans, `null`, arrays and plain
+  objects. Resolving the config rejects a function, `Date`, `undefined` (often
+  an unset `process.env.X`) or `NaN`, and names its key path.
+- **`.env` files** are loaded before the config is evaluated, in this order:
+  `.env`, `.env.local`, `.env.<variant>`, `.env.<variant>.local`. Later files
+  win, and a variable already set in the real environment (a CI secret) always
+  wins. `readEnv(name)` / `requireEnv(name)` read them; `requireEnv` throws a
+  clear error when the variable is unset. Prefer these to `process.env.X` in the
+  config: the app's `sigx-env.d.ts` imports the config's type, and they keep
+  Node's `process` global (and `@types/node`) out of the app's type-check.
+- **Every command applies it**: `build`, `dev`, `run:android`, `run:ios`,
+  `run:web`, `build:web`, `prebuild --embed-bundle` and `updates:publish` all
+  take `--variant`.
+
+**Secrets.** Everything in `env` ships inside the app, and anyone who has the app
+can read it. Which tier does a value belong to?
+
+| Value | Where it goes |
+|---|---|
+| Public config (API URLs, flags) | `env`, committed |
+| Public, but not for git (publishable keys, DSNs) | `env` via `requireEnv()` / `readEnv()`, set in `.env.local` (git-ignored) or CI |
+| Real secrets (API secret keys, signing keys) | Never in the app — keep them on your backend |
+| Per-user tokens | Secure storage at runtime (`@sigx/lynx-secure-storage`) |
+
+Resolving the config warns about `env` keys that look like secrets (`secret`,
+`password`, `passwd`, `private`, `token`). If a matching key is meant to be
+public, list its name in `envAllow: ['publishableToken']`.
+
 ## OTA publishing
 
 `sigx updates:publish` packages a built `.lynx.bundle` into the static-manifest
@@ -397,6 +463,23 @@ doesn't have embedded, `updates:publish` refuses to run while
 ones, or pass `--allow-async-chunks` if your chunks are hosted remotely via a
 custom `output.assetPrefix` (the production fetchers fall back to http(s) for
 non-local URLs).
+
+**Variant check.** Each build writes `dist/.sigx-build.json` with the variant
+and a hash of the baked [app env](#app-environment). The file is never embedded
+or published. `updates:publish` reads it and refuses to publish a bundle built
+for a different variant than the one you publish for. This keeps a staging
+build off the production channel:
+
+```bash
+sigx build --variant staging
+sigx updates:publish                      # ✖ dist was built for variant 'staging'
+sigx updates:publish --variant staging    # ✓ uses staging's updates.defaultChannel
+```
+
+If the env baked into the bundle differs from what the config resolves to now,
+publishing goes ahead with a warning. That usually means the publish job lacks
+the build's environment variables. A missing marker is an error: rebuild, or
+pass `--skip-build-check`.
 
 ## License
 

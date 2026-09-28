@@ -96,6 +96,7 @@ describe('public runtime exports', () => {
             'effect',
             'effectScope',
             'enableNamespace',
+            'env',
             'errorScope',
             'errorScopeOutsideSetupError',
             'fetch',

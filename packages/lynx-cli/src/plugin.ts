@@ -25,6 +25,22 @@ function isLynxProject(cwd: string): boolean {
     );
 }
 
+/**
+ * Resolve `signalx.config.*` so the rspeedy child a command spawns inherits
+ * the `SIGX_LYNX_*` build env (variant, logging, OTA channel, app env —
+ * resolveConfig exports them). A project without a config builds with the
+ * plugin defaults; asking for a variant there is an error.
+ */
+async function resolveBuildEnv(cwd: string, variant: string | undefined): Promise<void> {
+    const { findConfigPath, loadConfig } = await import('./prebuild.js');
+    if (!findConfigPath(cwd)) {
+        if (variant) throw new Error(`[@sigx/lynx-cli] --variant ${variant} needs a signalx.config.ts (none found in ${cwd}).`);
+        return;
+    }
+    const { resolveConfig } = await import('./config/index.js');
+    resolveConfig(await loadConfig(cwd, variant), variant);
+}
+
 function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -97,6 +113,14 @@ export default definePlugin({
                     resetBuildCaches(ctx.cwd, ctx.logger);
                 }
                 const variant = resolveVariantName(ctx.args);
+                // Export the build env (app env, variant, …) for the rspeedy
+                // dev child — also for web-only projects with no native dirs.
+                try {
+                    await resolveBuildEnv(ctx.cwd, variant);
+                } catch (err) {
+                    ctx.logger.error(err instanceof Error ? err.message : String(err));
+                    process.exit(1);
+                }
                 const androidDir = join(ctx.cwd, androidDirName(variant));
                 const iosDir = join(ctx.cwd, iosDirName(variant));
                 let hasAndroid = existsSync(androidDir);
@@ -132,7 +156,7 @@ export default definePlugin({
                     try {
                         const { loadConfig } = await import('./prebuild.js');
                         const { resolveConfig } = await import('./config/index.js');
-                        const rawConfig = await loadConfig(ctx.cwd);
+                        const rawConfig = await loadConfig(ctx.cwd, variant);
                         const config = resolveConfig(rawConfig, variant);
                         appName = config.name;
                         const fallback = `com.sigx.${config.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
@@ -498,21 +522,18 @@ export default definePlugin({
                     const { resetBuildCaches } = await import('./util/reset-cache.js');
                     resetBuildCaches(ctx.cwd, ctx.logger);
                 }
-                // Resolve the variant so the rspeedy child bakes the
-                // __SIGX_VARIANT__ define (+ the variant's updates channel) into
-                // the JS bundle. resolveConfig sets the SIGX_LYNX_* env the
-                // child inherits. (The native id/dir don't apply to a JS build.)
+                // Resolve the config (with the variant, if any) so the rspeedy
+                // child bakes the __SIGX_VARIANT__ / __SIGX_APP_ENV__ defines
+                // (+ the variant's updates channel) into the JS bundle.
+                // resolveConfig sets the SIGX_LYNX_* env the child inherits.
+                // (The native id/dir don't apply to a JS build.)
                 const variant = resolveVariantName(ctx.args);
-                if (variant) {
-                    try {
-                        const { loadConfig } = await import('./prebuild.js');
-                        const { resolveConfig } = await import('./config/index.js');
-                        resolveConfig(await loadConfig(ctx.cwd), variant);
-                        ctx.logger.log(`Variant: ${variant}`);
-                    } catch (err) {
-                        ctx.logger.error(err instanceof Error ? err.message : String(err));
-                        process.exit(1);
-                    }
+                try {
+                    await resolveBuildEnv(ctx.cwd, variant);
+                    if (variant) ctx.logger.log(`Variant: ${variant}`);
+                } catch (err) {
+                    ctx.logger.error(err instanceof Error ? err.message : String(err));
+                    process.exit(1);
                 }
                 const startTime = Date.now();
 
@@ -653,6 +674,8 @@ export default definePlugin({
                 'runtime-version': a.string().describe('Override the runtime version for both platforms (manual compatibility management)'),
                 notes: a.string().describe('Release notes (surfaced to update UI)'),
                 'allow-async-chunks': a.boolean().default(false).describe('Publish even when dist/ contains async chunks from dynamic import() (only safe when chunks are hosted remotely via a custom assetPrefix)'),
+                variant: a.string().describe('Build variant the bundle was built for — uses its updates channel and must match dist/.sigx-build.json (or set SIGX_VARIANT)'),
+                'skip-build-check': a.boolean().default(false).describe('Publish even when dist/.sigx-build.json is missing or was built for another variant'),
             },
             async run(ctx) {
                 const { runUpdatesPublish } = await import('./updates-publish.js');
@@ -666,6 +689,8 @@ export default definePlugin({
                         runtimeVersion: ctx.args['runtime-version'],
                         notes: ctx.args.notes,
                         allowAsyncChunks: ctx.args['allow-async-chunks'],
+                        variant: resolveVariantName(ctx.args),
+                        skipBuildCheck: ctx.args['skip-build-check'],
                         logger: ctx.logger,
                     });
                 } catch (err) {
@@ -730,7 +755,7 @@ export default definePlugin({
                 const verbose = resolveVerbose(ctx.args.verbose);
 
                 // Load config for applicationId
-                const rawConfig = await loadConfig(ctx.cwd);
+                const rawConfig = await loadConfig(ctx.cwd, variant);
                 const config = resolveConfig(rawConfig, variant);
                 // Sanitized the same way prebuild writes it (`my-app` → `myapp`),
                 // so install checks and launches find the app.
@@ -905,7 +930,7 @@ export default definePlugin({
                 const verbose = resolveVerbose(ctx.args.verbose);
 
                 // Load config
-                const rawConfig = await loadConfig(ctx.cwd);
+                const rawConfig = await loadConfig(ctx.cwd, variant);
                 const config = resolveConfig(rawConfig, variant);
                 const appName = config.name;
                 // Must match what prebuild wrote into the project, or we
@@ -1113,9 +1138,16 @@ export default definePlugin({
                 open: a.boolean().default(true).describe('Open the browser'),
                 watch: a.boolean().default(true).describe('Rebuild + reload on change'),
                 host: a.boolean().default(false).describe('Expose on the LAN'),
+                variant: variantArg,
             },
             async run(ctx) {
                 await assertInstallCompatible(ctx);
+                try {
+                    await resolveBuildEnv(ctx.cwd, resolveVariantName(ctx.args));
+                } catch (err) {
+                    ctx.logger.error(err instanceof Error ? err.message : String(err));
+                    process.exit(1);
+                }
                 const { runWeb } = await import('./web-server.js');
                 await runWeb(ctx);
             },
@@ -1126,9 +1158,16 @@ export default definePlugin({
                 out: a.string().describe('Output directory (default: dist/web)'),
                 base: a.string().describe('URL base path for subpath hosting (default: /)'),
                 coi: a.boolean().default(false).describe('Vendor a COI service worker for header-less hosts (GitHub Pages)'),
+                variant: variantArg,
             },
             async run(ctx) {
                 await assertInstallCompatible(ctx);
+                try {
+                    await resolveBuildEnv(ctx.cwd, resolveVariantName(ctx.args));
+                } catch (err) {
+                    ctx.logger.error(err instanceof Error ? err.message : String(err));
+                    process.exit(1);
+                }
                 const { buildWeb } = await import('./web-build.js');
                 await buildWeb(ctx);
             },

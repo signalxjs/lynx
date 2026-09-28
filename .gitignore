@@ -28,6 +28,7 @@ docs/dist/
 !packages/lynx-icons/src/stubs/font-face.css.d.ts
 !packages/lynx-plugin/src/rsbuild.d.ts
 !examples/*/src/lynx-env.d.ts
+!examples/*/src/sigx-env.d.ts
 
 # TypeScript cache
 *.tsbuildinfo

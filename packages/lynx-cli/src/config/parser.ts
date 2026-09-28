@@ -2,6 +2,7 @@ import { join, isAbsolute } from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type {
+    AppEnvShape,
     LynxConfig,
     ModuleConfig,
     Platform,
@@ -16,6 +17,9 @@ import type {
     IosIconConfig,
 } from './schema.js';
 import { mergeVariant } from './variant.js';
+import { assertJsonEnv, canonicalEnvJson, findSecretLookingKeys } from './env.js';
+
+export { envHash } from './env.js';
 
 const VALID_ICON_MODES: ReadonlySet<IconMode> = new Set(['svg', 'font']);
 const VALID_ICON_STYLES: ReadonlySet<IconStyle> = new Set([
@@ -134,6 +138,11 @@ export interface ResolvedConfig {
      * unbadged (always null for the base build). Read by the icon generators.
      */
     iconBadge?: string | null;
+    /**
+     * App env (issue #1244) with the active variant's overrides merged in;
+     * `{}` when unset. Baked into the bundle as `__SIGX_APP_ENV__`.
+     */
+    env: AppEnvShape;
 }
 
 /**
@@ -178,10 +187,21 @@ export function resolveConfig(raw: LynxConfig, variantName?: string): ResolvedCo
         process.env['SIGX_LYNX_LOGGING'] = JSON.stringify(raw.logging ?? {});
     } catch { /* non-serializable config — skip, plugin falls back to defaults */ }
     // Same plumbing for the OTA updates channel — `@sigx/lynx-plugin` bakes
-    // it into the bundle as the __SIGX_UPDATES_CHANNEL__ define.
+    // it into the bundle as the __SIGX_UPDATES_CHANNEL__ define. Cleared when
+    // unset so a previous resolve (another variant) can't leak into this one.
     if (raw.updates?.defaultChannel) {
         process.env['SIGX_LYNX_UPDATES_CHANNEL'] = raw.updates.defaultChannel;
+    } else {
+        delete process.env['SIGX_LYNX_UPDATES_CHANNEL'];
     }
+
+    // App env (issue #1244) — the variant-merged `env` block, validated as
+    // JSON and exported as canonical JSON for the plugin's
+    // `__SIGX_APP_ENV__` define (and the `.sigx-build.json` env hash).
+    const env = (raw.env ?? {}) as AppEnvShape;
+    assertJsonEnv(env);
+    warnSecretLookingKeys(env, raw.envAllow);
+    process.env['SIGX_LYNX_ENV'] = canonicalEnvJson(env);
 
     return {
         name: raw.name,
@@ -214,7 +234,22 @@ export function resolveConfig(raw: LynxConfig, variantName?: string): ResolvedCo
         updates: raw.updates,
         variant,
         iconBadge,
+        env,
     };
+}
+
+// Commands resolve the config more than once per run — warn about each key once.
+const _warnedSecretKeys = new Set<string>();
+function warnSecretLookingKeys(env: AppEnvShape, allow: readonly string[] | undefined): void {
+    for (const path of findSecretLookingKeys(env, allow)) {
+        if (_warnedSecretKeys.has(path)) continue;
+        _warnedSecretKeys.add(path);
+        console.warn(
+            `\x1b[33m⚠\x1b[0m signalx.config.ts: ${path} looks like a secret. Everything in \`env\` ` +
+            'is baked into the app bundle and readable by anyone who has the app — keep real ' +
+            'secrets on your backend. If this value is meant to be public, add its key to `envAllow`.',
+        );
+    }
 }
 
 function resolveModule(entry: string | ModuleConfig, defaultPlatforms: Platform[]): ResolvedModule {

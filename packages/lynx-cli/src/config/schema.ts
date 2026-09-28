@@ -430,7 +430,13 @@ export type DeepPartial<T> = T extends readonly unknown[]
  * }
  * ```
  */
-export interface VariantConfig extends DeepPartial<Omit<LynxConfig, 'variants'>> {
+export interface VariantConfig<E extends AppEnvShape = AppEnvShape> extends DeepPartial<Omit<LynxConfig, 'variants' | 'env'>> {
+    /**
+     * Per-variant overrides of the base {@link LynxConfig.env}, deep-merged
+     * onto it. Only keys the base `env` declares are allowed, so a typo'd key
+     * is a type error rather than a silently-missing value.
+     */
+    env?: DeepPartial<E>;
     /**
      * Inherit another variant first, then apply this one on top. Resolved
      * base-most → requested before suffixes are applied. Cycles throw.
@@ -467,8 +473,54 @@ export interface VariantConfig extends DeepPartial<Omit<LynxConfig, 'variants'>>
     iconBadge?: string | false;
 }
 
+/**
+ * A JSON value allowed in the app {@link LynxConfig.env}: it is serialized into
+ * the JS bundle at build time, so functions, `Date`s, class instances and
+ * `undefined` are rejected (with the offending key path) when the config
+ * resolves.
+ */
+export type AppEnvValue =
+    | string
+    | number
+    | boolean
+    | null
+    | readonly AppEnvValue[]
+    | { readonly [key: string]: AppEnvValue };
+
+/** Shape of the app {@link LynxConfig.env} object — a JSON object. */
+export type AppEnvShape = { readonly [key: string]: AppEnvValue };
+
+/** Widen literal types (`'https://…'` → `string`) — see {@link EnvOf}. */
+type WidenEnv<T> = T extends string
+    ? string
+    : T extends number
+        ? number
+        : T extends boolean
+            ? boolean
+            : T extends readonly (infer U)[]
+                ? readonly WidenEnv<U>[]
+                : T extends object
+                    ? { readonly [K in keyof T]: WidenEnv<T[K]> }
+                    : T;
+
+/**
+ * The app env type of a config — `EnvOf<typeof config>`. Literals are widened
+ * so each variant's value fits the same type. Used to type the runtime `env`
+ * export of `@sigx/lynx` / `@sigx/lynx-core`:
+ *
+ * @example
+ * ```ts
+ * // src/sigx-env.d.ts
+ * import type config from '../signalx.config';
+ * import type { EnvOf } from '@sigx/lynx-cli/config';
+ * declare global { interface SigxAppEnv extends EnvOf<typeof config> {} }
+ * export {};
+ * ```
+ */
+export type EnvOf<C> = C extends LynxConfig<infer E> ? WidenEnv<E> : never;
+
 /** Full sigx-lynx project configuration. */
-export interface LynxConfig {
+export interface LynxConfig<E extends AppEnvShape = AppEnvShape> {
     /** Display name of the app. */
     name: string;
     /** App version string (e.g. '1.0.0'). */
@@ -534,7 +586,26 @@ export interface LynxConfig {
      * own suffixed app id + its own `android-<name>/` / `ios-<name>/` output
      * dir, so e.g. a dev build installs alongside the production app.
      */
-    variants?: Record<string, VariantConfig>;
+    variants?: Record<string, VariantConfig<NoInfer<E>>>;
+    /**
+     * App environment — typed build-time settings (API base URL, feature
+     * flags, public keys) baked into the JS bundle, OTA bundles included.
+     * Read at runtime via `import { env } from '@sigx/lynx'` and in
+     * `lynx.config.ts` via `appEnv()` from `@sigx/lynx-plugin`. Override per
+     * variant with `variants.<name>.env`.
+     *
+     * Values must be JSON. Everything here ships inside the app and is
+     * readable by anyone who has it — never put real secrets here. Values
+     * that are public but shouldn't be committed can come from `process.env`
+     * (`.env.local` / CI), which is loaded before this file is evaluated.
+     */
+    env?: E;
+    /**
+     * `env` keys that look like secrets (`secret`, `password`, `private`,
+     * `token`, …) but are intentionally public — suppresses the warning the
+     * CLI prints for them. Matched against the leaf key name.
+     */
+    envAllow?: string[];
 }
 
 /**
@@ -704,6 +775,48 @@ export interface PrebuildHooksConfig {
  * });
  * ```
  */
-export function defineLynxConfig(config: LynxConfig): LynxConfig {
+export function defineLynxConfig<E extends AppEnvShape = AppEnvShape>(config: LynxConfig<E>): LynxConfig<E> {
     return config;
+}
+
+/**
+ * Read an optional environment variable while evaluating `signalx.config.ts`
+ * — `undefined` when unset or empty. `.env`, `.env.local`, `.env.<variant>`
+ * and `.env.<variant>.local` are loaded before the config is evaluated, and
+ * the real process env (CI) always wins.
+ *
+ * Prefer this over `process.env.X` in the config: the app's `sigx-env.d.ts`
+ * imports the config's type, and this keeps Node's `process` global (and
+ * `@types/node`) out of the app's type-check.
+ *
+ * @example
+ * ```ts
+ * android: { googleMapsApiKey: readEnv('GOOGLE_MAPS_API_KEY') }
+ * ```
+ */
+export function readEnv(name: string): string | undefined {
+    const value = process.env[name];
+    return value === undefined || value === '' ? undefined : value;
+}
+
+/**
+ * Read a required environment variable while evaluating `signalx.config.ts`,
+ * throwing a clear error when it's unset or empty. `.env`, `.env.local`,
+ * `.env.<variant>` and `.env.<variant>.local` are loaded before the config is
+ * evaluated, and the real process env (CI) always wins.
+ *
+ * @example
+ * ```ts
+ * env: { sentryDsn: requireEnv('SENTRY_DSN') }
+ * ```
+ */
+export function requireEnv(name: string): string {
+    const value = readEnv(name);
+    if (value === undefined) {
+        throw new Error(
+            `[@sigx/lynx-cli] Missing environment variable ${name} (read by signalx.config.ts). ` +
+            `Set it in CI, or locally in .env.local (git-ignored).`,
+        );
+    }
+    return value;
 }

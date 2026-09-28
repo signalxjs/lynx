@@ -105,6 +105,8 @@ export type { WidthClass, HeightClass } from '@sigx/lynx-core';
 // Active build variant (#530) — `variant`/`isVariant()`/`isBaseBuild()` report
 // which `--variant` build this is (or '' for base), for env badges / branching.
 export { variant, isVariant, isBaseBuild } from '@sigx/lynx-core';
+// App env (#1244) — typed `env` from `signalx.config.ts`, per variant.
+export { env } from '@sigx/lynx-core';
 
 // Internal-use re-export, needed by the HMR loader. The loader injects an
 // import of `__setCurrentInstanceForHMR` alongside `__registerComponentPlugin`

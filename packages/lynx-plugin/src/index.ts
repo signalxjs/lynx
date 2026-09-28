@@ -22,6 +22,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RsbuildPlugin } from '@rsbuild/core';
 
+import { appEnvDefine, writeBuildMarker } from './app-env.js';
 import { applyCSS } from './css.js';
 import { applyEntry } from './entry.js';
 import { ensureWebEnvironments } from './web-env.js';
@@ -30,6 +31,7 @@ import { LAYERS } from './layers.js';
 import { createLogWebSocketServer, LOG_ENDPOINT_PATH, type LogWebSocketServer } from './log-server.js';
 
 export { LAYERS, applyEntry };
+export { appEnv, BUILD_MARKER_FILE } from './app-env.js';
 
 const _pluginDirname = path.dirname(fileURLToPath(import.meta.url));
 const _sigxLynxRoot = path.resolve(_pluginDirname, '../..');
@@ -279,6 +281,23 @@ export function pluginSigxLynx(
         );
       }
 
+      // Stamp each output dir with `.sigx-build.json` (variant + app-env hash)
+      // so `sigx updates:publish` can refuse a bundle built for another
+      // variant (#1244). Never embedded: the embed step copies only the bundle.
+      // The `web` environment is skipped so the marker stays out of a static
+      // web export — OTA only ships the Lynx bundle.
+      api.onAfterBuild(({ environments }) => {
+        const dirs = Object.entries(environments)
+          .filter(([name]) => name !== 'web')
+          .map(([, e]) => e.distPath);
+        if (dirs.length === 0) return;
+        try {
+          writeBuildMarker(dirs);
+        } catch (err) {
+          api.logger.warn(`[@sigx/lynx-plugin] could not write build marker: ${(err as Error).message}`);
+        }
+      });
+
       api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
         // Compile all JS files (including node_modules) for ES2019 compat
         // with the Lynx JS engine, unless user explicitly sets source.include.
@@ -339,6 +358,10 @@ export function pluginSigxLynx(
               // lynx-cli via `SIGX_LYNX_VARIANT`. Empty string for the base
               // (production) build. Read by `variant`/`isVariant()` in core.
               __SIGX_VARIANT__: JSON.stringify(process.env['SIGX_LYNX_VARIANT'] || ''),
+              // App env (#1244) — `env` from signalx.config.ts (variant-merged),
+              // plumbed by lynx-cli via `SIGX_LYNX_ENV`. Already JSON, so it
+              // lands as an object literal. Read by `env` in core.
+              __SIGX_APP_ENV__: appEnvDefine(),
             },
           },
           tools: {

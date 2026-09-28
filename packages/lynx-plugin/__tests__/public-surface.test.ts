@@ -42,6 +42,10 @@ describe('public runtime exports', () => {
                 // internal entry-splitting step, re-exported from the barrel.
                 // The owning audit issue decides whether it stays public.
                 'applyEntry',
+                // App env (#1244): `appEnv()` for lynx.config.ts, and the
+                // build-marker file name `sigx updates:publish` checks.
+                'appEnv',
+                'BUILD_MARKER_FILE',
             ].sort(),
         );
     });

@@ -33,7 +33,15 @@ export default defineLynxConfig({
         usesNonExemptEncryption: false,
     },
 
+    // App env (#1244) — typed build-time settings baked into the bundle and
+    // read via `import { env } from '@sigx/lynx'` (typed in src/sigx-env.d.ts).
+    // `perfTools` shows the render-mode switch + stress panel; turn it off
+    // for a store-bound build.
+    env: {
+        perfTools: true,
+    },
+
     variants: {
-        dev: { idSuffix: '.dev', nameSuffix: ' (Dev)' },
+        dev: { idSuffix: '.dev', nameSuffix: ' (Dev)', env: { perfTools: true } },
     },
 });
