@@ -321,7 +321,7 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
         tallest(outletRect());
     });
     onUnmounted(() => feedTallest.stop());
-    // The frame content reads holds the last contained measurement while the
+    // The frame that content reads holds the last contained measurement while the
     // current one pokes out of the outlet (#1318): a restored overlay renders
     // the moment its screen is uncovered, against a rect measured while the
     // screen slid away, and would otherwise lose every inset until a fresh
