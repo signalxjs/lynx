@@ -210,8 +210,7 @@ const TooltipPopup = component<TooltipPopupProps>(({ props, slots }) => {
                             ...partAxes(axes()),
                             class: props.class,
                         })}
-                        // `overflow: visible`: the arrow sits half outside.
-                        style={{ ...tooltip.position.style(), overflow: 'visible' }}
+                        style={popupStyle(tooltip.position.style())}
                         main-thread:ref={tooltip.position.floatingRef}
                         bindlayoutchange={tooltip.position.floatingLayoutChange}
                         bindtap={() => tooltip.hide()}
@@ -227,6 +226,22 @@ const TooltipPopup = component<TooltipPopupProps>(({ props, slots }) => {
 
     return () => undefined;
 }, { name: 'Tooltip.Popup' });
+
+/**
+ * The popup's inline style, pure: the anchored position, plus
+ * - `width: max-content` (#1297). The popup is an absolute child of the
+ *   0×0 overlay root (#1190), and Android bounds an absolute child's auto
+ *   width by that containing block: the bubble collapsed to one glyph and
+ *   its text stacked vertically. Menu, Select and Popover popups survive it
+ *   on their skin's `min-width`; a tooltip has none, so it states its own
+ *   width. The skin's `max-width` still caps it, and a longer label wraps
+ *   inside the cap.
+ * - `overflow: visible`: the arrow sits half outside.
+ * @internal
+ */
+export function popupStyle(position: Record<string, string | number>): Record<string, string | number> {
+    return { ...position, width: 'max-content', overflow: 'visible' };
+}
 
 // ── Arrow ──
 

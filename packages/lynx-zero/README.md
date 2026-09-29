@@ -1137,7 +1137,10 @@ How they behave on lynx:
   own outlet entry, above the parent. Two popups side by side do not fit a
   portrait screen, so when neither side fits, the submenu slides back over
   its parent instead of running off the screen (the `shift` option of the
-  placement math). As on the web, each level has at most one open
+  placement math). It slides on the side with more room, so it covers as
+  little of its parent as it can: a nested submenu whose parent submenu
+  already sits against the trailing edge opens on the leading side, and
+  the parent's rows stay visible. As on the web, each level has at most one open
   submenu: opening a submenu closes any open sibling, whether it opened by
   a tap, by `defaultOpen` or through its `model`. A controlled sibling is
   closed through its model, and `openChange(false)` fires. A nested submenu
@@ -1398,6 +1401,11 @@ How they behave on lynx:
   content, so a Button inside still presses. A tap on the popup closes it
   at once. A tooltip opened by `model` or `defaultOpen` stays open until
   the app closes it.
+- **Tooltip: the bubble sizes to its text.** The popup states
+  `width: max-content`. It renders inside a 0×0 overlay root, and Android
+  bounds an absolute child's auto width by that root, so without it the
+  bubble collapsed to one glyph wide. The skin's `max-width` still caps
+  it, and a longer label wraps inside the cap.
 - **Tooltip: no light dismiss.** As with the web's `popover="manual"`, the
   tooltip covers nothing and takes no back press. Taps elsewhere belong to
   the page. Because nothing covers the page, nothing tracks a scroll under
