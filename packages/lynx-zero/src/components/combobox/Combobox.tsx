@@ -54,7 +54,10 @@
  *   re-measures it.
  * - A tap on the field while the list is open lands on the list's
  *   light-dismiss surface, which covers the window. That tap does not
- *   dismiss: it focuses the field.
+ *   dismiss: the surface hit-tests the field's parts (#1326). On the
+ *   clear-trigger it clears the value and the text and keeps the list open
+ *   on every item, as the web does; on the chevron it closes the list;
+ *   anywhere else on the field it focuses the field.
  *
  * Omitted parts: `hidden-input` (no forms on lynx), `spacer` and
  * `group-heading` (zero's windowed list only). The anatomy oracle walks
@@ -65,8 +68,8 @@
  * reachable only through `ForceStates` — there is no keyboard to put focus
  * on them.
  */
-import type { Define, JSXElement } from '@sigx/lynx';
-import { component, compound, effect, onUnmounted, signal, untrack } from '@sigx/lynx';
+import type { Define, JSXElement, UseViewportRectResult } from '@sigx/lynx';
+import { component, compound, effect, onUnmounted, signal, untrack, useViewportRect } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import type { Collection } from '@sigx/zero/behaviors/core';
 import {
@@ -120,6 +123,29 @@ export function tapPoint(e: TapLike | undefined): { x: number; y: number } | nul
 /** Whether a point falls inside a measured rect (1px rounding slack). Pure. @internal */
 export function pointInRect(p: { x: number; y: number }, r: { top: number; left: number; width: number; height: number }): boolean {
     return p.x >= r.left - 1 && p.x <= r.left + r.width + 1 && p.y >= r.top - 1 && p.y <= r.top + r.height + 1;
+}
+
+type Rect = { top: number; left: number; width: number; height: number };
+
+/** Where a tap on the open list's dismiss surface belongs. @internal */
+export type SurfaceTarget = 'clear' | 'trigger' | 'field' | 'outside';
+
+/**
+ * Route a tap on the open list's light-dismiss surface (#1326). The surface
+ * covers the window, the field included, so a tap on the clear-trigger or
+ * the chevron lands on it rather than on the part: hit-test the parts' own
+ * measured rects first (the clear-trigger only while it renders), then the
+ * field. No point in the payload reads as outside. Pure. @internal
+ */
+export function surfaceTarget(
+    point: { x: number; y: number } | null,
+    rects: { clear: Rect | null; trigger: Rect | null; anchor: Rect | null },
+): SurfaceTarget {
+    if (!point) return 'outside';
+    if (rects.clear && pointInRect(point, rects.clear)) return 'clear';
+    if (rects.trigger && pointInRect(point, rects.trigger)) return 'trigger';
+    if (rects.anchor && pointInRect(point, rects.anchor)) return 'field';
+    return 'outside';
 }
 
 // ── Item ──
@@ -221,7 +247,9 @@ type ComboboxTriggerProps =
     & Define.Prop<'inert', boolean, true>
     & Define.Prop<'label', string, true>
     & Define.Prop<'axes', VariantAxes, true>
-    & Define.Prop<'onToggle', () => void, true>;
+    & Define.Prop<'onToggle', () => void, true>
+    /** Hands the root this part's measurement, once at setup: the open list's surface hit-tests it (#1326). */
+    & Define.Prop<'onRect', (rect: UseViewportRectResult) => void, true>;
 
 /**
  * The chevron: toggles the list, never the keyboard.
@@ -235,6 +263,8 @@ type ComboboxTriggerProps =
  */
 const ComboboxTrigger = component<ComboboxTriggerProps>(({ props }) => {
     const press = createPressFeedback({ isDisabled: () => props.inert, feel: false });
+    const rect = useViewportRect();
+    props.onRect(rect);
     return () => (
         <view
             {...partBag(anatomy, 'trigger', {
@@ -246,6 +276,8 @@ const ComboboxTrigger = component<ComboboxTriggerProps>(({ props }) => {
             catchtap={() => {
                 if (!props.inert) props.onToggle();
             }}
+            main-thread:ref={rect.ref}
+            bindlayoutchange={rect.measure}
             {...press.handlers}
         >
             <text>▾</text>
@@ -547,6 +579,10 @@ const ComboboxRootImpl = component<ComboboxRootProps>(({ props, emit, slots }) =
     };
     const clearable = (): boolean => !!props.clearable && !inert()
         && (inputValue.value !== '' || listbox.selectedKeys().length > 0);
+    /**
+     * The web's clear: the value AND the text go, focus lands in the field,
+     * and an open list stays open, now showing every item (#1326).
+     */
     const clear = (): void => {
         if (inert()) return;
         listbox.clear();
@@ -635,15 +671,36 @@ const ComboboxRootImpl = component<ComboboxRootProps>(({ props, emit, slots }) =
         return rows;
     };
 
-    /** A tap on the dismiss surface: over the field it focuses the field, anywhere else it dismisses. */
+    // The clear-trigger and the chevron, measured in the same viewport
+    // coordinates as the field: the open list's surface lies over both, so
+    // it hit-tests them itself (#1326). Re-measured with the field (the
+    // anchor's settle loop) while open, and on their own layout changes.
+    const clearRect = useViewportRect();
+    let triggerRect: UseViewportRectResult | null = null;
+    effect(() => {
+        if (!open.value) return;
+        position.anchorRect();
+        untrack(() => {
+            clearRect.measure();
+            triggerRect?.measure();
+        });
+    });
+
+    /**
+     * A tap on the dismiss surface: on the clear-trigger it clears, on the
+     * chevron it closes (the toggle), elsewhere over the field it focuses
+     * the field, anywhere else it dismisses.
+     */
     const surfaceTap = (e: TapLike): void => {
-        const point = tapPoint(e);
-        const anchor = position.anchorRect();
-        if (point && anchor && pointInRect(point, anchor)) {
-            focusInput();
-            return;
-        }
-        dismissTopLayer();
+        const target = surfaceTarget(tapPoint(e), {
+            clear: clearable() ? clearRect.rect.value : null,
+            trigger: triggerRect?.rect.value ?? null,
+            anchor: position.anchorRect(),
+        });
+        if (target === 'clear') clear();
+        else if (target === 'trigger') setOpen(false);
+        else if (target === 'field') focusInput();
+        else dismissTopLayer();
     };
 
     /** Whether an open list has anything to show: options, the empty text, or the loading row. */
@@ -813,6 +870,8 @@ const ComboboxRootImpl = component<ComboboxRootProps>(({ props, emit, slots }) =
                                 {...partBag(anatomy, 'clear-trigger', { ...partAxes(axes()) })}
                                 {...partA11y({ trait: 'button', label: props.clearLabel ?? 'Clear' })}
                                 catchtap={clear}
+                                main-thread:ref={clearRect.ref}
+                                bindlayoutchange={clearRect.measure}
                             >
                                 <text>×</text>
                             </view>
@@ -825,6 +884,9 @@ const ComboboxRootImpl = component<ComboboxRootProps>(({ props, emit, slots }) =
                         label={props.triggerLabel ?? 'Show options'}
                         axes={axes()}
                         onToggle={() => setOpen(!open.value)}
+                        onRect={(rect) => {
+                            triggerRect = rect;
+                        }}
                     />
                 </view>
             </view>
