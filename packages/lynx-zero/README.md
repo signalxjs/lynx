@@ -263,14 +263,27 @@ The platform spellings to know:
   open animation or transition ends (`bindanimationend` /
   `bindtransitionend`, plus two fallback timers per open), and every open
   anchored popup inside it re-measures once, a bounded burst.
-- **The Dialog panel always finishes opening** (#1320). On Android, a
-  dialog open at mount (a cold deep link) could stop part-way through its
-  open scale: `animationend` fires, but the view keeps a mid-flight
-  transform, and the skin's resting `transform: none` is never re-applied.
-  When the open animation ends, and again at the last fallback timer
-  (1 s), the panel states an identity transform inline (`scale(1)`, then
-  `translateX(0px)`, alternating so each pin is a new value). A skin whose
-  open panel rests at a non-identity transform is overridden by it.
+- **Overlay panels always finish their entry motion** (#1320, #1324,
+  #1325). A part whose skin animates it in and rests at the identity
+  (`transform: none`) can stop part-way on Lynx. On Android a dialog or
+  drawer open at mount (a cold deep link, or a restore after a pop) could
+  freeze mid-flight: `animationend` fires, but the view keeps a mid-flight
+  transform, and the skin's resting `transform: none` is never re-applied
+  because that value never changed. On iOS a drawer sat 2pt short of its
+  edge, after every restore and on some cold opens. One shared behavior
+  settles the Dialog panel, the Drawer panel and a store toast
+  (`Toast.Root` rendered by a `Toast.Viewport`). Once the entry motion is
+  over, the part states an identity transform inline: `scale(1)`, then
+  `translateX(0px)`, alternating so each pin is a new value. The pin
+  happens when the entry animation ends (for a toast, its first transition
+  end) and again at the last fallback timer (1 s for Dialog and Drawer,
+  600 ms for a toast). A restored dialog or drawer, rendered again when its
+  screen is uncovered, drops the pin and settles again, as on a fresh open.
+  A closing toast drops the pin, so its exit transition plays. A skin whose
+  open part rests at a non-identity transform is overridden by the pin. The
+  anchored popups (Popover, Select, Menu, Tooltip, Combobox) render open
+  from their first frame, so no entry motion runs on them and they need no
+  pin.
 - **Dialog avoids the soft keyboard** (#1232). The panel renders through
   the portal, so an app cannot wrap it in a `KeyboardAvoidingView`; it
   makes room itself. While open it follows the keyboard height from the
