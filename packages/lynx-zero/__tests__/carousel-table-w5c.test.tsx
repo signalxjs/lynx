@@ -210,7 +210,7 @@ describe('Carousel', () => {
         expect(changes).toEqual([3, 1]);
     });
 
-    describe('snaps in JS where the scroll-view does not page (iOS, #1301)', () => {
+    describe('snaps in JS when a scroll rests off a slide (iOS #1301, Android #1310)', () => {
         const realOS = Platform.OS;
         const onIos = (): void => { (Platform as { OS: string }).OS = 'ios'; };
         afterEach(() => { (Platform as { OS: string }).OS = realOS; });
@@ -262,12 +262,25 @@ describe('Carousel', () => {
             expect(invoke).toHaveBeenCalledTimes(1);
         });
 
-        it('android keeps native paging: a scrollend never scrolls', async () => {
+        it('android snaps a slow drag too (#1310); a rest native paging aligned is left alone', async () => {
             (Platform as { OS: string }).OS = 'android';
-            const { container } = render(<Slides count={3} />);
+            const changes: number[] = [];
+            const { container } = render(<Slides count={3} extra={{ onIndexChange: (i: number) => changes.push(i) }} />);
             const invoke = await layOut(container, 300);
-            await scrollEnd(container, 120);
+            // A fling native paging carried onto slide 1: aligned, no snap.
+            await scrollTo(container, 300);
+            await scrollEnd(container, 300);
             expect(invoke).not.toHaveBeenCalled();
+            expect(changes).toEqual([1]);
+            // A slow drag that paging left between slides 1 and 2.
+            await scrollTo(container, 420);
+            await scrollEnd(container, 420);
+            expect(invoke).toHaveBeenCalledTimes(1);
+            expect(invoke).toHaveBeenLastCalledWith('scrollTo', { index: 2, smooth: true });
+            expect(changes).toEqual([1, 2]);
+            // The glide's landing is not snapped again.
+            await scrollEnd(container, 600);
+            expect(invoke).toHaveBeenCalledTimes(1);
         });
     });
 

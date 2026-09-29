@@ -197,6 +197,9 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
         placement: props.placement ?? 'bottom-start',
         offset: props.offset,
         isOpen: () => open.value,
+        // A raised soft keyboard (a field elsewhere on the screen still
+        // focused) trims the box the popup flips against (#1314).
+        avoidKeyboard: true,
     });
     const portal = useOverlayPortal();
     const fill = useOutletFill();

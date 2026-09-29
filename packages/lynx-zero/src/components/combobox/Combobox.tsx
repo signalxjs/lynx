@@ -40,7 +40,10 @@
  *   list can be browsed with the keyboard down. `openOnClick` opens it when
  *   the field takes focus.
  * - The list is flipped above the field when the soft keyboard would cover
- *   it (`avoidKeyboard` on the anchor position). Inside a Dialog, the
+ *   it (`avoidKeyboard` on the anchor position; the keyboard is followed
+ *   from the field's focus). A field the keyboard itself covers — lynx does
+ *   not scroll a focused input into view — gets its list lifted onto the
+ *   visible frame, right above the keyboard (#1314). Inside a Dialog, the
  *   dialog's own keyboard lift moves the field and the ancestor-motion bump
  *   re-measures it.
  * - A tap on the field while the list is open lands on the list's
@@ -71,6 +74,7 @@ import { partAxes, provideVariantAxes } from '../../contract/axes-context.js';
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
+import { acquireKeyboard } from '../../behaviors/keyboard.js';
 import type { LynxPlacement } from '../../behaviors/position.js';
 import { createAnchorPosition, useOutletFill } from '../../behaviors/position.js';
 import { OVERLAY_ROOT_STYLE, useOverlayPortal } from '../../overlay/OverlayHost.js';
@@ -213,9 +217,18 @@ type ComboboxTriggerProps =
     & Define.Prop<'axes', VariantAxes, true>
     & Define.Prop<'onToggle', () => void, true>;
 
-/** The chevron: toggles the list, never the keyboard. */
+/**
+ * The chevron: toggles the list, never the keyboard.
+ *
+ * Tier 1 press only (`feel: false`, #1309): the skin turns this part over
+ * with `transform: rotate(180deg)` while `open`, and the main-thread feel
+ * restores its scale with an INLINE `transform: scale(1)` on release, which
+ * then outranks the class rule forever — a list opened with a tap on the
+ * chevron left it pointing down. Select turns its `indicator`, a part the
+ * press never writes to, so it never hit this.
+ */
 const ComboboxTrigger = component<ComboboxTriggerProps>(({ props }) => {
-    const press = createPressFeedback({ isDisabled: () => props.inert });
+    const press = createPressFeedback({ isDisabled: () => props.inert, feel: false });
     return () => (
         <view
             {...partBag(anatomy, 'trigger', {
@@ -542,6 +555,20 @@ const ComboboxRootImpl = component<ComboboxRootProps>(({ props, emit, slots }) =
     const portal = useOverlayPortal();
     const fill = useOutletFill();
 
+    // Follow the keyboard from the moment the field takes focus, not only
+    // while the list is open (#1314): the keyboard rises on focus, BEFORE
+    // typing opens the list, and a height seeded at open from
+    // `__globalProps` can miss it. Held until blur (or unmount), so the
+    // first open over a raised keyboard already places above it.
+    let releaseKeyboard: (() => void) | null = null;
+    const followKeyboard = (): void => {
+        releaseKeyboard ??= acquireKeyboard();
+    };
+    onUnmounted(() => {
+        releaseKeyboard?.();
+        releaseKeyboard = null;
+    });
+
     const itemRow = (item: unknown, key: string): JSXElement => {
         const k = collection.keyOf(item);
         return (
@@ -696,10 +723,13 @@ const ComboboxRootImpl = component<ComboboxRootProps>(({ props, emit, slots }) =
         },
         bindfocus: () => {
             local.focused = true;
+            followKeyboard();
             if (props.openOnClick) setOpen(true);
         },
         bindblur: () => {
             local.focused = false;
+            releaseKeyboard?.();
+            releaseKeyboard = null;
             // Open, the blur may be a tap on an option on its way: the close
             // resyncs instead.
             if (!open.value) commitInputText();

@@ -23,13 +23,15 @@
  * - **The viewport is lynx's native `<scroll-view scroll-orientation=
  *   "horizontal" paging-enabled>`** — the same primitive `Swiper` in
  *   `@sigx/lynx-gestures` builds on. The web's `scroll-snap` CSS does
- *   nothing here. Android honours `paging-enabled`, so a fling snaps slide
- *   by slide with the platform's own physics. iOS's scroll-view has no
- *   paging attribute at all (#1301): the drag rests wherever it stops, so
- *   there the viewport snaps itself when the scroll ends — to the next
- *   slide in the drag's direction once it has moved a fifth of a slide,
- *   else back (`carouselSnapIndex`), gliding there with `scrollTo`. One
- *   snap per rest: a glide that still lands off a slide is left alone.
+ *   nothing here. Android's `paging-enabled` pages a fast fling with the
+ *   platform's own physics, but a slow drag rests wherever it stops
+ *   (#1310); iOS's scroll-view has no paging attribute at all (#1301). So
+ *   on every platform the viewport snaps itself when a scroll ends OFF a
+ *   slide — to the next slide in the drag's direction once it has moved a
+ *   fifth of a slide, else back (`carouselSnapIndex`), gliding there with
+ *   `scrollTo`. A rest native paging already aligned is left alone, so the
+ *   two never fight. One snap per rest: a glide that still lands off a
+ *   slide is left alone.
  * - **The model follows real scroll.** The web derives the index from an
  *   IntersectionObserver; lynx has none, so the viewport rounds its
  *   `bindscroll` offset to a page. Setting the model (a trigger, a dot, or
@@ -60,7 +62,7 @@
  * `indexChange`. The model is `model` / `defaultIndex`.
  */
 import type { Define, LayoutChangeEvent } from '@sigx/lynx';
-import { Platform, component, compound, defineInjectable, defineProvide, effect, signal } from '@sigx/lynx';
+import { component, compound, defineInjectable, defineProvide, effect, signal } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import { createControllableState } from '@sigx/zero/behaviors/core';
 import { partBag } from '../../contract/part.js';
@@ -238,9 +240,9 @@ const CarouselViewport = component<CarouselViewportProps>(({ props, slots }) => 
     // tracked every index change would jump over the glide `scrollTo` runs.
     let anchor = shown;
     let anchorWidth = 0;
-    // iOS pages in JS (#1301): Android's scroll-view honours `paging-enabled`
-    // and must not be fought. Read once — the platform does not change.
-    const snaps = Platform.OS !== 'android';
+    // Every platform snaps in JS (#1301 iOS, #1310 Android): Android's
+    // `paging-enabled` only pages flings, and a rest it aligned is within
+    // `SNAP_SLACK` of a slide, where the snap below does nothing.
     // Where the last scroll came to rest — the drag's direction is measured
     // from here. Seeded on the first layout, from the initial slide.
     let restLeft: number | null = null;
@@ -260,12 +262,12 @@ const CarouselViewport = component<CarouselViewportProps>(({ props, slots }) => 
         invokeUiMethod(el, 'scrollTo', { index: target, smooth: laidOut });
     });
 
-    /** The scroll came to rest: report the slide, and on iOS snap onto it. */
+    /** The scroll came to rest: report the slide, and snap onto it when it rests off one. */
     const onScrollEnd = (event: { detail?: ScrollDetail }): void => {
         heading = null;
         const left = event?.detail?.scrollLeft;
         const width = carousel.pageWidth();
-        if (typeof left !== 'number' || !snaps || snapping || !(width > 0)) {
+        if (typeof left !== 'number' || snapping || !(width > 0)) {
             snapping = false;
             if (typeof left === 'number') restLeft = left;
             onScroll(event);

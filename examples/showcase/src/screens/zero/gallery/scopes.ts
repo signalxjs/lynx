@@ -1322,7 +1322,8 @@ export const GALLERY_SCOPES = {
         // `in-dialog`: a combobox inside an open Dialog — the keyboard-lift
         // case (tap the field: the panel lifts, the list follows it).
         // `lower-half`: open at mount low on the screen — the list flips
-        // above the field.
+        // above the field where there is no room below; tap + type and it
+        // sits above the soft keyboard (#1314).
         extras: ['open', 'open-held', 'open-query', 'open-color', 'empty-loading', 'tags', 'in-dialog', 'lower-half'],
         cellWidth: 163,
         // The control is `--size-field * 8…16` tall (the shared field ramp)

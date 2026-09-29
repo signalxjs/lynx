@@ -2303,12 +2303,15 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     </Dialog.Popup>
                 </Dialog.Root>
             ),
-            // A combobox in the lower half of the screen: open at mount, the
-            // list has no room below and opens ABOVE the field. Tap the field
-            // too — with the keyboard up it stays above.
+            // A combobox in the lower half of the screen, open at mount. On a
+            // phone-height screen the list has no room below and opens ABOVE
+            // the field; a taller screen (a 923dp Android) still has room and
+            // opens it below. Tap the field and type: with the keyboard up the
+            // list sits above the keyboard, even when the keyboard covers the
+            // field itself (#1314).
             'lower-half': () => (
                 <Col gap={10}>
-                    <text class="zg-note">lower half · open at mount · the list opens above</text>
+                    <text class="zg-note">lower half · open at mount · tap + type: the list sits above the keyboard</text>
                     <view style={{ height: '470px' }} />
                     <view style={{ width: '240px' }}>
                         <Combobox.Root

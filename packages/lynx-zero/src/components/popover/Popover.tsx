@@ -58,6 +58,9 @@ const PopoverRoot = component<PopoverRootProps>(({ props, slots, emit }) => {
         placement: props.placement ?? 'bottom',
         offset: props.offset,
         isOpen: () => state.value,
+        // A raised soft keyboard (a field elsewhere on the screen still
+        // focused) trims the box the popup flips against (#1314).
+        avoidKeyboard: true,
     });
     defineProvide(usePopoverContext, () => ({
         open: () => state.value,

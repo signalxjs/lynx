@@ -186,6 +186,22 @@ export function keyboardFrame(outlet: ElementLayout | null, frame: ElementLayout
 }
 
 /**
+ * Whether the anchor sits BELOW the bottom of the frame it is placed in —
+ * a field the soft keyboard covers (#1314). The page does not scroll a
+ * focused lynx `<input>` into view, so a field in the lower half of a tall
+ * Android screen stays under the keyboard while it types. Neither side of
+ * it "fits" the trimmed frame then (above ends at the field, under the
+ * keyboard), and the popup kept its preferred side: under the keyboard with
+ * its field. Callers place such a popup with `shift`, which takes the
+ * roomier side (above) and clamps it into the visible frame, right on top of
+ * the keyboard. Both rects in viewport space. Pure. @internal
+ */
+export function anchorBelowFrame(anchor: ElementLayout, frame: ElementLayout | null): boolean {
+    if (!frame || !(frame.height > 0)) return false;
+    return anchor.top + anchor.height > frame.top + frame.height + EPSILON;
+}
+
+/**
  * The safe frame's insets inside the outlet — what a full-window overlay
  * pads its content by (the dialog panel centers inside them, a toast
  * viewport pins to them). All zero when either rect is unknown or the frame
@@ -813,8 +829,7 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
     // The screen metrics stand in for the viewport: viewport rects and
     // screen metrics share an origin for a full-screen lynx app, they're
     // reactive to rotation, and they need no extra measurement round-trip.
-    // Keyboard insets are out of scope here (an anchored popup over a
-    // raised keyboard is its own problem).
+    // The soft keyboard is handled on top of the frame (`avoidKeyboard`).
     const screen = useScreen();
     const origin = useOverlayOriginInjectable();
     const isOpen = options.isOpen ?? (() => true);
@@ -899,9 +914,13 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
         const a = anchor.rect.value;
         const f = floatingSize();
         const v = screen.value;
-        return a && f && v.width > 0
-            ? computeFramedPosition(a, f, origin.rect(), frame(), v, options)
-            : null;
+        if (!a || !f || !(v.width > 0)) return null;
+        const outlet = origin.rect();
+        const box = frame();
+        // A field under the raised keyboard (#1314): lift the popup onto the
+        // visible frame rather than keep it under the keyboard with its field.
+        const covered = !!options.avoidKeyboard && anchorBelowFrame(a, containedFrame(outlet, box) ?? outlet);
+        return computeFramedPosition(a, f, outlet, box, v, covered ? { ...options, shift: true } : options);
     };
 
     return {
