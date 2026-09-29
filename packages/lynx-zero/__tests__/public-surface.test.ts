@@ -78,6 +78,8 @@ describe('public runtime exports', () => {
                 'layoutAttrs',
                 'layoutClass',
                 'parseLayoutAttr',
+                // added by zero 0.16 (the lent-bag merge, signalxjs/zero#494)
+                'mergePartProps',
                 // ── lynx seams ──
                 'partA11y',
                 'partBag',
