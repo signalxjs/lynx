@@ -1631,7 +1631,7 @@ import { Combobox } from '@sigx/lynx-zero';
 | Part / prop | Type | Default | Notes |
 |---|---|---|---|
 | `model` / `defaultValue` | `T \| null`, `V \| null` with `itemValue`, an array under `multiple` | `null` / `[]` | The value. `valueChange` fires on change. |
-| `model:inputValue` / `defaultInputValue` | `string` | the preset value's label, else `''` | The text in the field, which is also the filter query. `inputValueChange` fires on change. |
+| `model:inputValue` / `defaultInputValue` | `string` | the preset value's label, else `''` | The text in the field, which is also the filter query. `inputValueChange` fires on change. In single mode an empty start gives way to the preset value's label, as on the web; only a non-empty text is kept as a starting query. |
 | `model:open` / `defaultOpen` | `boolean` | `false` | The list. `openChange` fires on change. |
 | `items`, `itemKey`, `itemLabel`, `itemValue`, `itemDisabled`, `itemGroup` | data accessors | Select's defaults | Data mode only, like Select. The label is what shows and what the filter matches. |
 | `filter` | `false \| (item, query) => boolean` | contains-match on the label, case-insensitive | `false` shows every item (a server-filtered list). Read once, at setup. |
@@ -1654,15 +1654,22 @@ How it behaves on lynx:
 - **Typing opens and filters.** zero's listbox core does the filtering and
   the selection, so the rules are the web's. In single mode a pick puts the
   label in the field, closes the list and dismisses the soft keyboard.
-- **Closing resyncs the text** (zero #265). In single mode, empty text
-  clears the value and other text goes back to the value's label, or is
-  committed under `allowCustom`. Under `multiple` the query is dropped. A
-  blur while the list is open waits for the close, because the blur may
-  come from a tap on an option.
+- **The field shows the value.** In single mode the chosen option's
+  label is the field's text whenever you are not typing: a preset value's
+  at mount (even with `defaultInputValue=""`), a pick's, and a value
+  written from outside.
+- **Closing resyncs the text** (zero #265), by the web's rules. In single
+  mode the label left in place keeps the value, typed text goes back to
+  the value's label (or is committed under `allowCustom`), and text you
+  emptied clears the value, so the field never hides a value it holds.
+  Otherwise the selection changes only on a pick, the clear-trigger or a
+  model write. Under `multiple` the query is dropped. A blur while the
+  list is open waits for the close, because the blur may come from a tap
+  on an option.
 - **The filter always reads the field.** A preset value's label is in the
   field, so opening the list with the trigger shows the options that
-  contain it, as on the web. Pass `defaultInputValue=""` to open on the
-  whole list.
+  contain it, as on the web. Pass `filter={false}` to always list every
+  option.
 - **The trigger does not raise the keyboard.** It toggles the list, so you
   can browse every option with the keyboard down. A tap on the control's
   padding (or a tag) focuses the field.
