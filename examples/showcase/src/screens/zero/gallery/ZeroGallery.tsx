@@ -26,7 +26,7 @@ import { extendTheme, registerTheme, themeController } from '@sigx/lynx-daisyui'
 import { Screen, useFocusEffect, useNav, useParams, useSearch } from '@sigx/lynx-navigation';
 import {
     Accordion, Button, Col, Dialog, Fieldset, NumberInput, Popover, Progress, Row, ScrollView, Select, Slider,
-    Switch, Tabs, Timeline, Toast, Toggle, ToggleGroup, ZeroRoot, createToaster, getTheme,
+    Switch, Tabs, ThemeProvider, Timeline, Toast, Toggle, ToggleGroup, ZeroRoot, createToaster, getTheme,
 } from '@sigx/lynx-zero';
 import { Checkbox, CheckboxGroup, RadioGroup } from '@sigx/lynx-zero';
 import { Field, Input, Textarea } from '@sigx/lynx-zero';
@@ -3166,13 +3166,29 @@ function knownScope(scope: string): scope is GalleryScopeId {
     return Object.prototype.hasOwnProperty.call(GALLERY_SCOPES, scope);
 }
 
+/** A nested provider sizes to its content; the gallery's must fill the screen. */
+const FILL = { flexGrow: 1, flexShrink: 1, flexBasis: '0%', minHeight: 0 } as const;
+
+/**
+ * Each gallery screen's zero theme is its OWN (#1313). A root `ThemeProvider`
+ * binds the global zero theme, and every screen's ZeroRoot used to be one:
+ * a `?theme=dark` section seeded the global theme dark at mount, and the
+ * index under it — whose ZeroRoot binds the same global state — came back
+ * dark when the section popped (the app-theme mirror restored the header and
+ * strips, not the body). Now the outer provider is the root and never writes
+ * the global theme (no `initial`), and the ZeroRoot inside it is a NESTED
+ * provider with local state, so its theme lives and dies with its screen —
+ * overlays included, since the overlay host sits inside it.
+ */
 const Frame = component<Define.Prop<'theme', string | undefined, false> & Define.Slot<'default'>>(({ props, slots }) => {
     return () => (
-        <ZeroRoot initial={props.theme ?? 'light'}>
-            <ScrollView flex={1}>
-                <Col padding={FRAME_PADDING} gap={4}>{slots.default?.()}</Col>
-            </ScrollView>
-        </ZeroRoot>
+        <ThemeProvider>
+            <ZeroRoot initial={props.theme ?? 'light'} style={FILL}>
+                <ScrollView flex={1}>
+                    <Col padding={FRAME_PADDING} gap={4}>{slots.default?.()}</Col>
+                </ScrollView>
+            </ZeroRoot>
+        </ThemeProvider>
     );
 });
 
