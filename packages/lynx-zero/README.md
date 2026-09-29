@@ -1694,7 +1694,10 @@ How it behaves on lynx:
   Select, Menu and Popover place against the same keyboard-trimmed frame.
 - **Light dismiss.** A tap outside closes the list. A tap on the field
   while the list is open lands on the dismiss surface, which covers the
-  window. That tap focuses the field and keeps the list open.
+  window. The surface checks where the tap landed: on the clear-trigger it
+  clears the value and the text, focuses the field and keeps the list open
+  on every item, as on the web; on the trigger it closes the list; anywhere
+  else on the field it focuses the field and keeps the list open.
 - **An open list with nothing to show** (no match, no `emptyText`, not
   loading) paints no panel. The field still reads `open`.
 - **The list is at least as wide as the field**, like the web's
