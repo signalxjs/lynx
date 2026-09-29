@@ -1525,13 +1525,14 @@ How they behave on lynx:
 
 - **The carousel viewport is a native paging scroller.** It is a
   `<scroll-view scroll-orientation="horizontal" paging-enabled>`, the
-  primitive `Swiper` in `@sigx/lynx-gestures` uses. On Android a swipe snaps
-  slide by slide with the platform's physics. The iOS scroll-view has no
-  paging attribute, so there the viewport snaps itself when the scroll comes
-  to rest: to the next slide in the drag's direction once the drag has moved
-  a fifth of a slide, otherwise back, gliding there
-  with `scrollTo`. A fling that coasts past several slides snaps to the one
-  it rests on. A horizontal scroll-view does not resolve `%` widths, so each
+  primitive `Swiper` in `@sigx/lynx-gestures` uses. Android pages a fast
+  fling with the platform's physics, but a slow drag rests wherever it
+  stops, and the iOS scroll-view has no paging attribute at all. So on
+  both platforms the viewport snaps itself when a scroll comes to rest off
+  a slide: to the next slide in the drag's direction once the drag has
+  moved a fifth of a slide, otherwise back, gliding there with `scrollTo`.
+  A rest that native paging already aligned is left alone. A fling that
+  coasts past several slides snaps to the one it rests on. A horizontal scroll-view does not resolve `%` widths, so each
   slide takes the viewport's measured width.
 - **The model follows real scroll.** The viewport rounds its scroll offset to
   a slide. Setting the model (a trigger, a dot or the app) glides the
@@ -1642,10 +1643,15 @@ How it behaves on lynx:
 - **The trigger does not raise the keyboard.** It toggles the list, so you
   can browse every option with the keyboard down. A tap on the control's
   padding (or a tag) focuses the field.
-- **Keyboard-aware placement.** While open, the list flips and clamps
-  against the part of the screen the soft keyboard leaves visible, so a
-  list under a raised keyboard opens above its field. Inside a `Dialog`,
+- **Keyboard-aware placement.** The list flips and clamps against the
+  part of the screen the soft keyboard leaves visible, so a list under a
+  raised keyboard opens above its field. The keyboard is followed from the
+  moment the field takes focus. Lynx does not scroll a focused field into
+  view, so on a tall screen the keyboard can cover the field itself; the
+  list is then lifted onto the visible part of the screen, right above the
+  keyboard, and you can see what you type filter it. Inside a `Dialog`,
   the dialog lifts itself above the keyboard and the list follows it.
+  Select, Menu and Popover place against the same keyboard-trimmed frame.
 - **Light dismiss.** A tap outside closes the list. A tap on the field
   while the list is open lands on the dismiss surface, which covers the
   window. That tap focuses the field and keeps the list open.
@@ -1655,6 +1661,9 @@ How it behaves on lynx:
   `min-width: var(--anchor-width)`. There is no height cap or inner scroll,
   so keep the unfiltered list short or filter it on the server.
 - **States.** `open`/`closed` on the control, input, trigger and popup.
+  The skin turns the trigger's chevron over while `open`, so the trigger
+  takes the `pressed` flag without the main-thread scale: that feel leaves
+  an inline `transform` behind that would mask the rotation.
   `focus-visible` on the control and input follows native focus. `pressed`
   on the trigger, the options and a tag's remove button. `highlighted`
   comes from `autoHighlight`. `placeholder` is on the root and control

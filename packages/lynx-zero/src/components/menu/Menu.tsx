@@ -174,6 +174,9 @@ const MenuRoot = component<MenuRootProps>(({ props, slots, emit }) => {
         placement: props.placement ?? 'bottom-start',
         offset: props.offset,
         isOpen: () => state.value,
+        // A raised soft keyboard (a field elsewhere on the screen still
+        // focused) trims the box the popup flips against (#1314).
+        avoidKeyboard: true,
     });
     const ctx: MenuContext = {
         open: () => state.value,
@@ -543,6 +546,9 @@ const MenuSub = component<MenuSubProps>(({ props, slots, emit }) => {
         // than running off-screen.
         shift: true,
         isOpen: () => state.value,
+        // A raised soft keyboard (a field elsewhere on the screen still
+        // focused) trims the box the popup flips against (#1314).
+        avoidKeyboard: true,
     });
     const level: MenuLevel = {
         open: () => state.value,
