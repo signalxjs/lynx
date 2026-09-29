@@ -1,7 +1,9 @@
 import {
     component,
     defineProvide,
+    dispatchBackInterceptors,
     effect,
+    hasBackInterceptors,
     onUnmounted,
     signal,
     untrack,
@@ -37,7 +39,7 @@ import {
 } from '../internal/sheet-detents.js';
 import { screenHeight } from '../internal/screen-width.js';
 import { GRABBER_HEIGHT } from '@sigx/lynx-sheet';
-import { EdgeBackHandle, createEdgeBackState, type EdgeBackState } from './EdgeBackHandle.js';
+import { EdgeBackHandle, EdgeInterceptStrip, createEdgeBackState, type EdgeBackState } from './EdgeBackHandle.js';
 import { Layer } from './Layer.js';
 import { SheetBackdrop } from './SheetBackdrop.js';
 import { SheetDragAdapter } from './SheetDragAdapter.js';
@@ -333,6 +335,12 @@ export const Stack = component<StackProps>(({ props, slots }) => {
     // opens a transition, which releases any MT ref it owns while the
     // native pan is still delivering onUpdate/onEnd (#1201).
     const edgeBackState = useMainThreadRef<EdgeBackState>(createEdgeBackState());
+    // The edge swipe as a back press (#1312): interceptors first, then pop
+    // THIS stack. Reads `nav` at call time — it is assigned below.
+    const onInterceptedEdgeBack = (): void => {
+        if (dispatchBackInterceptors()) return;
+        if (nav.canGoBack) nav.pop();
+    };
 
     if (isNested) {
         if (!routes[initialName]) {
@@ -667,6 +675,11 @@ export const Stack = component<StackProps>(({ props, slots }) => {
         // The handle only intercepts touches in the leftmost 20px and
         // ignores small drags, so placing it last (highest z) doesn't
         // disturb screen touches.
+        //
+        // While a back interceptor is registered (an open overlay, an
+        // unsaved-changes guard), the swipe is a back PRESS, not a drag:
+        // it goes to the interceptors first and pops only when none
+        // consumed it, exactly like Android's hardware back (#1312).
         const top = nav.current;
         const edgeHandle = (
             internals.edgeSwipeEnabled
@@ -674,7 +687,9 @@ export const Stack = component<StackProps>(({ props, slots }) => {
             && !nav.transition
             && !isOverlayPresentation(top.presentation)
         )
-            ? <EdgeBackHandle key="edge-back" state={edgeBackState} />
+            ? (hasBackInterceptors()
+                ? <EdgeInterceptStrip key="edge-intercept" onBack={onInterceptedEdgeBack} />
+                : <EdgeBackHandle key="edge-back" state={edgeBackState} />)
             : null;
 
         const body = (

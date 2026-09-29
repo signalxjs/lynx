@@ -413,6 +413,7 @@ const DrawerPanel = component<DrawerPanelProps>(({ props, slots }) => {
                 dismiss: () => {
                     if (drawer.dismissible()) drawer.requestClose(tapping ? 'backdrop' : 'escape');
                 },
+                active: portal.active,
             });
             if (!releaseKeyboard) {
                 releaseKeyboard = acquireKeyboard();

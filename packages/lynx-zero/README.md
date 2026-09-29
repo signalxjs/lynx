@@ -174,6 +174,27 @@ The platform spellings to know:
   Tooltips and toasts are not layers, so back passes them by. Without
   lynx-navigation nothing dispatches to the interceptor, and back keeps
   its platform default.
+- **Overlays belong to their screen.** A navigator keeps a covered screen
+  mounted, and the outlet paints above everything, so every overlay reads
+  its owner's `useScreenActive()` (from `@sigx/lynx`, provided per screen
+  by `@sigx/lynx-navigation`) (#1308). While its screen is covered, an open
+  overlay leaves the outlet and its layer stops counting: back (and the iOS
+  edge swipe) on the screen on top never reaches it. When the screen is
+  uncovered the overlay renders again, as on a fresh open. It is still
+  open, but transient state inside it (an uncontrolled field's text, a
+  scroll offset) starts over. This works the same with one app-level
+  `ZeroRoot` or one per screen. `LynxDismissLayer.active` carries the
+  activity for custom layers, and `useOverlayPortal()` returns it as
+  `portal.active`.
+- **The iOS edge swipe is back.** iOS has no back button, and an open
+  layer sits above the navigator's edge strip. While a layer is open on
+  the screen on top, the outlet carries its own 20px edge strip, above
+  every layer. A rightward swipe from it is a back press, offered to the
+  same interceptors (#1312): the innermost dismissible layer closes (a
+  drawer reports `escape`), and a non-dismissible one keeps the swipe
+  without closing, exactly as Android back does. Its own buttons are the
+  way out. `hasActiveDismissLayer()` is the reactive read behind the
+  strip.
 - **The outlet passes touches AND pans through.** Two hit-tests matter.
   Lynx's own (taps, `bindtap`) honours `pointer-events`: the layer is
   `none`, and since both engines INHERIT the value, the root of every

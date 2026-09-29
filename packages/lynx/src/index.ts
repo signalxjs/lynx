@@ -65,9 +65,19 @@ export type { PlatformOS, PlatformSelectSpec, DeviceInfoResult } from '@sigx/lyn
 // Back interceptors (#1290) — close what is on top before a back press
 // navigates. An overlay (or an unsaved-changes guard) registers one; the
 // hardware-back wiring in @sigx/lynx-navigation offers every press to them
-// first, newest first. The dispatcher stays in core: only the back wiring calls it.
+// first, newest first.
 export { addBackInterceptor } from '@sigx/lynx-core';
 export type { BackInterceptor } from '@sigx/lynx-core';
+// The dispatcher and its reactive "anything registered?" read are for the
+// surfaces that OWN a back gesture: the hardware-back wiring, and the iOS
+// edge-swipe strips of the navigator and the overlay outlet (#1312).
+export { dispatchBackInterceptors, hasBackInterceptors } from '@sigx/lynx-core';
+
+// Screen activity (#1308): whether the screen a component belongs to is the
+// one on top. Navigators provide it per screen; an overlay outlet hides a
+// covered screen's layers with it.
+export { useScreenActive, provideScreenActive } from './screen-active.js';
+export type { ScreenActive } from './screen-active.js';
 
 // OS font scale (#766/#770) — ambient device state like Platform/DeviceInfo.
 // The engine scales ordinary text automatically; these reads are for adapting

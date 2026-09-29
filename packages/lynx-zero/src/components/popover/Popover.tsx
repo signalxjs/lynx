@@ -122,7 +122,7 @@ const PopoverPopup = component<PopupProps>(({ props, slots }) => {
 
     effect(() => {
         if (popover?.open()) {
-            unregister ??= registerDismissLayer({ dismiss: () => popover.setOpen(false) });
+            unregister ??= registerDismissLayer({ dismiss: () => popover.setOpen(false), active: portal.active });
             portal.show(() => (
                 // A 0×0 root at the outlet's origin (`overflow: visible`):
                 // it covers nothing, so a pan beside the popup reaches the

@@ -32,23 +32,27 @@
  * than an overlay silently z-fighting in place.
  */
 import type { Define, LayoutChangeEvent } from '@sigx/lynx';
-import { component, createLogger, defineInjectable, defineProvide, effect, onUnmounted, signal, useScreen, useViewportRect } from '@sigx/lynx';
+import { component, createLogger, defineInjectable, defineProvide, dispatchBackInterceptors, effect, onUnmounted, signal, useScreen, useScreenActive, useViewportRect } from '@sigx/lynx';
+import { hasActiveDismissLayer } from '../behaviors/dismiss.js';
 import { containedFrame, fixedOutletRect, provideOverlayOrigin, settleRect, tallestAtWidth } from '../behaviors/position.js';
 import type { ThemeProviderProps } from '../theme/ThemeProvider.js';
 import { ThemeProvider } from '../theme/ThemeProvider.js';
+import { EDGE_BACK_WIDTH, createEdgeSwipe, edgeBackEnabled } from './edge-back.js';
 
 const log = createLogger('lynx-zero');
 
-/** One registered overlay: a stable identity and its render closure. */
+/** One registered overlay: a stable identity, its render closure, its screen. */
 interface OverlayEntry {
     id: number;
     render: () => unknown;
+    /** Whether the owner's screen is the one on top — reactive (#1308). */
+    active: () => boolean;
 }
 
 interface OverlayRegistry {
     /** True when a real host is mounted (the default registry is inert). */
     live: boolean;
-    show(id: number, render: () => unknown): void;
+    show(id: number, render: () => unknown, active: () => boolean): void;
     hide(id: number): void;
     entries(): OverlayEntry[];
 }
@@ -81,7 +85,7 @@ function makeRegistry(): OverlayRegistry {
     const defer = (mutate: () => void): void => {
         queueMicrotask(mutate);
     };
-    const applyShow = (id: number, render: () => unknown): void => {
+    const applyShow = (id: number, render: () => unknown, active: () => boolean): void => {
             // Update IN PLACE when already open — show() must be idempotent
             // for ordering, because an effect that calls it re-runs on
             // unrelated signal writes (object signals track coarsely) and a
@@ -90,13 +94,13 @@ function makeRegistry(): OverlayRegistry {
             // hides and re-shows.
             const existing = stack.entries.findIndex((e) => e.id === id);
             stack.entries = existing === -1
-                ? [...stack.entries, { id, render }]
-                : stack.entries.map((e, i) => (i === existing ? { id, render } : e));
+                ? [...stack.entries, { id, render, active }]
+                : stack.entries.map((e, i) => (i === existing ? { id, render, active } : e));
     };
     return {
         live: true,
-        show(id, render) {
-            defer(() => applyShow(id, render));
+        show(id, render, active) {
+            defer(() => applyShow(id, render, active));
         },
         hide(id) {
             defer(() => {
@@ -112,6 +116,12 @@ export interface OverlayPortal {
     show(render: () => unknown): void;
     /** Remove it. Also runs automatically on unmount. */
     hide(): void;
+    /**
+     * Whether the owner's screen is the one on top (`useScreenActive()`,
+     * #1308) — a reactive read. Pass it to `registerDismissLayer` so a
+     * covered screen's layer stops claiming back.
+     */
+    active: () => boolean;
 }
 
 /**
@@ -133,14 +143,19 @@ export interface OverlayPortal {
  */
 export function useOverlayPortal(): OverlayPortal {
     const registry = useOverlayRegistry();
+    // The OWNER's screen, captured here in the owner's setup: the outlet may
+    // sit above the navigator (one app-level ZeroRoot) or inside the screen,
+    // and either way an entry follows the screen that opened it (#1308).
+    const active = useScreenActive();
     const id = nextOverlayId++;
     // Setup-scoped by contract (like every use*): the unmount hook is what
     // keeps an overlay from outliving its owner — a component that unmounts
     // while open must not leak its entry into the outlet forever.
     onUnmounted(() => registry.hide(id));
     return {
-        show: (render) => registry.show(id, render),
+        show: (render) => registry.show(id, render, active),
         hide: () => registry.hide(id),
+        active,
     };
 }
 
@@ -162,6 +177,35 @@ const OverlayEntryBoundary = component<OverlayEntryProps>(({ props }) => {
     // that re-asserts the JSX shape for the runtime.
     return () => props.render() as never;
 }, { name: 'OverlayEntry' });
+
+type OverlayEdgeBackProps = Define.Prop<'height', number, true>;
+
+/**
+ * The iOS edge-back strip over the open layers (#1312, see `edge-back.ts`):
+ * a swipe in from the left edge is a back press, offered to the back
+ * interceptors like Android's back button.
+ */
+const OverlayEdgeBack = component<OverlayEdgeBackProps>(({ props }) => {
+    const swipe = createEdgeSwipe(() => {
+        dispatchBackInterceptors();
+    });
+    return () => (
+        <view
+            style={{
+                ...OVERLAY_ROOT_STYLE,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: `${EDGE_BACK_WIDTH}px`,
+                height: `${props.height}px`,
+            }}
+            bindtouchstart={swipe.start}
+            bindtouchmove={swipe.move}
+            bindtouchend={swipe.end}
+            bindtouchcancel={swipe.cancel}
+        />
+    );
+}, { name: 'OverlayEdgeBack' });
 
 type OverlayHostProps = Define.Slot<'default'>;
 
@@ -309,6 +353,18 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     // `OVERLAY_ROOT_STYLE` (see there).
     return () => {
         const entries = registry.entries();
+        // Only the overlays of screens on top render (#1308). A navigator
+        // keeps a covered screen mounted, and this layer paints above the
+        // whole page, so a covered screen's open dialog would paint over the
+        // screen pushed on top of it. Its entry stays REGISTERED (the owner
+        // is still open) but leaves the outlet, and it renders again, as on
+        // a fresh open, once its screen is uncovered. Unmounting rather than
+        // hiding is deliberate: on iOS a `display: none` wrapper left an
+        // anchored popover's text painting at the window origin and the
+        // restored popover blank. The cost is transient state inside the
+        // overlay (an uncontrolled field's text, a scroll offset).
+        const shown = entries.filter((entry) => entry.active());
+        const edgeBack = shown.length > 0 && edgeBackEnabled() && hasActiveDismissLayer();
         return (
             <view
                 main-thread:ref={frame.ref}
@@ -329,10 +385,11 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
                     native-interaction-enabled={false}
                     style={OUTLET_SIZER_STYLE}
                 />
-                <view style={{ ...OUTLET_LAYER_STYLE, display: entries.length > 0 ? 'flex' : 'none' }}>
-                    {entries.map((entry) => (
+                <view style={{ ...OUTLET_LAYER_STYLE, display: shown.length > 0 ? 'flex' : 'none' }}>
+                    {shown.map((entry) => (
                         <OverlayEntryBoundary key={entry.id} render={entry.render} />
                     ))}
+                    {edgeBack ? <OverlayEdgeBack key="edge-back" height={outletRect()?.height ?? screen.value.height} /> : null}
                 </view>
             </view>
         );

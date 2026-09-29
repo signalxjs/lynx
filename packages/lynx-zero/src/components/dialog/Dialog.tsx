@@ -232,6 +232,7 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
                 dismiss: () => {
                     if (dialog.dismissible()) dialog.setOpen(false);
                 },
+                active: portal.active,
             });
             if (!releaseKeyboard) {
                 releaseKeyboard = acquireKeyboard();

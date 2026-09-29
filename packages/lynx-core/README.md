@@ -333,7 +333,7 @@ an explanatory message there. Feature-detect with `Orientation.isAvailable()`.
 ## Back interceptors
 
 ```ts
-import { addBackInterceptor, dispatchBackInterceptors } from '@sigx/lynx-core';
+import { addBackInterceptor, dispatchBackInterceptors, hasBackInterceptors } from '@sigx/lynx-core';
 ```
 
 - **`addBackInterceptor(fn: () => boolean): () => void`** — register a handler
@@ -343,12 +343,20 @@ import { addBackInterceptor, dispatchBackInterceptors } from '@sigx/lynx-core';
 - **`dispatchBackInterceptors(): boolean`** — offer a press to the
   interceptors; `true` means one consumed it and the caller must not
   navigate. A throwing interceptor is logged and skipped. Called by
-  `@sigx/lynx-navigation`'s hardware-back wiring before it pops.
+  `@sigx/lynx-navigation`'s hardware-back wiring before it pops, and by the
+  iOS edge-swipe strips (the navigator's and `@sigx/lynx-zero`'s overlay
+  outlet's).
+- **`hasBackInterceptors(): boolean`** — whether any interceptor is
+  registered. A reactive read: an effect or render that calls it re-runs
+  when the answer flips. `<Stack>` uses it to turn its iOS edge swipe into a
+  back press while an interceptor is registered
+  ([#1312](https://github.com/signalxjs/lynx/issues/1312)).
 
 Pure JS, no native side: the contract lives in core so overlays
 (`@sigx/lynx-zero`'s dismiss stack) can close on back without depending on
-navigation ([#1290](https://github.com/signalxjs/lynx/issues/1290)). iOS never
-fires a back press, so nothing dispatches there.
+navigation ([#1290](https://github.com/signalxjs/lynx/issues/1290)). iOS has
+no back button; its back is the edge swipe, which dispatches to the same
+interceptors.
 
 ## Permissions helpers
 

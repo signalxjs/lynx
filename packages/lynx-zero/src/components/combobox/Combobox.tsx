@@ -642,6 +642,7 @@ const ComboboxRootImpl = component<ComboboxRootProps>(({ props, emit, slots }) =
                 dismiss: () => {
                     open.value = false;
                 },
+                active: portal.active,
             });
         } else {
             unregister?.();

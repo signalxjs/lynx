@@ -176,3 +176,74 @@ export const EdgeBackHandle = component<EdgeBackHandleProps>(({ props }) => {
         />
     );
 });
+
+/** Horizontal travel (px) a release needs to count as a back swipe. */
+const INTERCEPT_MIN_TRAVEL = 40;
+
+/** The point a lynx touch event carries, whichever field this engine fills. */
+function touchPoint(e: unknown): { x: number; y: number } | null {
+    type P = { pageX?: number; pageY?: number; clientX?: number; clientY?: number; x?: number; y?: number };
+    const ev = (e ?? {}) as { touches?: P[]; changedTouches?: P[]; detail?: P };
+    const t = ev.changedTouches?.[0] ?? ev.touches?.[0] ?? ev.detail;
+    if (!t) return null;
+    const x = t.pageX ?? t.clientX ?? t.x;
+    const y = t.pageY ?? t.clientY ?? t.y;
+    return typeof x === 'number' && typeof y === 'number' ? { x, y } : null;
+}
+
+export type EdgeInterceptStripProps = Define.Prop<'onBack', () => void, true>;
+
+/**
+ * The edge strip while a back interceptor is registered (#1312).
+ *
+ * iOS has no back button: the edge swipe IS back. `addBackInterceptor`
+ * promises that whatever registered one (an open overlay, an unsaved-
+ * changes guard) sees a back press before navigation acts, and Android's
+ * hardware back keeps that promise. The interactive `<EdgeBackHandle>`
+ * cannot: it starts dragging the screen away the moment the pan starts.
+ * So while any interceptor is registered, `<Stack>` renders this strip
+ * instead: it waits for the swipe to finish, then calls `onBack`, which
+ * offers the press to the interceptors and pops only when none consumed
+ * it. The pop animates like a back button's, not with the finger.
+ *
+ * Plain BG touch events: one decision per gesture, no per-frame work.
+ */
+export const EdgeInterceptStrip = component<EdgeInterceptStripProps>(({ props }) => {
+    let origin: { x: number; y: number } | null = null;
+    let last: { x: number; y: number } | null = null;
+    const start = (e: unknown): void => {
+        origin = touchPoint(e);
+        last = origin;
+    };
+    const move = (e: unknown): void => {
+        last = touchPoint(e) ?? last;
+    };
+    const end = (e: unknown): void => {
+        const from = origin;
+        const to = touchPoint(e) ?? last;
+        origin = null;
+        last = null;
+        if (!from || !to) return;
+        const dx = to.x - from.x;
+        if (dx >= INTERCEPT_MIN_TRAVEL && dx > Math.abs(to.y - from.y)) props.onBack();
+    };
+    const cancel = (): void => {
+        origin = null;
+        last = null;
+    };
+    return () => (
+        <view
+            bindtouchstart={start}
+            bindtouchmove={move}
+            bindtouchend={end}
+            bindtouchcancel={cancel}
+            style={{
+                position: 'absolute',
+                top: '0',
+                left: '0',
+                width: `${EDGE_ZONE_WIDTH}px`,
+                bottom: '0',
+            }}
+        />
+    );
+});
