@@ -42,7 +42,7 @@ import { Chat, ChatLog, FileUpload } from '@sigx/lynx-zero';
 import type { FileRejection, FileUploadFile } from '@sigx/lynx-zero';
 import { FilePicker } from '@sigx/lynx-file-picker';
 import { Drawer, Tooltip } from '@sigx/lynx-zero';
-import type { DrawerMeasure, DrawerPlacement } from '@sigx/lynx-zero';
+import type { DrawerCloseDetail, DrawerMeasure, DrawerPlacement } from '@sigx/lynx-zero';
 import { Carousel, Table } from '@sigx/lynx-zero';
 import type { TableColumn, TableSort, TableSortDirection } from '@sigx/lynx-zero';
 import { Combobox } from '@sigx/lynx-zero';
@@ -1941,6 +1941,41 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     </TreeView.Root>
                 </Col>
             ),
+            // #1292: select rows by TAPPING — the tapped row's label and
+            // chevron take the accent's -content ink live, not only at mount.
+            'live-select': () => (
+                <Col gap={16}>
+                    {(['primary', 'secondary'] as const).map((color) => (
+                        <Col gap={6}>
+                            <text class="zg-note">{`${color} · nothing selected at mount — tap rows`}</text>
+                            <TreeView.Root color={color} defaultExpandedValues={['src']}>
+                                <TreeView.Tree>
+                                    <TreeView.Branch value="src">
+                                        <TreeView.BranchTrigger><TreeView.BranchIndicator /><text>src</text></TreeView.BranchTrigger>
+                                        <TreeView.BranchContent>
+                                            <TreeView.Item value="src/index.ts"><text>index.ts</text></TreeView.Item>
+                                            <TreeView.Item value="src/util.ts"><text>util.ts</text></TreeView.Item>
+                                        </TreeView.BranchContent>
+                                    </TreeView.Branch>
+                                    <TreeView.Item value="README.md"><text>README.md</text></TreeView.Item>
+                                </TreeView.Tree>
+                            </TreeView.Root>
+                        </Col>
+                    ))}
+                    <text class="zg-note">multiple + checkable · tap rows and boxes</text>
+                    <TreeView.Root multiple checkable defaultExpandedValues={['docs']}>
+                        <TreeView.Tree>
+                            <TreeView.Branch value="docs">
+                                <TreeView.BranchTrigger><TreeView.BranchIndicator /><TreeView.NodeCheckbox /><text>docs</text></TreeView.BranchTrigger>
+                                <TreeView.BranchContent>
+                                    <TreeView.Item value="docs/a.md"><TreeView.NodeCheckbox /><text>a.md</text></TreeView.Item>
+                                    <TreeView.Item value="docs/b.md"><TreeView.NodeCheckbox /><text>b.md</text></TreeView.Item>
+                                </TreeView.BranchContent>
+                            </TreeView.Branch>
+                        </TreeView.Tree>
+                    </TreeView.Root>
+                </Col>
+            ),
         },
     },
     drawer: {
@@ -1972,6 +2007,11 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                 </Drawer.Root>
             ),
             measure: () => <DrawerOpen placement="start" measure={240} />,
+            // Live dismiss: open at mount and DISMISSIBLE — a tap on the dim
+            // closes it, and so does the system back (Android back button /
+            // iOS edge swipe). The trigger reopens it; the note under it
+            // shows the last close reason.
+            dismissible: () => <DrawerDismissible />,
             // Focus the field: the sheet's content lifts above the keyboard.
             keyboard: () => (
                 <Drawer.Root defaultOpen dismissible={false} placement="bottom">
@@ -2226,6 +2266,52 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     </view>
                 </Col>
             ),
+            // Keyboard-lift case: a combobox inside an open Dialog. Tap the
+            // field — the dialog lifts above the keyboard, the list opens
+            // anchored to the lifted field (flipped above when the keyboard
+            // leaves no room below), and a pick fills the field.
+            'in-dialog': () => (
+                <Dialog.Root defaultOpen dismissible={false}>
+                    <Dialog.Trigger><text>Open dialog</text></Dialog.Trigger>
+                    <Dialog.Popup>
+                        <Dialog.Title>Pick a fruit</Dialog.Title>
+                        <Dialog.Description>Tap the field: the panel lifts and the list follows it.</Dialog.Description>
+                        <Combobox.Root
+                            items={FRUIT}
+                            itemValue={(o) => o.value}
+                            itemGroup={(o) => o.group}
+                            placeholder="Search fruit"
+                            label="Fruit"
+                            clearable
+                        />
+                        <Dialog.Footer>
+                            <Dialog.Close><text>Done</text></Dialog.Close>
+                        </Dialog.Footer>
+                    </Dialog.Popup>
+                </Dialog.Root>
+            ),
+            // A combobox in the lower half of the screen: open at mount, the
+            // list has no room below and opens ABOVE the field. Tap the field
+            // too — with the keyboard up it stays above.
+            'lower-half': () => (
+                <Col gap={10}>
+                    <text class="zg-note">lower half · open at mount · the list opens above</text>
+                    <view style={{ height: '470px' }} />
+                    <view style={{ width: '240px' }}>
+                        <Combobox.Root
+                            defaultOpen
+                            items={FRUIT}
+                            itemValue={(o) => o.value}
+                            itemGroup={(o) => o.group}
+                            groupSeparators
+                            defaultValue="banana"
+                            defaultInputValue=""
+                            placeholder="Search fruit"
+                            label="Fruit"
+                        />
+                    </view>
+                </Col>
+            ),
             tags: () => (
                 <Col gap={10}>
                     <text class="zg-note">multiple: tags before the field</text>
@@ -2362,6 +2448,28 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
         },
     },
 };
+
+/**
+ * A dismissible drawer open at mount: a tap on the dim closes it
+ * (`backdrop`), the system back closes it (`escape`); the note shows the last
+ * close reason, and the trigger reopens it.
+ */
+const DrawerDismissible = component(() => {
+    const state = signal({ reason: '—' });
+    return () => (
+        <Col gap={10} align="flex-start">
+            <text class="zg-note">{`dismissible · tap the dim or press back · last close: ${state.reason}`}</text>
+            <Drawer.Root defaultOpen color="primary" onClose={(detail: DrawerCloseDetail) => { state.reason = detail.reason; }}>
+                <Drawer.Trigger><text>Open drawer</text></Drawer.Trigger>
+                <Drawer.Panel>
+                    <Drawer.Title>Dismissible</Drawer.Title>
+                    <text class="zg-note">Tap outside the panel, or press back, to close it.</text>
+                    <Row justify="flex-start"><Drawer.Close><text>Close</text></Drawer.Close></Row>
+                </Drawer.Panel>
+            </Drawer.Root>
+        </Col>
+    );
+});
 
 /** A drawer open at mount on `placement`: title, a few links, Close. */
 const DrawerOpen = component<Define.Prop<'placement', DrawerPlacement, true> & Define.Prop<'measure', DrawerMeasure, false>>(

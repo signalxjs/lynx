@@ -1167,7 +1167,10 @@ export const GALLERY_SCOPES = {
         // `checkable`: node check boxes — checked leaf, a tri-state branch, a
         // disabled leaf, a box on a selected row, and held. `multiple`: two
         // rows selected. `indicator`: expandOnClick={false}, a deeper tree.
-        extras: ['checkable', 'multiple', 'indicator'],
+        // `live-select` (#1292): nothing selected at mount — tap rows; the
+        // selected row's label and chevron re-ink live (primary, secondary,
+        // and a multiple + checkable tree).
+        extras: ['checkable', 'multiple', 'indicator', 'live-select'],
         cellWidth: 81,
         // Rows are `--space-sm` × `--space-md` padding around one line of
         // `--tree-text` (xs, xs, sm, md, lg); the leaf under the branch is
@@ -1200,7 +1203,10 @@ export const GALLERY_SCOPES = {
         // (forced pressed), focus (forced), disabled. `measure`: a start
         // panel capped at 240pt by `measure`. `keyboard`: a bottom sheet
         // with a field — focus it and the content lifts above the keyboard.
-        extras: ['start', 'end', 'top', 'bottom', 'close-states', 'measure', 'keyboard'],
+        // `dismissible`: open at mount and dismissible — a dim tap or the
+        // system back closes it (the note shows the reason); the trigger
+        // reopens it.
+        extras: ['start', 'end', 'top', 'bottom', 'close-states', 'measure', 'keyboard', 'dismissible'],
         cellWidth: 100,
         cell: fieldTrigger('Open'),
     },
@@ -1309,7 +1315,11 @@ export const GALLERY_SCOPES = {
         // `empty-loading`: the empty row, then the loading row.
         // `tags`: multiple — tags, a held remove, a forced tag ring,
         // readonly and disabled tags.
-        extras: ['open', 'open-held', 'open-query', 'open-color', 'empty-loading', 'tags'],
+        // `in-dialog`: a combobox inside an open Dialog — the keyboard-lift
+        // case (tap the field: the panel lifts, the list follows it).
+        // `lower-half`: open at mount low on the screen — the list flips
+        // above the field.
+        extras: ['open', 'open-held', 'open-query', 'open-color', 'empty-loading', 'tags', 'in-dialog', 'lower-half'],
         cellWidth: 163,
         // The control is `--size-field * 8…16` tall (the shared field ramp)
         // as a floor; a single-value field never wraps.

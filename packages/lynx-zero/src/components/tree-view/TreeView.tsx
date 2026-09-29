@@ -54,6 +54,12 @@
  *   holding `›` (the anatomy's glyph) and a checked NodeCheckbox holds `✓`
  *   (`−` when indeterminate): lynx has no pseudo-elements for a skin to draw
  *   them with. They inherit the box's ink by CSS inheritance.
+ * - **The row inks its label.** The row's text is the author's `<text>`,
+ *   inked by inheritance from the row. A skin must not transition the
+ *   row's `color` on lynx: the new animator ticks a transitioned colour into
+ *   the row's own paint only, so the label kept the old ink after a live
+ *   selection (#1292; the daisy skin's lynx target transitions background
+ *   only, zero#522).
  * - **Rows tint, they do not scale.** The rows' press feedback is tier 1 (the
  *   `pressed` flag, no main-thread scale): daisy's rows sink by tint. Pass
  *   `pressFeel` on the Root for the main-thread feel.

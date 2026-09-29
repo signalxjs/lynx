@@ -1239,6 +1239,14 @@ How it behaves on lynx:
   the reader, because the row already says what they show.
 - **Press.** A row gets the `pressed` flag while touched. It does not scale
   (daisy's rows darken instead) unless you set `pressFeel` on the Root.
+- **The row inks its label.** Your row text takes its colour from the row,
+  so a selected row's label turns the accent's `-content` colour. On lynx
+  the skin must not transition a row's `color`: Lynx's animator applies a
+  transitioned colour to the row's own paint only, and the label keeps the
+  old ink, so a row selected by a tap showed dark text on the accent fill
+  (#1292). The daisy skin transitions only the row's background on lynx
+  ([signalxjs/zero#522](https://github.com/signalxjs/zero/pull/522), with
+  the next zero bump). A custom skin needs the same rule.
 - **Indentation** comes from the skin: `branch-content` has a left padding
   (a physical one, since Android ignores the logical spelling), and the
   nesting adds it up.
@@ -1519,7 +1527,12 @@ How they behave on lynx:
   descending, hidden while unsorted). The web shows the unsorted mark on
   hover and keyboard focus. Lynx shows it while the trigger is held
   (`zx-m-held` on the indicator). The trigger's name carries the direction
-  ("Name, sorted ascending").
+  ("Name, sorted ascending"). A plain-text header label keeps its content
+  width (`flex-shrink: 0`), because lynx's flex has no automatic minimum and
+  the ▲ beside it would otherwise break a word in a narrow header ("Nam / e",
+  #1299). A header too narrow for the label and the mark overflows whole, as
+  the web's column grows. The skin holds the mark the same way
+  ([signalxjs/zero#522](https://github.com/signalxjs/zero/pull/522)).
 - **Zebra is stamped.** Lynx has no `:nth-child`, so the body tracks its rows
   in mount order and stamps each even, unselected row `stripe`
   (`zx-m-stripe`, `data-mod-stripe`). A selected row keeps its own fill.
@@ -1690,7 +1703,7 @@ import { FilePicker } from '@sigx/lynx-file-picker';
 | `FileUpload.Root` `disabled` / `invalid` / `required` / `color` / `size` | `boolean` / skin axes | the enclosing Field's | Inside a `Field.Root` the field's flags apply, and a tap on its label opens the picker. |
 | `FileUpload.Trigger` / `Dropzone` / `Label` | — | — | Each opens the picker on a tap. The trigger is a `button`-trait view, and `label` names it when its content is not text. |
 | `FileUpload.Item` `file` / `invalid` | `FileUploadFile` / `boolean` | — | `invalid` is for an app rendering a rejected file through Item. |
-| `FileUpload.ItemName` / `ItemSize` | — | the file's name / `1.5 kB` | `<text>` parts. Children replace the default. The name ellipsizes on one line. |
+| `FileUpload.ItemName` / `ItemSize` | — | the file's name / `1.5 kB` | `<text>` parts. Children replace the default. The name ellipsizes on one line. In a narrow row only the name gives way: the daisy skin keeps the size and the × at their content width (#1294, [signalxjs/zero#522](https://github.com/signalxjs/zero/pull/522), with the next zero bump). |
 | `FileUpload.ItemRemove` / `ClearTrigger` `label` | `string` | `"Remove <name>"` / `"Clear files"` | With no children, Remove draws `×`. ClearTrigger renders nothing while the model is empty. |
 | `Chat.Root` `placement` | `'start' \| 'end'` | `'start'` | `start` is the other party, and `end` is your own rows. `color` / `size` paint the bubble. |
 | `Chat.Root` `avatarGap` | `number` (px) | `8` | The room kept between the avatar and the column. |
