@@ -62,6 +62,13 @@ export type { Logger, LogLevelName, LogRecord, LogTransport } from '@sigx/lynx-c
 export { Platform, DeviceInfo } from '@sigx/lynx-core';
 export type { PlatformOS, PlatformSelectSpec, DeviceInfoResult } from '@sigx/lynx-core';
 
+// Back interceptors (#1290) — close what is on top before a back press
+// navigates. An overlay (or an unsaved-changes guard) registers one; the
+// hardware-back wiring in @sigx/lynx-navigation offers every press to them
+// first, newest first. The dispatcher stays in core: only the back wiring calls it.
+export { addBackInterceptor } from '@sigx/lynx-core';
+export type { BackInterceptor } from '@sigx/lynx-core';
+
 // OS font scale (#766/#770) — ambient device state like Platform/DeviceInfo.
 // The engine scales ordinary text automatically; these reads are for adapting
 // AROUND larger text (layout swaps, custom-drawn text, icon sizing).

@@ -70,6 +70,9 @@ describe('public runtime exports', () => {
                 'variant',
                 // app env (#1244)
                 'env',
+                // back interceptors (#1290)
+                'addBackInterceptor',
+                'dispatchBackInterceptors',
                 // app lifecycle (#607)
                 'APP_STATE_EVENT',
                 'AppState',

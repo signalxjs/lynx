@@ -90,6 +90,25 @@ import {
 import { __DynamicPartListSlotV2, getSnapshotDef } from '@sigx/lynx-runtime-internal/snapshot';
 
 /**
+ * Elements whose inline style is `position: fixed` (#1291). The engine hangs a
+ * fixed node's view off the PAGE ROOT, and when the node and one of its
+ * ancestors leave in the SAME flush, the view stays behind: a screen popped
+ * with an open overlay host inside it left a dead dialog and scrim over the
+ * next screen (Android, device-verified). Teardown is post-order, so the
+ * fixed node is removed while its ancestors are still attached — flushing
+ * right there hands the engine a batch in which only the fixed subtree left,
+ * and the view goes with it.
+ */
+const fixedIds = new Set<number>();
+
+/** Whether a SET_STYLE value makes the element `position: fixed`. */
+function isFixedStyle(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value === 'string') return /(^|;)\s*position\s*:\s*fixed\b/.test(value);
+  return typeof value === 'object' && (value as Record<string, unknown>).position === 'fixed';
+}
+
+/**
  * Placeholder element inserted by renderPage() to give the host a non-empty
  * tree immediately, suppressing the "loadCard failed USER_RUNTIME_ERROR"
  * timeout. Removed on the first applyOps() call.
@@ -334,7 +353,10 @@ export function applyOps(ops: unknown[]): void {
         const child = elements.get(childId);
         if (parent && child) {
           __RemoveElement(parent, child);
+          // A fixed node commits its removal on its own (see `fixedIds`).
+          if (fixedIds.has(childId)) __FlushElementTree();
         }
+        fixedIds.delete(childId);
         // Snapshot instance teardown: drop the instance record, its synthetic
         // ids, slot/ref side state, and the root's registry entry.
         if (isSnapshotInstance(childId)) {
@@ -562,6 +584,8 @@ export function applyOps(ops: unknown[]): void {
         // 3.9; the CLI's native pin is 4.0.1) propagates value changes to
         // descendant `var()` uses (#116).
         if (el) __SetInlineStyles(el, value);
+        if (isFixedStyle(value)) fixedIds.add(id);
+        else fixedIds.delete(id);
         break;
       }
 
@@ -928,6 +952,7 @@ export function resetMainThreadState(): void {
   pendingFlushOptions = undefined;
   createdThisBatch.clear();
   deferredInvokes = [];
+  fixedIds.clear();
   // Also defined in this module's imports — reset worklet state
   resetWorkletEvents();
   resetSlotStates();

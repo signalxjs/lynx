@@ -158,6 +158,22 @@ The platform spellings to know:
   backdrop dims the whole screen — status bar and home-indicator strips
   included — even when `ZeroRoot` sits inside a `SafeAreaView`, below a
   navigation header, or in a navigation stack that clips its screens.
+- **Overlays die with their owner.** An overlay whose component unmounts
+  while open (its screen popped, say) leaves the outlet with it, and a
+  `ZeroRoot` inside a popped screen takes its outlet along: the runtime
+  commits a fixed node's removal on its own, because the engine left the
+  view of a fixed node that left together with its ancestors painted over
+  the next screen (#1291).
+- **The Android back button closes the innermost overlay first.** While
+  any layer is open (Dialog, Drawer, Popover, Select, Menu and its
+  submenus, Combobox), the dismiss stack holds a back interceptor
+  (`addBackInterceptor` from `@sigx/lynx`), and `@sigx/lynx-navigation`'s
+  back wiring offers every press to it before popping: one press closes
+  one layer, and only a press with nothing open navigates (#1290). A
+  layer that won't close (`dismissible={false}`) still consumes the press.
+  Tooltips and toasts are not layers, so back passes them by. Without
+  lynx-navigation nothing dispatches to the interceptor, and back keeps
+  its platform default.
 - **The outlet passes touches AND pans through.** Two hit-tests matter.
   Lynx's own (taps, `bindtap`) honours `pointer-events`: the layer is
   `none`, and since both engines INHERIT the value, the root of every
@@ -1127,7 +1143,8 @@ How they behave on lynx:
   the resolved side, which is stamped as `data-placement`. A tap outside
   every open level closes the whole menu, as light dismiss does on the web.
   A tap on the parent level's rows still reaches them. The dismiss stack
-  (`dismissTopLayer`, for a back button) closes the innermost level first.
+  (`dismissTopLayer`, also the Android back button) closes the innermost
+  level first.
 - **Touch, not keyboard.** There is no roving focus, no typeahead and no
   arrow-key navigation. A row is activated by a tap. The row under the
   finger is stamped `highlighted` and `pressed`, so it gets the skin's

@@ -1,4 +1,5 @@
 import { onMounted, onUnmounted } from '@sigx/lynx';
+import { dispatchBackInterceptors } from '@sigx/lynx-core';
 import { BackHandler } from '@sigx/lynx-linking';
 import { log } from '../errors.js';
 import { useNav, type Nav } from './use-nav.js';
@@ -30,6 +31,9 @@ function rootOf(nav: Nav): Nav {
  * register with their parent), then walks back up the `parent` chain looking
  * for the first nav that `canGoBack`:
  *
+ *   - First, the press is offered to the back interceptors
+ *     (`addBackInterceptor` in `@sigx/lynx-core`), newest first — an open
+ *     overlay closes before anything navigates (#1290).
  *   - If any nav in the chain can go back → `nav.pop()` on that nav.
  *   - Otherwise → `BackHandler.exitApp()` (Android: `moveTaskToBack(true)`,
  *     keeps the bundle warm; iOS: rejects, since iOS doesn't permit
@@ -56,6 +60,11 @@ export function wireHardwareBack(nav: Nav): () => void {
     wiredRoots.add(root);
 
     const dispose = BackHandler.addEventListener(() => {
+        // Whatever sits ON TOP of the screen closes first (#1290): an open
+        // dialog, drawer, menu or combobox registers a back interceptor
+        // (`addBackInterceptor` in @sigx/lynx-core) while it is open. A
+        // consumed press never navigates.
+        if (dispatchBackInterceptors()) return true;
         // Walk down to the deepest focused nav. Per-tab `<Stack>`s register
         // themselves via `parent._children.add(nav)`; only one child per
         // level is `isLocallyFocused` at a time, so the traversal is

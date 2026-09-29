@@ -1550,6 +1550,9 @@ importers:
         specifier: 'catalog:'
         version: 0.16.0(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1))(@sigx/runtime-dom@1.0.1(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1)))(sigx@1.0.1)
     devDependencies:
+      '@sigx/lynx-core':
+        specifier: workspace:^
+        version: link:../lynx-core
       '@sigx/lynx-navigation':
         specifier: workspace:^
         version: link:../lynx-navigation

@@ -493,7 +493,14 @@ const ComboboxRootImpl = component<ComboboxRootProps>(({ props, emit, slots }) =
     };
     const onType = (text: string): void => {
         if (inert()) return;
-        if (inputValue.value !== text) inputValue.value = text;
+        // Android's native <input> fires `input` for PROGRAMMATIC writes too
+        // (#1298): the preset value's label at mount, the picked option's
+        // label after a pick. Those events report exactly the text the model
+        // already holds, and typing always changes the text — so an event
+        // that changes nothing is an echo, not typing, and must not open the
+        // list (iOS and the web never send it).
+        if (text === inputValue.value) return;
+        inputValue.value = text;
         setOpen(true);
     };
     const onConfirm = (): void => {
