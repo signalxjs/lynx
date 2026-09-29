@@ -1,4 +1,5 @@
-import { component, defineProvide, onUnmounted, type Define } from '@sigx/lynx';
+import { component, computed, defineProvide, onUnmounted, provideScreenActive, type Define } from '@sigx/lynx';
+import { useNav } from '../hooks/use-nav.js';
 import {
     useCurrentEntry,
     useCurrentEntryOptional,
@@ -27,6 +28,15 @@ type EntryScopeProps =
  * / TabBar — later slices) can read the focused entry's options + slot
  * fills without remounting itself.
  *
+ * Also provides the screen's ACTIVITY (`useScreenActive()` in
+ * `@sigx/lynx`, #1308): the screen is active while it is the focused top of
+ * its navigator and no transition is in flight. A covered screen stays
+ * mounted, and a surface that paints above the whole page (an overlay
+ * outlet) or listens for back reads this to hide and stand down. The
+ * transition gate makes a covered screen go inactive the moment a push
+ * starts, and a revealed one come back only once the pop has settled, so
+ * a window-wide overlay never paints over a screen sliding past it.
+ *
  * Renders the default slot directly; no extra layout element is inserted,
  * so this is layout-neutral for the screen it wraps.
  */
@@ -42,6 +52,10 @@ export const EntryScope = component<EntryScopeProps>(({ props, slots }) => {
         // unmounting the old).
         internals.screens.unregister(registry);
     });
+    const nav = useNav();
+    const entryKey = props.entry.key;
+    const active = computed(() => nav.current.key === entryKey && nav.isLocallyFocused && nav.transition === null);
+    provideScreenActive(() => active.value);
     defineProvide(useCurrentEntry, () => props.entry);
     defineProvide(useCurrentEntryOptional, () => props.entry);
     defineProvide(useScreenRegistry, () => registry);

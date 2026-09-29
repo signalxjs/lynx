@@ -73,6 +73,7 @@ describe('public runtime exports', () => {
                 // back interceptors (#1290)
                 'addBackInterceptor',
                 'dispatchBackInterceptors',
+                'hasBackInterceptors',
                 // app lifecycle (#607)
                 'APP_STATE_EVENT',
                 'AppState',

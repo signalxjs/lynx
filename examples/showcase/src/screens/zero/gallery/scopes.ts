@@ -365,7 +365,12 @@ export const GALLERY_SCOPES = {
         // non-dismissible, so a back press there is consumed and nothing
         // closes) — Android back closes it, and only a second back pops the
         // screen (#1290). Popping with it open leaves nothing behind (#1291).
-        extras: ['open', 'open-states', 'nested', 'keyboard', 'field-focus', 'back'],
+        // On iOS the edge swipe is back: it closes it the same way (#1312).
+        // `push`: a dismissible dialog with a Push button that opens the
+        // badge scope ON TOP of this screen (#1308). The pushed screen must
+        // show no trace of the dialog, back there pops it, and the dialog is
+        // back, still open, once the pushed screen is gone.
+        extras: ['open', 'open-states', 'nested', 'keyboard', 'field-focus', 'back', 'push'],
         // The default 76 let the xl trigger overlap its neighbour (#1192).
         cellWidth: 100,
         cell: fieldTrigger('Open'),

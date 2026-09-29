@@ -105,6 +105,7 @@ describe('public runtime exports', () => {
                 'defaultItemKey',
                 'defaultItemLabel',
                 'dismissTopLayer',
+                'hasActiveDismissLayer',
                 'moveHighlight',
                 'openLayerCount',
                 'provideFieldContext',

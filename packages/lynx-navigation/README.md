@@ -100,6 +100,10 @@ onUnmounted(off);
 
 The iOS-style **edge-swipe back** (a 20px strip on the left edge of a card screen; opt out with `<NavigationRoot edgeSwipeEnabled={false}>`) follows the finger and, on release, commits when the drag passed a third of the screen width *or* the flick was faster than 300 px/s. Otherwise it springs back.
 
+While a **back interceptor** is registered, the edge swipe is a back *press*, like Android's back button ([#1312](https://github.com/signalxjs/lynx/issues/1312)): the strip waits for a rightward swipe of at least 40px, offers it to the interceptors, and pops (with the normal pop animation) only when none consumed it. The interactive drag returns once no interceptor is registered. (An open `@sigx/lynx-zero` overlay paints above this strip; its outlet carries its own edge strip that dispatches the same way.)
+
+**Screen activity.** Every screen `<Stack>` renders provides `useScreenActive()` from `@sigx/lynx` ([#1308](https://github.com/signalxjs/lynx/issues/1308)): `true` while the screen is the focused top of its navigator (and of every enclosing one) and no transition is in flight. A covered screen stays mounted, so a surface that paints above the whole page or claims back (the `@sigx/lynx-zero` overlay outlet and dismiss stack) reads it to stand down while covered. It turns `false` the moment a push starts and `true` again only once a pop has settled. `useIsFocused()` is still the plain "am I the top entry" read.
+
 ## Errors
 
 Everything this package throws is a `SigxError` from `@sigx/lynx-core`, with the message `[@sigx/lynx-navigation] <action> failed: <detail>` and a stable `code` — branch on the code, never on the message:

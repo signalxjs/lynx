@@ -440,6 +440,8 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     </Dialog.Popup>
                 </Dialog.Root>
             ),
+            // #1308: push a screen over an open dialog.
+            push: () => <DialogPushOver />,
             'open-states': () => (
                 <Dialog.Root defaultOpen dismissible={false}>
                     <Dialog.Trigger><text>Open dialog</text></Dialog.Trigger>
@@ -2464,6 +2466,29 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
         },
     },
 };
+
+/**
+ * A dismissible dialog open at mount whose Push button opens another screen
+ * on top of this one (#1308). The dialog belongs to THIS screen: covered, it
+ * paints nothing and leaves back to the pushed screen; uncovered, it is
+ * back as it was.
+ */
+const DialogPushOver = component(() => {
+    const nav = useNav();
+    return () => (
+        <Dialog.Root defaultOpen>
+            <Dialog.Trigger><text>Open dialog</text></Dialog.Trigger>
+            <Dialog.Popup>
+                <Dialog.Title>Push from here</Dialog.Title>
+                <Dialog.Description>Push opens the badge gallery over this screen. This dialog must not show there, and is back when you return.</Dialog.Description>
+                <Dialog.Footer>
+                    <Dialog.Close><text>Close</text></Dialog.Close>
+                    <Button color="primary" onPress={() => nav.push('zeroGalleryScope', { scope: 'badge' })}><text>Push</text></Button>
+                </Dialog.Footer>
+            </Dialog.Popup>
+        </Dialog.Root>
+    );
+});
 
 /**
  * A dismissible drawer open at mount: a tap on the dim closes it

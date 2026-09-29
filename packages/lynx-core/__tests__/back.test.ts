@@ -1,6 +1,7 @@
 /** Back interceptors (#1290): newest first, first `true` consumes. */
 import { afterEach, describe, expect, it } from 'vitest';
-import { addBackInterceptor, dispatchBackInterceptors } from '../src/index';
+import { effect } from '@sigx/reactivity';
+import { addBackInterceptor, dispatchBackInterceptors, hasBackInterceptors } from '../src/index';
 
 const offs: Array<() => void> = [];
 const add = (fn: () => boolean): (() => void) => {
@@ -57,5 +58,21 @@ describe('back interceptors', () => {
         add(() => true);
         add(() => { throw new Error('boom'); });
         expect(dispatchBackInterceptors()).toBe(true);
+    });
+
+    it('hasBackInterceptors is a reactive read of whether any is registered (#1312)', () => {
+        const seen: boolean[] = [];
+        const runner = effect(() => {
+            seen.push(hasBackInterceptors());
+        });
+        const offA = add(() => true);
+        const offB = add(() => true);
+        offA();
+        offB();
+        offB();
+        runner.stop();
+        // One flip each way: registering a second one, or unregistering
+        // twice, does not change the answer.
+        expect(seen).toEqual([false, true, false]);
     });
 });

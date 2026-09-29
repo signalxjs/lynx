@@ -236,6 +236,7 @@ const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
                 dismiss: () => {
                     open.value = false;
                 },
+                active: portal.active,
             });
             portal.show(() => (
                 // A 0×0 root (see Popover): it covers nothing natively, so a

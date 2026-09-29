@@ -13,9 +13,14 @@
  *   when no interceptor consumed the press.
  *
  * Interceptors run newest first, and the first that returns `true` consumes
- * the press. Pure JS, no native side: iOS never fires a back press, so
- * nothing calls the dispatcher there.
+ * the press. Pure JS, no native side. iOS has no back button; its system
+ * back is the edge swipe, and the gesture surfaces that own it (the
+ * navigator's edge strip, an overlay outlet's edge strip) call the same
+ * dispatcher (#1312). `hasBackInterceptors()` is the reactive read those
+ * surfaces use to decide whether a swipe must be offered to the
+ * interceptors before it may pop a screen.
  */
+import { signal } from '@sigx/reactivity';
 import { createLogger } from './logger.js';
 
 const log = createLogger('lynx-core');
@@ -24,6 +29,17 @@ const log = createLogger('lynx-core');
 export type BackInterceptor = () => boolean;
 
 const interceptors: BackInterceptor[] = [];
+
+/**
+ * Reactive mirror of "is any registered?" (the array itself is not
+ * reactive). A boolean, so readers re-run only when the answer flips.
+ */
+const registered = signal({ any: false });
+
+function syncCount(): void {
+    const any = interceptors.length > 0;
+    if (registered.any !== any) registered.any = any;
+}
 
 /**
  * Register a back interceptor. Newer interceptors run first — the one
@@ -35,10 +51,22 @@ export function addBackInterceptor(interceptor: BackInterceptor): () => void {
     // A wrapper, so the same function registered twice unregisters one entry.
     const entry: BackInterceptor = () => interceptor();
     interceptors.push(entry);
+    syncCount();
     return () => {
         const index = interceptors.indexOf(entry);
         if (index !== -1) interceptors.splice(index, 1);
+        syncCount();
     };
+}
+
+/**
+ * Whether any interceptor is registered — a REACTIVE read (it tracks inside
+ * an effect or a render), for gesture surfaces that must route a back
+ * gesture through `dispatchBackInterceptors()` instead of popping directly
+ * (#1312).
+ */
+export function hasBackInterceptors(): boolean {
+    return registered.any;
 }
 
 /**

@@ -266,7 +266,7 @@ const MenuPopup = component<PopupProps>(({ props, slots }) => {
 
     effect(() => {
         if (menu?.open()) {
-            unregister ??= registerDismissLayer({ dismiss: () => menu.setOpen(false) });
+            unregister ??= registerDismissLayer({ dismiss: () => menu.setOpen(false), active: portal.active });
             portal.show(() => (
                 // A 0×0 root at the outlet's origin: it covers nothing, so a
                 // pan beside the popup scrolls the page (#1190); it opts back
@@ -639,7 +639,7 @@ const MenuSubPopup = component<PopupProps>(({ props, slots }) => {
     effect(() => {
         if (sub?.open()) {
             // The back-button path closes the innermost level first.
-            unregister ??= registerDismissLayer({ dismiss: () => sub.setOpen(false) });
+            unregister ??= registerDismissLayer({ dismiss: () => sub.setOpen(false), active: portal.active });
             portal.show(() => (
                 // No outside surface of its own: a tap outside every level
                 // lands on the root popup's (closing the chain), and a tap
