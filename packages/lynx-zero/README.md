@@ -1152,12 +1152,14 @@ How they behave on lynx:
   `focus-visible` on the trigger is never set live. The gallery forces it.
 - **Submenus on a phone.** A submenu opens beside its sub-trigger in its
   own outlet entry, above the parent. Two popups side by side do not fit a
-  portrait screen, so when neither side fits, the submenu slides back over
-  its parent instead of running off the screen (the `shift` option of the
-  placement math). It slides on the side with more room, so it covers as
-  little of its parent as it can: a nested submenu whose parent submenu
-  already sits against the trailing edge opens on the leading side, and
-  the parent's rows stay visible. As on the web, each level has at most one open
+  portrait screen, so when neither side fits, the submenu takes the side
+  with more room and narrows to the room beside its sub-trigger row, down
+  to 8rem (the `shift` and `shrinkTo` options of the placement math). It
+  then ends where the row begins, so it never covers the parent's labels:
+  a nested submenu whose parent submenu sits against the trailing edge
+  opens on the leading side, clear of "Image" and "Data" (#1311). Only a
+  room narrower than 8rem makes it slide back over its parent instead of
+  running off the screen. As on the web, each level has at most one open
   submenu: opening a submenu closes any open sibling, whether it opened by
   a tap, by `defaultOpen` or through its `model`. A controlled sibling is
   closed through its model, and `openChange(false)` fires. A nested submenu

@@ -93,6 +93,13 @@ const LIST_FLOW = { display: 'flex', flexDirection: 'column' } as const;
  */
 const CHEVRON_STYLE = { marginLeft: 'auto', opacity: 0.6 } as const;
 
+/**
+ * The narrowest a submenu gets to stay beside its trigger row (8rem, px) —
+ * below that it slides over its parent instead (#1311). Wide enough for a
+ * short label plus the chevron.
+ */
+const SUB_SHRINK_FLOOR = 128;
+
 /** One open level of the menu — the root popup, or a submenu. */
 interface MenuLevel {
     open(): boolean;
@@ -522,8 +529,9 @@ export type MenuSubProps =
     & Define.Event<'openChange', boolean>
     /**
      * Where the submenu opens from its trigger (default `right-start`). It
-     * flips when only the other side fits, and slides back over the parent
-     * popup when neither does.
+     * flips when only the other side fits; when neither does it takes the
+     * roomier side and narrows to the room beside its trigger row (down to
+     * 8rem), and only slides back over the parent popup below that.
      */
     & Define.Prop<'placement', LynxPlacement, false>
     & Define.Prop<'offset', number, false>
@@ -545,6 +553,10 @@ const MenuSub = component<MenuSubProps>(({ props, slots, emit }) => {
         // neither side fits, the submenu slides back over its parent rather
         // than running off-screen.
         shift: true,
+        // …and before it slides, it narrows to the room beside its trigger
+        // row (down to 8rem), so it never covers the parent's labels: a
+        // nested submenu on a 402pt phone hid "Image" behind "nage" (#1311).
+        shrinkTo: SUB_SHRINK_FLOOR,
         isOpen: () => state.value,
         // A raised soft keyboard (a field elsewhere on the screen still
         // focused) trims the box the popup flips against (#1314).

@@ -302,6 +302,27 @@ export function stickySize(): (size: Size | null) => Size | null {
     };
 }
 
+/**
+ * A popup's NATURAL size, for placement math that may narrow it (`shrinkTo`,
+ * #1311): the widest it has measured since the last `reset`, with its
+ * current height. A narrowed popup measures at its narrowed width, and
+ * fitting THAT would un-narrow it on the next pass (then narrow it again,
+ * forever). Pure bookkeeping, so it tests without a host. @internal
+ */
+export function naturalSize(): { read(size: Size | null): Size | null; reset(): void } {
+    let widest = 0;
+    return {
+        read(size) {
+            if (!size) return null;
+            widest = Math.max(widest, size.width);
+            return { width: widest, height: size.height };
+        },
+        reset() {
+            widest = 0;
+        },
+    };
+}
+
 export interface SettleOptions {
     /** ms between re-measures while the rect is still moving. Default 100. */
     interval?: number;
@@ -568,6 +589,15 @@ export interface AnchorPositionOptions {
      * lands on the leading side instead of squarely over its parent's rows.
      */
     shift?: boolean;
+    /**
+     * Under `shift`, NARROW a left/right popup that fits neither side to the
+     * roomier side's room instead of sliding it over its anchor — provided
+     * that room is at least this many px (#1311). A nested submenu on a
+     * phone then sits beside its parent's row, clear of the row's label,
+     * where the slide covered the label's first letters ("nage", "ata").
+     * The resolved `width` says how wide to paint it. Unset: never narrow.
+     */
+    shrinkTo?: number;
 }
 
 export interface ResolvedPosition {
@@ -575,6 +605,11 @@ export interface ResolvedPosition {
     left: number;
     /** The side that actually rendered, after flipping. */
     placement: LynxPlacement;
+    /**
+     * The width to paint a left/right popup at, when `shrinkTo` narrowed it
+     * to fit beside its anchor (whole px). Absent: its own width.
+     */
+    width?: number;
 }
 
 interface Size {
@@ -636,7 +671,10 @@ function crossAxisStart(anchor: ElementLayout, floating: Size, placement: LynxPl
  * one overflows the viewport and the opposite fits better; clamps the cross
  * axis into the viewport either way.
  * Under `shift`, a popup that fits neither side takes the roomier one and
- * clamps its main axis into the viewport.
+ * clamps its main axis into the viewport — or, with `shrinkTo`, keeps its
+ * main-axis start beside the anchor and narrows to that side's room
+ * (`width`). `floating` is the popup's NATURAL size: a narrowed popup
+ * measures narrower, and feeding that back would un-narrow it.
  */
 export function computeAnchorPosition(
     anchor: ElementLayout,
@@ -663,8 +701,16 @@ export function computeAnchorPosition(
     }
     const placement = (alignment(preferred) ? `${s}-${alignment(preferred)}` : s) as LynxPlacement;
 
-    const start = mainAxisStart(anchor, floating, s, offset);
-    const main = options.shift && !fits(s)
+    // Narrow rather than overlap (#1311): the roomier side's room, floored so
+    // the painted box never reaches past it.
+    const room = Math.floor(mainAxisRoom(anchor, viewport, s, offset, padding));
+    const narrowed = options.shift && !vertical && options.shrinkTo !== undefined && !fits(s) && room >= options.shrinkTo
+        ? room
+        : undefined;
+    const mainFloating = narrowed === undefined ? floating : { width: narrowed, height: floating.height };
+
+    const start = mainAxisStart(anchor, mainFloating, s, offset);
+    const main = options.shift && !fits(s) && narrowed === undefined
         ? Math.min(Math.max(start, padding), Math.max(limit - size - padding, padding))
         : start;
     const crossLimit = vertical ? viewport.width : viewport.height;
@@ -674,9 +720,10 @@ export function computeAnchorPosition(
         Math.max(crossLimit - crossSize - padding, padding),
     );
 
-    return vertical
-        ? { top: main, left: cross, placement }
-        : { top: cross, left: main, placement };
+    if (vertical) return { top: main, left: cross, placement };
+    return narrowed === undefined
+        ? { top: cross, left: main, placement }
+        : { top: cross, left: main, placement, width: narrowed };
 }
 
 /**
@@ -909,10 +956,24 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
         return heldSize(f ? { width: f.width, height: f.height } : null);
     };
 
+    // The popup's natural size for the math under `shrinkTo` (#1311; see
+    // `naturalSize`). Closing forgets it.
+    const natural = naturalSize();
+    if (options.shrinkTo !== undefined) {
+        const forget = effect(() => {
+            if (!isOpen()) natural.reset();
+        });
+        onUnmounted(() => forget.stop());
+    }
+    const mathSize = (): Size | null => {
+        const f = floatingSize();
+        return options.shrinkTo === undefined ? f : natural.read(f);
+    };
+
     /** The resolved placement, in OUTLET coordinates. */
     const position = (): ResolvedPosition | null => {
         const a = anchor.rect.value;
-        const f = floatingSize();
+        const f = mathSize();
         const v = screen.value;
         if (!a || !f || !(v.width > 0)) return null;
         const outlet = origin.rect();
@@ -961,7 +1022,10 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
             // Whole pixels: a fractional offset is what makes layout snap the
             // box's size by a third of a point on iOS (#1300).
             const at = p ? { top: `${Math.round(p.top)}px`, left: `${Math.round(p.left)}px` } : { top: '-10000px', left: '-10000px' };
-            return { position: 'absolute', ...at, height: 'max-content' };
+            // Narrowed to fit beside its anchor (`shrinkTo`): `min-width` too,
+            // or a skin's own `min-width` outweighs the `width`.
+            const narrowed: Record<string, string> = p?.width !== undefined ? { width: `${p.width}px`, minWidth: `${p.width}px` } : {};
+            return { position: 'absolute', ...at, ...narrowed, height: 'max-content' };
         },
         arrow: (padding) => {
             const p = position();
