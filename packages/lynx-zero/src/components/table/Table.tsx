@@ -184,11 +184,22 @@ function plainText(content: unknown): string | undefined {
     return list.join('');
 }
 
+/**
+ * A sort trigger's label never shrinks below its words (#1299): lynx's flex
+ * has no automatic minimum, so the ▲ beside it (kept in layout while
+ * unsorted) squeezed "Name" into "Nam / e" in a narrow xl header. Held at
+ * its content width, a header too narrow for label and mark overflows
+ * whole, as the web's column grows — the Button (#1165) and navbar (#1274)
+ * rule.
+ */
+const SORT_LABEL_STYLE = { flexShrink: 0 } as const;
+
 /** Plain string content in a `<text>` (lynx renders text nowhere else); anything else as given. */
-function asText(content: unknown, align: TableColumn['align'] | undefined): unknown {
+function asText(content: unknown, align: TableColumn['align'] | undefined, style?: Record<string, string | number>): unknown {
     const text = plainText(content);
     if (text === undefined) return content;
-    return <text style={align ? { textAlign: TEXT_ALIGN[align] } : undefined}>{text}</text>;
+    const merged = align ? { ...style, textAlign: TEXT_ALIGN[align] } : style;
+    return <text style={merged}>{text}</text>;
 }
 
 interface TableContext {
@@ -552,7 +563,7 @@ const TableHeaderCell = component<TableHeaderCellProps>(({ props, slots, onUnmou
                     }}
                     {...press.handlers}
                 >
-                    {asText(content, column?.align)}
+                    {asText(content, column?.align, SORT_LABEL_STYLE)}
                     <text
                         {...partBag(anatomy, 'sort-indicator', { ...a, state, mods: { ...a.mods, held } })}
                         accessibility-element={false}

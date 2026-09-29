@@ -535,7 +535,24 @@ describe('Table', () => {
         );
         const trigger = byPart(container, 'table', 'sort-trigger')!;
         const label = trigger.children.find((c) => c.type === 'text' && c.props['data-part'] === undefined)!;
-        expect(label._style).toMatchObject({ textAlign: 'right' });
+        expect(label._style).toMatchObject({ textAlign: 'right', flexShrink: 0 });
+    });
+
+    it('a sortable header label never shrinks below its words (#1299)', () => {
+        const { container } = render(
+            <Table.Root size="xl">
+                <Table.Head><Table.Row><Table.HeaderCell sortable column="name">Name</Table.HeaderCell></Table.Row></Table.Head>
+            </Table.Root>,
+        );
+        const trigger = byPart(container, 'table', 'sort-trigger')!;
+        const label = trigger.children.find((c) => c.type === 'text' && c.props['data-part'] === undefined)!;
+        expect(label._style).toMatchObject({ flexShrink: 0 });
+        // Only the sort trigger's label: a plain header's text is a column child, unchanged.
+        const plain = render(
+            <Table.Root><Table.Head><Table.Row><Table.HeaderCell>Qty</Table.HeaderCell></Table.Row></Table.Head></Table.Root>,
+        ).container;
+        const text = byPart(plain, 'table', 'header-cell')!.children.find((c) => c.type === 'text')!;
+        expect(text._style ?? {}).not.toHaveProperty('flexShrink');
     });
 
     it('a sortable header needs a column name', () => {
