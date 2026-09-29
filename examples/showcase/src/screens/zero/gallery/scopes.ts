@@ -361,7 +361,11 @@ export const GALLERY_SCOPES = {
         // `field-focus`: a full-width input inside the open panel with its
         // ring forced on — the ring must paint on all four sides, not be
         // clipped by the scroll body (#1255). No taps, no keyboard.
-        extras: ['open', 'open-states', 'nested', 'keyboard', 'field-focus'],
+        // `back`: a DISMISSIBLE dialog open at mount (every other extra is
+        // non-dismissible, so a back press there is consumed and nothing
+        // closes) — Android back closes it, and only a second back pops the
+        // screen (#1290). Popping with it open leaves nothing behind (#1291).
+        extras: ['open', 'open-states', 'nested', 'keyboard', 'field-focus', 'back'],
         // The default 76 let the xl trigger overlap its neighbour (#1192).
         cellWidth: 100,
         cell: fieldTrigger('Open'),

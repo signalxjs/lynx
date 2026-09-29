@@ -45,6 +45,7 @@
         "@sigx/zero": "catalog:"
     },
     "devDependencies": {
+        "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-navigation": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",

@@ -78,6 +78,26 @@ Animated transitions **pre-stage** the work they'd otherwise compete with: a pus
 
 Transition geometry follows **device rotation** ([#856](https://github.com/signalxjs/lynx/issues/856)): the card/modal slide distances, the route-sheet detents and the edge-back commit threshold all read the live screen size (`useScreen()` / `useScreenMT()` from `@sigx/lynx`) at plan-build time, rather than a value snapshotted when the bundle loaded. A push while the device is in landscape slides the full landscape width.
 
+**Android back** is wired by `<NavigationRoot>` by default (opt out with
+`hardwareBack={false}` and call `useHardwareBack()` yourself). Every press is
+first offered to the **back interceptors** (`addBackInterceptor` from
+`@sigx/lynx`), newest first: an open overlay — a `@sigx/lynx-zero` dialog,
+drawer, menu or combobox registers one while it is open — or an
+unsaved-changes guard consumes the press by returning `true`, and nothing
+navigates ([#1290](https://github.com/signalxjs/lynx/issues/1290)). Only an
+unconsumed press pops the focused stack, or backs the app out at the root.
+
+```ts
+import { addBackInterceptor, onUnmounted } from '@sigx/lynx';
+
+const off = addBackInterceptor(() => {
+    if (!form.dirty) return false; // let the press navigate
+    confirmDiscard.open = true;
+    return true;                   // consumed
+});
+onUnmounted(off);
+```
+
 The iOS-style **edge-swipe back** (a 20px strip on the left edge of a card screen; opt out with `<NavigationRoot edgeSwipeEnabled={false}>`) follows the finger and, on release, commits when the drag passed a third of the screen width *or* the flick was faster than 300 px/s. Otherwise it springs back.
 
 ## Errors

@@ -13,6 +13,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { component } from '@sigx/lynx';
+import { addBackInterceptor } from '@sigx/lynx-core';
 import { render, act } from '@sigx/lynx-testing';
 import { NavigationRoot } from '../src/components/NavigationRoot';
 import { Stack } from '../src/components/Stack';
@@ -93,6 +94,38 @@ describe('hardware back wiring (issue #127)', () => {
         result.unmount();
         // Cleanup unsubscribes.
         expect(emitter.count(BACK_EVENT)).toBe(0);
+    });
+
+    it('offers the press to back interceptors before popping (#1290)', () => {
+        const probe: NavProbe = { nav: null };
+        const result = render(
+            <NavigationRoot routes={routes as never} initialRoute={'a' as never} animated={false}>
+                <Capture probe={probe} />
+                <Stack />
+            </NavigationRoot>,
+        );
+        act(() => { probe.nav!.push('b' as never); });
+
+        // An open overlay on top consumes the press: the stack stays put.
+        let presses = 0;
+        const off = addBackInterceptor(() => { presses++; return true; });
+        act(() => { emitter.fire(BACK_EVENT); });
+        expect(presses).toBe(1);
+        expect(probe.nav!.current.route).toBe('b');
+
+        // Closed (unregistered), the next press navigates again.
+        off();
+        act(() => { emitter.fire(BACK_EVENT); });
+        expect(probe.nav!.current.route).toBe('a');
+
+        // An interceptor that declines lets the press through too.
+        act(() => { probe.nav!.push('b' as never); });
+        const offDecline = addBackInterceptor(() => false);
+        act(() => { emitter.fire(BACK_EVENT); });
+        expect(probe.nav!.current.route).toBe('a');
+        offDecline();
+
+        result.unmount();
     });
 
     it('does not wire when hardwareBack={false}', () => {

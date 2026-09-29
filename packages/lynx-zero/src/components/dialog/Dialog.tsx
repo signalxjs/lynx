@@ -10,8 +10,8 @@
  *   stack (innermost-first), while the popup catches the bubble with a
  *   no-op `catchtap` (#260: `catch*` is this platform's only
  *   stopPropagation);
- * - **Escape** → none on this platform; a back-button hook can call
- *   `dismissTopLayer()` later.
+ * - **Escape** → the Android back button: the dismiss stack's back
+ *   interceptor closes the innermost layer before navigation pops (#1290).
  *
  * Closed means UNMOUNTED — the proven lynx modal idiom (a display:none
  * overlay leaks paint on this engine).

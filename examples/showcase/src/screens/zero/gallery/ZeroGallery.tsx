@@ -427,6 +427,19 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                     </Dialog.Popup>
                 </Dialog.Root>
             ),
+            // #1290: dismissible, so Android back closes it before it pops.
+            back: () => (
+                <Dialog.Root defaultOpen>
+                    <Dialog.Trigger><text>Open dialog</text></Dialog.Trigger>
+                    <Dialog.Popup>
+                        <Dialog.Title>Back closes me</Dialog.Title>
+                        <Dialog.Description>Android back closes this dialog first; a second back leaves the screen.</Dialog.Description>
+                        <Dialog.Footer>
+                            <Dialog.Close><text>Close</text></Dialog.Close>
+                        </Dialog.Footer>
+                    </Dialog.Popup>
+                </Dialog.Root>
+            ),
             'open-states': () => (
                 <Dialog.Root defaultOpen dismissible={false}>
                     <Dialog.Trigger><text>Open dialog</text></Dialog.Trigger>

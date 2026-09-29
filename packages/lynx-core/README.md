@@ -330,6 +330,26 @@ API only permits locking while the document is fullscreen and several browsers
 (all of iOS, desktop Safari) don't implement it at all, so `lock()` rejects with
 an explanatory message there. Feature-detect with `Orientation.isAvailable()`.
 
+## Back interceptors
+
+```ts
+import { addBackInterceptor, dispatchBackInterceptors } from '@sigx/lynx-core';
+```
+
+- **`addBackInterceptor(fn: () => boolean): () => void`** — register a handler
+  for the Android back press. Interceptors run newest first; the first to
+  return `true` consumes the press. Returns the unsubscribe (C7), idempotent.
+  Apps import it from `@sigx/lynx`.
+- **`dispatchBackInterceptors(): boolean`** — offer a press to the
+  interceptors; `true` means one consumed it and the caller must not
+  navigate. A throwing interceptor is logged and skipped. Called by
+  `@sigx/lynx-navigation`'s hardware-back wiring before it pops.
+
+Pure JS, no native side: the contract lives in core so overlays
+(`@sigx/lynx-zero`'s dismiss stack) can close on back without depending on
+navigation ([#1290](https://github.com/signalxjs/lynx/issues/1290)). iOS never
+fires a back press, so nothing dispatches there.
+
 ## Permissions helpers
 
 For modules that need runtime permissions (camera, location, notifications, …) the package re-exports the shared `PermissionStatus` / `PermissionResponse` types used by `@sigx/lynx-permissions`.

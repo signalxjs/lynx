@@ -69,6 +69,7 @@ describe('public runtime exports', () => {
             'Utils',
             '__registerComponentPlugin',
             '__setCurrentInstanceForHMR',
+            'addBackInterceptor',
             'addTransport',
             'all',
             'asyncSetupClientError',

@@ -37,6 +37,12 @@ export { variant, isVariant, isBaseBuild } from './variant.js';
 // `SigxAppEnv` interface the app extends.
 export { env } from './env.js';
 
+// Back interceptors (#1290) — what closes before a back press navigates: an
+// open overlay registers one, and the back wiring (lynx-navigation) offers
+// every press to them first.
+export { addBackInterceptor, dispatchBackInterceptors } from './back.js';
+export type { BackInterceptor } from './back.js';
+
 // App foreground/background state (#607) — an ambient lifecycle signal backed
 // by the activity/app-lifecycle plumbing core already owns. `AppState` is the
 // ambient service (like Platform/DeviceInfo); `useAppState()` is the reactive

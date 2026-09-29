@@ -223,6 +223,30 @@ describe('Combobox — typing, filtering, picking', () => {
         expect(invoke).toHaveBeenCalledWith('blur', {});
     });
 
+    it('an input event echoing the model\'s own text is not typing (Android, #1298)', async () => {
+        // Android fires `input` for programmatic writes: the preset label at
+        // mount, the picked label after a pick. Neither may open the list.
+        const st = signal({ v: 'apple' as string | null });
+        const { container } = render(
+            <OverlayHost>
+                <Combobox.Root items={FRUIT} itemValue={(f) => f.value} model={() => st.v} />
+            </OverlayHost>,
+        );
+        await act(() => {});
+        await typeInto(container, 'Apple');
+        expect(has(container, 'popup')).toBe(false);
+        expect(byPart(container, 'control').props['data-state']).toBe('closed');
+
+        // Typing still opens; the pick's echo leaves it closed.
+        await typeInto(container, 'ca');
+        expect(has(container, 'popup')).toBe(true);
+        await fire(itemNamed(container, 'Carrot'), 'bindtap');
+        expect(st.v).toBe('carrot');
+        await typeInto(container, 'Carrot');
+        expect(has(container, 'popup')).toBe(false);
+        expect(byPart(container, 'input').props['value']).toBe('Carrot');
+    });
+
     it('a disabled option takes no pick', async () => {
         const st = signal({ v: null as string | null });
         const { container } = render(
