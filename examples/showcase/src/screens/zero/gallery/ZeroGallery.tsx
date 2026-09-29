@@ -2244,8 +2244,9 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             </view>
         ),
         extras: {
-            // `defaultInputValue=""`: the list filters on the text, and a
-            // preset value's label would narrow it to that one option.
+            // The field shows "Banana" (a value's label is its text, #1319);
+            // `filter={false}` keeps every option listed under it. Dismiss
+            // and reopen: Banana stays chosen.
             open: () => (
                 <ComboboxOpen note="grouped + separators · Banana selected" />
             ),
@@ -2322,8 +2323,6 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
                             itemValue={(o) => o.value}
                             itemGroup={(o) => o.group}
                             groupSeparators
-                            defaultValue="banana"
-                            defaultInputValue=""
                             placeholder="Search fruit"
                             label="Fruit"
                         />
@@ -2645,7 +2644,10 @@ type ComboboxOpenProps =
     & Define.Prop<'query', string, false>
     & Define.Prop<'color', string, false>;
 
-/** A combobox open at mount: grouped, separated, "Banana" selected (#1278). */
+/**
+ * A combobox open at mount: grouped, separated, "Banana" selected and shown
+ * in the field (#1278, #1319) — or, with `query`, no value and that text.
+ */
 const ComboboxOpen = component<ComboboxOpenProps>(({ props }) => () => (
     <Col gap={10}>
         <text class="zg-note">{props.note}</text>
@@ -2658,6 +2660,10 @@ const ComboboxOpen = component<ComboboxOpenProps>(({ props }) => () => (
                 groupSeparators
                 defaultValue={props.query === undefined ? 'banana' : null}
                 defaultInputValue={props.query ?? ''}
+                // A preset value's label is the field's text, and the list
+                // filters on the text: without this it would narrow to
+                // Banana alone. The query variant filters as usual.
+                filter={props.query === undefined ? false : undefined}
                 autoHighlight={props.query !== undefined}
                 clearable={props.query !== undefined}
                 color={props.color}

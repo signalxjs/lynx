@@ -127,9 +127,9 @@ describe('Combobox — anatomy', () => {
     });
 
     it('open: popup, groups, separators, items and the tick all conform, and stamp the colour across the portal', async () => {
-        // No preset text: the list filters on the text, and a preset value's
-        // label would narrow it to that one option.
-        const { container } = renderBox({ defaultOpen: true, defaultValue: 'banana', defaultInputValue: '', itemGroup: (f: Fruit) => f.group, groupSeparators: true, color: 'secondary' });
+        // The preset value's label is the field's text and the list filters
+        // on it: `filter: false` keeps every option listed.
+        const { container } = renderBox({ defaultOpen: true, defaultValue: 'banana', filter: false, itemGroup: (f: Fruit) => f.group, groupSeparators: true, color: 'secondary' });
         await act(() => {});
         const popup = byPart(container, 'popup');
         expect(popup.props['data-state']).toBe('open');
@@ -371,6 +371,116 @@ describe('Combobox — resync on close (zero #265)', () => {
         await act(() => {});
         expect(st.v).toBe('carrot');
         expect(byPart(container, 'input').props['value']).toBe('Carrot');
+    });
+});
+
+describe('Combobox — the selected value\'s lifecycle (#1319, the web\'s contract)', () => {
+    const lifecycle = (props: Record<string, unknown> = {}) => {
+        const st = signal({ v: 'banana' as string | null, q: '', open: false });
+        const r = render(
+            <OverlayHost>
+                <Combobox.Root
+                    items={FRUIT}
+                    itemValue={(f) => f.value}
+                    model={() => st.v}
+                    model:open={() => st.open}
+                    placeholder="Search fruit"
+                    {...props}
+                />
+            </OverlayHost>,
+        );
+        return { st, container: r.container };
+    };
+    const text = (root: TestNode): unknown => byPart(root, 'input').props['value'];
+    const dismiss = async (): Promise<void> => {
+        await act(() => { dismissTopLayer(); });
+        await act(() => {});
+    };
+
+    it('a preset value\'s label is the field\'s text, even over an empty defaultInputValue', async () => {
+        for (const extra of [{}, { defaultInputValue: '' }]) {
+            const { st, container } = lifecycle(extra);
+            await act(() => {});
+            expect(text(container)).toBe('Banana');
+            expect(st.v).toBe('banana');
+            expect(cls(byPart(container, 'root'))).not.toContain('zx-f-placeholder');
+        }
+        // A non-empty preset text is a live query and stays.
+        const { container } = lifecycle({ defaultInputValue: 'ap' });
+        expect(text(container)).toBe('ap');
+    });
+
+    it('the preset survives an open from the chevron and a light dismiss without typing', async () => {
+        const { st, container } = lifecycle({ filter: false });
+        await fire(byPart(container, 'trigger'), 'catchtap');
+        expect(cls(itemNamed(container, 'Banana'))).toContain('zx-f-selected');
+        await dismiss();
+        expect(has(container, 'popup')).toBe(false);
+        expect(st.v).toBe('banana');
+        expect(text(container)).toBe('Banana');
+        // Reopened, Banana is still the checked row.
+        await fire(byPart(container, 'trigger'), 'catchtap');
+        expect(cls(itemNamed(container, 'Banana'))).toContain('zx-f-selected');
+        expect(allParts(container, 'item-indicator')).toHaveLength(1);
+    });
+
+    it('the gallery\'s open-at-mount preset keeps its value through a dismiss', async () => {
+        const { st, container } = lifecycle({ defaultOpen: true, defaultInputValue: '', filter: false });
+        await act(() => {});
+        expect(text(container)).toBe('Banana');
+        await dismiss();
+        expect(st.v).toBe('banana');
+        expect(text(container)).toBe('Banana');
+    });
+
+    it('a pick replaces the value and shows its label; a dismiss after it keeps it', async () => {
+        const { st, container } = lifecycle({ filter: false });
+        await fire(byPart(container, 'trigger'), 'catchtap');
+        await fire(itemNamed(container, 'Carrot'), 'bindtap');
+        expect(st.v).toBe('carrot');
+        expect(text(container)).toBe('Carrot');
+        await fire(byPart(container, 'trigger'), 'catchtap');
+        await dismiss();
+        expect(st.v).toBe('carrot');
+        expect(text(container)).toBe('Carrot');
+    });
+
+    it('type then dismiss: the text reverts to the label and the value stays', async () => {
+        const { st, container } = lifecycle();
+        await typeInto(container, 'car');
+        expect(has(container, 'popup')).toBe(true);
+        await dismiss();
+        expect(st.v).toBe('banana');
+        expect(text(container)).toBe('Banana');
+        // A blur while closed resyncs the same way.
+        await typeInto(container, 'zz');
+        await act(() => { st.open = false; });
+        await act(() => {});
+        await fire(byPart(container, 'input'), 'bindblur');
+        expect(st.v).toBe('banana');
+        expect(text(container)).toBe('Banana');
+    });
+
+    it('text the user emptied clears the value on dismiss (web: "emptied text clears the value on blur")', async () => {
+        const { st, container } = lifecycle();
+        await typeInto(container, '');
+        expect(has(container, 'popup')).toBe(true);
+        await dismiss();
+        expect(st.v).toBeNull();
+        expect(text(container)).toBe('');
+    });
+
+    it('the clear-trigger clears the value and the text; a dismiss after it keeps it cleared', async () => {
+        const { st, container } = lifecycle({ clearable: true });
+        spyInvoke(container);
+        await fire(byPart(container, 'clear-trigger'), 'catchtap');
+        expect(st.v).toBeNull();
+        expect(text(container)).toBe('');
+        await fire(byPart(container, 'trigger'), 'catchtap');
+        expect(allParts(container, 'item-indicator')).toHaveLength(0);
+        await dismiss();
+        expect(st.v).toBeNull();
+        expect(text(container)).toBe('');
     });
 });
 

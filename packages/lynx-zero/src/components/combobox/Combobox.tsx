@@ -33,9 +33,15 @@
  *   option. Only `autoHighlight` highlights (the first match while there is
  *   a query) — there are no arrow keys. With `allowCustom`, Enter with no
  *   highlight commits the text itself.
- * - A close resyncs the text (zero #265): in single mode empty text clears
- *   the value, other text reverts to the value's label (`allowCustom`
- *   commits it instead); under `multiple` the query is dropped.
+ * - The field shows the value's label whenever nothing is being typed: a
+ *   preset value's label at mount (even over an empty `defaultInputValue`),
+ *   the picked option's after a pick, an outside write's as it lands.
+ * - A close resyncs the text (zero #265), the web's rules: in single mode
+ *   the label left in place keeps the value, typed text reverts to the
+ *   value's label (`allowCustom` commits it instead), and text the user
+ *   EMPTIED clears the value (what the field shows is what it holds). Under
+ *   `multiple` the query is dropped. The selection otherwise changes only
+ *   on a pick, the clear-trigger, or a model write (#1319).
  * - The trigger toggles the list WITHOUT focusing the field, so the whole
  *   list can be browsed with the keyboard down. `openOnClick` opens it when
  *   the field takes focus.
@@ -260,7 +266,11 @@ export type ComboboxRootProps<T = unknown, M = unknown> =
     & Define.Event<'valueChange', M>
     /** The text in the field, two-way (`model:inputValue`) — the query the list filters on. */
     & Define.Model<'inputValue', string>
-    /** Initial text (uncontrolled). Default: the preset value's label in single mode, else empty. */
+    /**
+     * Initial text (uncontrolled). In single mode an empty one (the default)
+     * gives way to the preset value's label, as on the web — the field shows
+     * what it holds (#1319); a non-empty one is a live query and stays.
+     */
     & Define.Prop<'defaultInputValue', string, false>
     & Define.Event<'inputValueChange', string>
     /** The popup's open state, two-way (`model:open`). */
@@ -399,8 +409,12 @@ const ComboboxRootImpl = component<ComboboxRootProps>(({ props, emit, slots }) =
 
     /** The single mode's chosen key — `null` while nothing is chosen. */
     const singleKey = (): string | null => (multiple() ? null : listbox.selectedKeys()[0] ?? null);
-    // A preset value's label reaches the field before anything is typed.
-    if (!multiple() && props.defaultInputValue === undefined && inputValue.value === '') {
+    // A preset value's label reaches the field before anything is typed
+    // (zero #438) — an empty `defaultInputValue` included, as on the web: a
+    // field that shows nothing while a value is chosen would post what it
+    // does not show, and a close with that empty text clears the value
+    // (#1319). Only a non-empty preset query holds the label back.
+    if (!multiple() && inputValue.value === '') {
         const key = singleKey();
         if (key !== null) inputValue.value = collection.label(key);
     }

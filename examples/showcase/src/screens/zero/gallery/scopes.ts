@@ -1316,7 +1316,8 @@ export const GALLERY_SCOPES = {
             { id: 'disabled', label: 'disabled', props: { disabled: true, value: 'apple' } },
             { id: 'readonly', label: 'readonly', props: { readonly: true, value: 'apple' } },
         ],
-        // `open`: grouped list with separators, one option selected.
+        // `open`: grouped list with separators, one option selected and its
+        // label in the field (#1319) — dismiss + reopen keeps it.
         // `open-held`: every option held (forced pressed).
         // `open-query`: typed "an" + autoHighlight — filtered, the first
         // match highlighted, the clear chip showing.
