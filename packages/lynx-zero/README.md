@@ -261,6 +261,14 @@ The platform spellings to know:
   open animation or transition ends (`bindanimationend` /
   `bindtransitionend`, plus two fallback timers per open), and every open
   anchored popup inside it re-measures once, a bounded burst.
+- **The Dialog panel always finishes opening** (#1320). On Android, a
+  dialog open at mount (a cold deep link) could stop part-way through its
+  open scale: `animationend` fires, but the view keeps a mid-flight
+  transform, and the skin's resting `transform: none` is never re-applied.
+  When the open animation ends, and again at the last fallback timer
+  (1 s), the panel states an identity transform inline (`scale(1)`, then
+  `translateX(0px)`, alternating so each pin is a new value). A skin whose
+  open panel rests at a non-identity transform is overridden by it.
 - **Dialog avoids the soft keyboard** (#1232). The panel renders through
   the portal, so an app cannot wrap it in a `KeyboardAvoidingView`; it
   makes room itself. While open it follows the keyboard height from the
