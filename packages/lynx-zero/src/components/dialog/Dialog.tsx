@@ -17,7 +17,7 @@
  * overlay leaks paint on this engine).
  */
 import type { Define } from '@sigx/lynx';
-import { component, compound, defineInjectable, defineProvide, effect, onUnmounted } from '@sigx/lynx';
+import { component, compound, defineInjectable, defineProvide, effect, onUnmounted, signal } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import { createControllableState } from '@sigx/zero/behaviors/core';
 import { partBag } from '../../contract/part.js';
@@ -104,8 +104,36 @@ const DialogTrigger = component<TriggerProps>(({ props, slots }) => {
 
 type PopupProps = Define.Prop<'class', string, false> & Define.Slot<'default'>;
 
-/** When the open-animation fallback bumps fire (ms after opening). */
+/**
+ * When the open-animation fallback bumps fire (ms after opening). The last
+ * one also re-states the panel's resting transform (#1320).
+ */
 const MOTION_FALLBACK_MS = [300, 1000] as const;
+
+/**
+ * The panel's resting transform, stated inline once its open animation is
+ * over (#1320). Both are the identity, so the panel looks exactly as the
+ * skin's open state (`transform: none`) says.
+ *
+ * Why: on Android, a dialog open at mount (a cold deep link) could stop
+ * part-way through its `zero-daisy-pop` scale. `animationend` fires, but
+ * the view keeps a mid-flight transform (panel 945–995px of 995px, random
+ * per launch), and the engine never re-applies the static
+ * `transform: none` because that value never changed. Neither
+ * `animation: none` nor `transition: none` clears it. A NEW inline
+ * transform value does. Two different spellings alternate, so every pin
+ * is a change the engine has to apply, even a second one.
+ * @internal
+ */
+export const DIALOG_REST_TRANSFORMS = ['scale(1)', 'translateX(0px)'] as const;
+
+/**
+ * The inline transform after `pins` pins: none before the first (the open
+ * animation owns the transform), then the rest transforms in turn. @internal
+ */
+export function dialogRestTransform(pins: number): string | undefined {
+    return pins > 0 ? DIALOG_REST_TRANSFORMS[(pins - 1) % DIALOG_REST_TRANSFORMS.length] : undefined;
+}
 
 /** The space kept between the panel and the visible box's edges, per side (px). */
 const DIALOG_MARGIN = 16;
@@ -142,9 +170,11 @@ export function dialogLayout(
     return { top: insets.top, bottom, maxHeight };
 }
 
-function popupStyle(layout: DialogLayout): Record<string, string | number> {
+function popupStyle(layout: DialogLayout, pins: number): Record<string, string | number> {
     const style: Record<string, string | number> = { display: 'flex', flexDirection: 'column' };
     if (layout.maxHeight !== null) style.maxHeight = `${layout.maxHeight}px`;
+    const transform = dialogRestTransform(pins);
+    if (transform) style.transform = transform;
     return style;
 }
 
@@ -195,6 +225,13 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
     // The panel's open animation is a transform: anchored popups inside it
     // (a Select) re-measure when it ends (#1233).
     const motion = createAncestorMotion();
+    // Pins of the panel's resting transform this open (#1320): the open
+    // animation's end, and the last fallback timer.
+    const rest = signal({ pins: 0 });
+    const settle = (): void => {
+        rest.pins++;
+        motion.bump();
+    };
     // Slot content mounts under the OUTLET — re-provide what it needs.
     const bridge = () => {
         defineProvide(useDialogContext, () => dialog);
@@ -237,7 +274,9 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
             if (!releaseKeyboard) {
                 releaseKeyboard = acquireKeyboard();
                 clearMotionTimers();
-                motionTimers = MOTION_FALLBACK_MS.map((ms) => setTimeout(() => motion.bump(), ms));
+                rest.pins = 0;
+                const last = MOTION_FALLBACK_MS.length - 1;
+                motionTimers = MOTION_FALLBACK_MS.map((ms, i) => setTimeout(i === last ? settle : () => motion.bump(), ms));
             }
             portal.show(() => (
                 <view
@@ -271,13 +310,15 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
                         // A column capped at the visible box, so the body
                         // below can shrink and scroll (#1232). The skin's
                         // padding stays on the panel (it is border-box).
-                        style={popupStyle(layout())}
+                        style={popupStyle(layout(), rest.pins)}
                         // The platform's only stopPropagation: an inner tap
                         // must not reach the backdrop's dismiss.
                         catchtap={() => {}}
-                        // The open animation ended: anchored popups inside
-                        // re-measure (#1233).
-                        bindanimationend={() => motion.bump()}
+                        // The open animation ended: pin the resting
+                        // transform (#1320), and anchored popups inside
+                        // re-measure (#1233). A transition end only bumps:
+                        // the pin itself may start one.
+                        bindanimationend={settle}
                         bindtransitionend={() => motion.bump()}
                     >
                         {/* ALWAYS a scroll body, keyboard or not: swapping
