@@ -12,6 +12,7 @@ import type { FileRejection, FileUploadFile, FileUploadPickRequest } from '../sr
 import { acceptMimeTypes, acceptsFile, chatLogEndOffset, fileErrors, formatBytes } from '../src/index';
 import { clearAxisDefaults } from '../src/contract/axis-defaults';
 import { CHAT_LOG_SETTLE_DELAY, CHAT_LOG_SETTLE_TRIES } from '../src/components/chat-log/ChatLog';
+import { sameAvatarBox } from '../src/components/chat/Chat';
 import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
 
 const conforms = (container: unknown, scope: keyof typeof anatomies): void => {
@@ -409,6 +410,39 @@ describe('Chat', () => {
         expect(ra!.props['style']).toMatchObject({ paddingLeft: '48px', minHeight: '40px' });
         expect(rb!.props['style']).toMatchObject({ paddingRight: '36px', minHeight: '32px' });
         conforms(container, 'chat');
+    });
+
+    it('sub-pixel avatar re-measures never re-reserve: bounded under iOS layout snapping (#1295)', async () => {
+        const { container } = render(
+            <Chat.Root>
+                <Chat.Avatar><view /></Chat.Avatar>
+                <Chat.Bubble>Hello</Chat.Bubble>
+            </Chat.Root>,
+        );
+        const avatar = byPart(container, 'chat', 'avatar')!;
+        const root = (): TestNode => byPart(container, 'chat', 'root')!;
+        await fire(avatar, 'bindlayoutchange', { detail: { width: 40, height: 40, top: 0, left: 0 } });
+        const reserved = JSON.stringify(root().props['style']);
+        expect(root().props['style']).toMatchObject({ paddingLeft: '48px', minHeight: '40px' });
+        // The device loop: the reservation shifts the avatar a third of a
+        // point, and its height snaps back and forth. 100 such events must
+        // leave the reservation (and so the render) untouched.
+        let changes = 0;
+        for (let i = 0; i < 100; i++) {
+            await fire(avatar, 'bindlayoutchange', { detail: { width: 40, height: i % 2 ? 40 : 40.333333333333336, top: 0, left: 0 } });
+            if (JSON.stringify(root().props['style']) !== reserved) changes++;
+        }
+        expect(changes).toBe(0);
+        // A real change still lands, in whole pixels.
+        await fire(avatar, 'bindlayoutchange', { detail: { width: 47.5, height: 47.5, top: 0, left: 0 } });
+        expect(root().props['style']).toMatchObject({ paddingLeft: '56px', minHeight: '48px' });
+    });
+
+    it('sameAvatarBox: within a pixel is the same box', () => {
+        expect(sameAvatarBox(null, null)).toBe(true);
+        expect(sameAvatarBox({ width: 40, height: 40 }, null)).toBe(false);
+        expect(sameAvatarBox({ width: 40, height: 40 }, { width: 40.34, height: 39.67 })).toBe(true);
+        expect(sameAvatarBox({ width: 40, height: 40 }, { width: 41.5, height: 40 })).toBe(false);
     });
 
     it('size pushes down to every part', () => {

@@ -22,9 +22,14 @@
  *
  * - **The viewport is lynx's native `<scroll-view scroll-orientation=
  *   "horizontal" paging-enabled>`** — the same primitive `Swiper` in
- *   `@sigx/lynx-gestures` builds on — so a fling snaps slide by slide with
- *   the platform's own physics. The web's `scroll-snap` CSS does nothing
- *   here; paging is the snap.
+ *   `@sigx/lynx-gestures` builds on. The web's `scroll-snap` CSS does
+ *   nothing here. Android honours `paging-enabled`, so a fling snaps slide
+ *   by slide with the platform's own physics. iOS's scroll-view has no
+ *   paging attribute at all (#1301): the drag rests wherever it stops, so
+ *   there the viewport snaps itself when the scroll ends — to the next
+ *   slide in the drag's direction once it has moved a fifth of a slide,
+ *   else back (`carouselSnapIndex`), gliding there with `scrollTo`. One
+ *   snap per rest: a glide that still lands off a slide is left alone.
  * - **The model follows real scroll.** The web derives the index from an
  *   IntersectionObserver; lynx has none, so the viewport rounds its
  *   `bindscroll` offset to a page. Setting the model (a trigger, a dot, or
@@ -55,7 +60,7 @@
  * `indexChange`. The model is `model` / `defaultIndex`.
  */
 import type { Define, LayoutChangeEvent } from '@sigx/lynx';
-import { component, compound, defineInjectable, defineProvide, effect, signal } from '@sigx/lynx';
+import { Platform, component, compound, defineInjectable, defineProvide, effect, signal } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
 import { createControllableState } from '@sigx/zero/behaviors/core';
 import { partBag } from '../../contract/part.js';
@@ -77,6 +82,33 @@ export function carouselPageAt(scrollLeft: number, pageWidth: number, count: num
     if (!(pageWidth > 0) || count <= 0 || !Number.isFinite(scrollLeft)) return 0;
     return Math.min(count - 1, Math.max(0, Math.round(scrollLeft / pageWidth)));
 }
+
+/** How far (a fraction of a slide) a drag must travel to commit to the next slide. */
+export const CAROUSEL_SNAP_COMMIT = 0.2;
+
+/**
+ * The slide a scroll that came to rest at `scrollLeft` snaps to, having
+ * started from `fromLeft` — paging's rule in JS for engines whose
+ * scroll-view does not page (iOS, #1301). A drag that travelled at least
+ * `CAROUSEL_SNAP_COMMIT` of a slide past the slide boundary behind it
+ * commits to the next slide in its direction; a shorter one falls back.
+ * No direction (it rests where it started) rounds to the nearest slide.
+ * Clamped to the slides that exist; `0` with no width or no slides.
+ */
+export function carouselSnapIndex(scrollLeft: number, pageWidth: number, count: number, fromLeft: number): number {
+    if (!(pageWidth > 0) || count <= 0 || !Number.isFinite(scrollLeft)) return 0;
+    const at = scrollLeft / pageWidth;
+    const frac = at - Math.floor(at);
+    const moved = Number.isFinite(fromLeft) ? scrollLeft - fromLeft : 0;
+    let target: number;
+    if (moved > 0) target = frac >= CAROUSEL_SNAP_COMMIT ? Math.ceil(at) : Math.floor(at);
+    else if (moved < 0) target = frac <= 1 - CAROUSEL_SNAP_COMMIT ? Math.floor(at) : Math.ceil(at);
+    else target = Math.round(at);
+    return Math.min(count - 1, Math.max(0, target));
+}
+
+/** Slack (px) under which a resting offset counts as ON a slide. */
+const SNAP_SLACK = 1;
 
 /** A consumer index made whole and clamped to `[0, count - 1]` (`0` with no slides). */
 export function carouselClamp(index: number | null | undefined, count: number): number {
@@ -206,6 +238,16 @@ const CarouselViewport = component<CarouselViewportProps>(({ props, slots }) => 
     // tracked every index change would jump over the glide `scrollTo` runs.
     let anchor = shown;
     let anchorWidth = 0;
+    // iOS pages in JS (#1301): Android's scroll-view honours `paging-enabled`
+    // and must not be fought. Read once — the platform does not change.
+    const snaps = Platform.OS !== 'android';
+    // Where the last scroll came to rest — the drag's direction is measured
+    // from here. Seeded on the first layout, from the initial slide.
+    let restLeft: number | null = null;
+    // A snap glide is in flight: its own scrollend is the rest, never
+    // another snap (one snap per rest, so a glide that lands off a slide —
+    // a clamped last page — cannot ping-pong).
+    let snapping = false;
 
     // The model moved without the scroll (a trigger, a dot, the app): glide
     // the viewport there. Only once it has a width — a page offset needs one.
@@ -217,6 +259,29 @@ const CarouselViewport = component<CarouselViewportProps>(({ props, slots }) => 
         heading = target;
         invokeUiMethod(el, 'scrollTo', { index: target, smooth: laidOut });
     });
+
+    /** The scroll came to rest: report the slide, and on iOS snap onto it. */
+    const onScrollEnd = (event: { detail?: ScrollDetail }): void => {
+        heading = null;
+        const left = event?.detail?.scrollLeft;
+        const width = carousel.pageWidth();
+        if (typeof left !== 'number' || !snaps || snapping || !(width > 0)) {
+            snapping = false;
+            if (typeof left === 'number') restLeft = left;
+            onScroll(event);
+            return;
+        }
+        const target = carouselSnapIndex(left, width, carousel.count(), restLeft ?? shown * width);
+        restLeft = target * width;
+        if (target !== shown) {
+            shown = target;
+            carousel.observed(target);
+        }
+        if (Math.abs(left - target * width) <= SNAP_SLACK) return;
+        snapping = true;
+        heading = target;
+        invokeUiMethod(el, 'scrollTo', { index: target, smooth: true });
+    };
 
     const onScroll = (event: { detail?: ScrollDetail }): void => {
         const left = event?.detail?.scrollLeft;
@@ -254,10 +319,7 @@ const CarouselViewport = component<CarouselViewportProps>(({ props, slots }) => 
                 {...{
                     // Not in the scroll-view typings; a glide the user
                     // interrupted still releases its heading here.
-                    bindscrollend: (event: { detail?: ScrollDetail }) => {
-                        heading = null;
-                        onScroll(event);
-                    },
+                    bindscrollend: onScrollEnd,
                 }}
             >
                 {slots.default?.()}

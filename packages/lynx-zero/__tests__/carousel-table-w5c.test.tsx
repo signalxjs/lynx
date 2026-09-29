@@ -6,11 +6,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render } from '@sigx/lynx-testing';
 import type { TestNode } from '@sigx/lynx-testing';
 import { anatomies } from '@sigx/zero/anatomy';
-import { component, signal } from '@sigx/lynx';
+import { Platform, component, signal } from '@sigx/lynx';
 import { Carousel, Table, nextTableSort, registerAxisDefaults } from '../src/index';
 import type { TableColumn, TableSort } from '../src/index';
 import { clearAxisDefaults } from '../src/contract/axis-defaults';
-import { carouselClamp, carouselPageAt } from '../src/components/carousel/Carousel';
+import { carouselClamp, carouselPageAt, carouselSnapIndex } from '../src/components/carousel/Carousel';
 import { tableCellBox, tableFixedWidth, tableStacks } from '../src/components/table/Table';
 import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
 
@@ -50,6 +50,25 @@ describe('carousel helpers', () => {
         expect(carouselPageAt(-40, 300, 3)).toBe(0);
         expect(carouselPageAt(300, 0, 3)).toBe(0);
         expect(carouselPageAt(300, 300, 0)).toBe(0);
+    });
+
+    it('carouselSnapIndex commits a fifth of a slide in the drag direction, else falls back', () => {
+        // Forward from slide 0: 0.19 of a slide falls back, 0.2 commits.
+        expect(carouselSnapIndex(57, 300, 4, 0)).toBe(0);
+        expect(carouselSnapIndex(60, 300, 4, 0)).toBe(1);
+        // A slow 200pt drag that rests between slides 1 and 2 (#1301).
+        expect(carouselSnapIndex(500, 300, 4, 300)).toBe(2);
+        // Backward from slide 2: past a fifth commits to 1, less falls back.
+        expect(carouselSnapIndex(550, 300, 4, 600)).toBe(2);
+        expect(carouselSnapIndex(500, 300, 4, 600)).toBe(1);
+        // A fling that coasted past a slide rests there, never glides back over it.
+        expect(carouselSnapIndex(970, 300, 4, 0)).toBe(3);
+        // No movement rounds; clamps to the slides that exist.
+        expect(carouselSnapIndex(160, 300, 4, 160)).toBe(1);
+        expect(carouselSnapIndex(2000, 300, 4, 0)).toBe(3);
+        expect(carouselSnapIndex(-50, 300, 4, 0)).toBe(0);
+        expect(carouselSnapIndex(100, 0, 4, 0)).toBe(0);
+        expect(carouselSnapIndex(100, 300, 0, 0)).toBe(0);
     });
 
     it('carouselClamp makes an index whole and in range', () => {
@@ -189,6 +208,67 @@ describe('Carousel', () => {
         // The user caught it on page 1.
         await act(() => handler(viewport, 'bindscrollend')?.({ detail: { scrollLeft: 300 } }));
         expect(changes).toEqual([3, 1]);
+    });
+
+    describe('snaps in JS where the scroll-view does not page (iOS, #1301)', () => {
+        const realOS = Platform.OS;
+        const onIos = (): void => { (Platform as { OS: string }).OS = 'ios'; };
+        afterEach(() => { (Platform as { OS: string }).OS = realOS; });
+        const scrollEnd = async (container: TestNode, scrollLeft: number): Promise<void> => {
+            const viewport = byPart(container, 'carousel', 'viewport')!;
+            await act(() => handler(viewport, 'bindscrollend')?.({ detail: { scrollLeft } }));
+        };
+
+        it('a drag that rests between slides glides onto the next one, reported once', async () => {
+            onIos();
+            const changes: number[] = [];
+            const { container } = render(<Slides count={4} extra={{ onIndexChange: (i: number) => changes.push(i) }} />);
+            const invoke = await layOut(container, 300);
+            await scrollTo(container, 120);
+            await scrollEnd(container, 120);
+            expect(invoke).toHaveBeenCalledTimes(1);
+            expect(invoke).toHaveBeenLastCalledWith('scrollTo', { index: 1, smooth: true });
+            expect(changes).toEqual([1]);
+            // The glide's own scroll events and its landing: no second snap.
+            await scrollTo(container, 250);
+            await scrollEnd(container, 300);
+            expect(invoke).toHaveBeenCalledTimes(1);
+            expect(changes).toEqual([1]);
+            expect(allParts(container, 'carousel', 'item')[1]!.props['data-state']).toBe('active');
+        });
+
+        it('a short drag falls back; an aligned rest does nothing', async () => {
+            onIos();
+            const changes: number[] = [];
+            const { container } = render(<Slides count={3} extra={{ onIndexChange: (i: number) => changes.push(i) }} />);
+            const invoke = await layOut(container, 300);
+            await scrollEnd(container, 40);
+            expect(invoke).toHaveBeenLastCalledWith('scrollTo', { index: 0, smooth: true });
+            await scrollEnd(container, 0);
+            expect(changes).toEqual([]);
+            await scrollEnd(container, 300.4);
+            expect(invoke).toHaveBeenCalledTimes(1);
+            expect(changes).toEqual([1]);
+        });
+
+        it('a glide that lands off a slide is not snapped again (bounded)', async () => {
+            onIos();
+            const { container } = render(<Slides count={3} />);
+            const invoke = await layOut(container, 300);
+            await scrollEnd(container, 450);
+            expect(invoke).toHaveBeenCalledTimes(1);
+            // A clamped last page: the glide rests short of the slide.
+            await scrollEnd(container, 560);
+            expect(invoke).toHaveBeenCalledTimes(1);
+        });
+
+        it('android keeps native paging: a scrollend never scrolls', async () => {
+            (Platform as { OS: string }).OS = 'android';
+            const { container } = render(<Slides count={3} />);
+            const invoke = await layOut(container, 300);
+            await scrollEnd(container, 120);
+            expect(invoke).not.toHaveBeenCalled();
+        });
     });
 
     it('starts on defaultIndex through scroll-left, not a glide; controlled writes glide', async () => {
