@@ -12,8 +12,8 @@ import type { DrawerCloseDetail } from '../src/index';
 import { Drawer, OverlayHost, TOOLTIP_CLOSE_DELAY, Tooltip, clearDismissLayers, dismissTopLayer, openLayerCount } from '../src/index';
 import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
 import { drawerLayout } from '../src/components/drawer/Drawer';
-import { arrowStyle } from '../src/components/tooltip/Tooltip';
-import { computeArrowOffset } from '../src/behaviors/position';
+import { arrowStyle, popupStyle } from '../src/components/tooltip/Tooltip';
+import { computeAnchorPosition, computeArrowOffset } from '../src/behaviors/position';
 
 afterEach(() => clearDismissLayers());
 
@@ -323,6 +323,9 @@ describe('Tooltip', () => {
         expect(popup.props['data-placement']).toBe('top');
         expect(popup._class).toContain('zx-p-top');
         expect(popup._style['overflow']).toBe('visible');
+        // #1297: its own width — Android bounds an absolute child's auto
+        // width by the 0×0 overlay root, and the bubble collapsed to a glyph.
+        expect(popup._style['width']).toBe('max-content');
         const arrow = byPart(container, 'tooltip', 'arrow')!;
         expect(arrow._class).toContain('zx-a-color-accent');
         expectAnatomy(container as never, anatomies.tooltip);
@@ -405,5 +408,41 @@ describe('tooltip arrow geometry (pure)', () => {
         expect(arrowStyle('left', { y: 20 })).toMatchObject({ right: '-4px', top: '16px' });
         expect(arrowStyle('right', { y: 20 })).toMatchObject({ left: '-4px', top: '16px' });
         expect(arrowStyle('top', null).opacity).toBe(0);
+    });
+});
+
+describe('tooltip popup sizing and side placement (pure)', () => {
+    it('states a max-content width over the anchored position (#1297)', () => {
+        expect(popupStyle({ position: 'absolute', top: '10px', left: '20px', height: 'max-content' })).toEqual({
+            position: 'absolute', top: '10px', left: '20px', height: 'max-content', width: 'max-content', overflow: 'visible',
+        });
+        // Off-glass before the first measurement too: the first measured
+        // size (which drives the flip) is already the real one.
+        expect(popupStyle({ position: 'absolute', top: '-10000px', left: '-10000px' }).width).toBe('max-content');
+    });
+
+    // #1293: a 402pt screen, a 110×28 bubble, 60×36 triggers, 8px gap.
+    const screen = { width: 402, height: 874 };
+    const bubble = { width: 110, height: 28 };
+    const trigger = (left: number) => ({ top: 400, left, right: left + 60, bottom: 436, width: 60, height: 36 });
+    const opts = (placement: 'left' | 'right') => ({ placement, offset: 8 } as const);
+
+    it('side by side in a centred row, both side triggers lack room and flip inward', () => {
+        // The old gallery row: 60 + 140 gap + 60, centred.
+        const left = computeAnchorPosition(trigger(71), bubble, screen, opts('left'));
+        const right = computeAnchorPosition(trigger(271), bubble, screen, opts('right'));
+        expect(left.placement).toBe('right');
+        expect(right.placement).toBe('left');
+        // …and the two flipped bubbles overlap in the gap.
+        expect(left.left + bubble.width).toBeGreaterThan(right.left);
+    });
+
+    it('a left trigger at its row end and a right trigger at its row start keep their sides', () => {
+        const left = computeAnchorPosition(trigger(402 - 16 - 60), bubble, screen, opts('left'));
+        expect(left.placement).toBe('left');
+        expect(left.left).toBe(402 - 16 - 60 - 8 - 110);
+        const right = computeAnchorPosition(trigger(16), bubble, screen, opts('right'));
+        expect(right.placement).toBe('right');
+        expect(right.left).toBe(16 + 60 + 8);
     });
 });

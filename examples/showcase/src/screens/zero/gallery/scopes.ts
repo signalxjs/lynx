@@ -1075,7 +1075,9 @@ export const GALLERY_SCOPES = {
         // `Share` (one open submenu per level, #1273).
         // `sub-states`: a held and a disabled sub-trigger, and an open
         // two-level chain (Export › Image) whose nested siblings exclude
-        // each other.
+        // each other. Image's submenu opens on the side with more room —
+        // the leading side, when Export sits against the trailing edge —
+        // so it no longer lands over Export's rows (#1296).
         extras: ['open', 'open-states', 'sub', 'sub-states'],
         cellWidth: 100,
         cell: fieldTrigger('Menu'),
@@ -1213,7 +1215,9 @@ export const GALLERY_SCOPES = {
             { id: 'disabled', label: 'disabled', props: { disabled: true } },
         ],
         // `open`: four tooltips open at mount, one per side, each with its
-        // arrow at the trigger's centre (the trigger in its open state).
+        // arrow at the trigger's centre (the trigger in its open state). The
+        // `left` trigger sits at its row's end and the `right` one at its
+        // row's start, so each side placement has room and none flips (#1293).
         // `edge`: tooltips on triggers at the screen edges — the popup
         // clamps inside and the arrow still points at the trigger.
         // `long-press`: live — hold a trigger to open, lift to close.

@@ -398,6 +398,35 @@ describe('computeAnchorPosition — shift (the submenu on a phone)', () => {
         expect(p.top).toBe(100);
     });
 
+    it('with shift, it takes the roomier side before clamping (a nested submenu, #1296)', () => {
+        // The parent submenu slid against the trailing edge ([186..394]); its
+        // `Image` row is the nested submenu's anchor. Neither side fits a
+        // 208 panel, but the leading side has far more room: the nested
+        // submenu flips there and covers the least of its parent.
+        const row = { top: 160, left: 194, right: 386, bottom: 196, width: 192, height: 36 };
+        const p = computeAnchorPosition(row, floating, viewport, { placement: 'right-start', offset: 0, shift: true });
+        expect(p.placement).toBe('left-start');
+        expect(p.left).toBe(8);
+        expect(p.top).toBe(160);
+        // It overlaps the parent's row by 22px, not the whole panel.
+        expect(p.left + floating.width - row.left).toBe(22);
+    });
+
+    it('with shift, a preferred side that is also the roomier one is kept', () => {
+        // A sub-trigger at the right of the screen, preferring left.
+        const right = { top: 100, left: 174, right: 382, bottom: 136, width: 208, height: 36 };
+        const p = computeAnchorPosition(right, floating, viewport, { placement: 'left-start', offset: 0, shift: true });
+        expect(p.placement).toBe('left-start');
+        expect(p.left).toBe(8);
+    });
+
+    it('the roomier-side rule is shift-only: a tooltip that fits neither side keeps its preferred side', () => {
+        const row = { top: 160, left: 194, right: 386, bottom: 196, width: 192, height: 36 };
+        const p = computeAnchorPosition(row, floating, viewport, { placement: 'right-start', offset: 0 });
+        expect(p.placement).toBe('right-start');
+        expect(p.left).toBe(386);
+    });
+
     it('shift leaves a popup that fits alone', () => {
         const narrow = { width: 120, height: 120 };
         const p = computeAnchorPosition(anchor, narrow, viewport, { placement: 'right-start', offset: 0, shift: true });

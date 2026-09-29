@@ -2001,14 +2001,16 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
         ),
         extras: {
             // One per side, open at mount, arrows at the trigger's centre.
+            // The side placements each get a row of their own, the trigger
+            // on the far side of it (#1293): a `left` trigger needs the room
+            // to its left for its bubble. Side by side in one centred row,
+            // neither had it, both flipped inward and overlapped.
             open: () => (
-                <Col gap={72} align="center" padding={{ top: 48 }}>
-                    <TipOpen placement="top" color="primary" />
-                    <TipOpen placement="bottom" color="accent" />
-                    <Row gap={140} align="center">
-                        <TipOpen placement="left" />
-                        <TipOpen placement="right" />
-                    </Row>
+                <Col gap={72} padding={{ top: 48, left: 16, right: 16 }}>
+                    <Row justify="center"><TipOpen placement="top" color="primary" /></Row>
+                    <Row justify="center"><TipOpen placement="bottom" color="accent" /></Row>
+                    <Row justify="flex-end"><TipOpen placement="left" /></Row>
+                    <Row justify="flex-start"><TipOpen placement="right" /></Row>
                 </Col>
             ),
             // Triggers against the screen edges: the popup clamps inside the

@@ -518,6 +518,12 @@ export interface AnchorPositionOptions {
      * A submenu on a phone: two 13rem panels side by side need more than a
      * portrait width, so the submenu slides back over its parent (default
      * false: a popup that fits neither side keeps the preferred side).
+     *
+     * The slide goes to the ROOMIER side (#1296): a submenu whose preferred
+     * side has less room than the other flips first, then clamps, so it
+     * covers as little of its anchor as it can. A nested submenu opening
+     * from a parent submenu that already sits against the trailing edge
+     * lands on the leading side instead of squarely over its parent's rows.
      */
     shift?: boolean;
 }
@@ -551,6 +557,26 @@ function mainAxisStart(anchor: ElementLayout, floating: Size, s: 'top' | 'bottom
     }
 }
 
+/**
+ * The room on one side of the anchor, along the main axis: from the anchor
+ * (plus the gap) to the viewport edge (minus the padding). Negative when the
+ * anchor itself reaches past the padding. @internal
+ */
+export function mainAxisRoom(
+    anchor: ElementLayout,
+    viewport: { width: number; height: number },
+    s: 'top' | 'bottom' | 'left' | 'right',
+    offset: number,
+    padding: number,
+): number {
+    switch (s) {
+        case 'top': return anchor.top - offset - padding;
+        case 'bottom': return viewport.height - padding - anchor.bottom - offset;
+        case 'left': return anchor.left - offset - padding;
+        case 'right': return viewport.width - padding - anchor.right - offset;
+    }
+}
+
 function crossAxisStart(anchor: ElementLayout, floating: Size, placement: LynxPlacement): number {
     const s = side(placement);
     const align = alignment(placement);
@@ -567,6 +593,8 @@ function crossAxisStart(anchor: ElementLayout, floating: Size, placement: LynxPl
  * The placement math, pure. Flips to the opposite side when the preferred
  * one overflows the viewport and the opposite fits better; clamps the cross
  * axis into the viewport either way.
+ * Under `shift`, a popup that fits neither side takes the roomier one and
+ * clamps its main axis into the viewport.
  */
 export function computeAnchorPosition(
     anchor: ElementLayout,
@@ -588,6 +616,9 @@ export function computeAnchorPosition(
         return start >= padding && start + size <= limit - padding;
     };
     if (!fits(s) && fits(OPPOSITE[s])) s = OPPOSITE[s];
+    else if (options.shift && !fits(s) && mainAxisRoom(anchor, viewport, OPPOSITE[s], offset, padding) > mainAxisRoom(anchor, viewport, s, offset, padding)) {
+        s = OPPOSITE[s];
+    }
     const placement = (alignment(preferred) ? `${s}-${alignment(preferred)}` : s) as LynxPlacement;
 
     const start = mainAxisStart(anchor, floating, s, offset);
