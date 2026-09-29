@@ -1443,6 +1443,12 @@ How they behave on lynx:
   8px square turned 45°, half outside the popup edge that faces the
   trigger, at the trigger's centre. It stays inside the popup when the
   popup is clamped to a screen edge. The skin paints it.
+- **Anchored popups sit on whole pixels.** Tooltip, Popover, Select, Menu
+  and Combobox place their popup at a rounded `top` / `left`, and the
+  placement ignores re-measures of the popup's size within a pixel. On iOS
+  a popup centred at a fractional offset re-measured a third of a point
+  wider or narrower, which moved it again on every frame until the engine's
+  event limit tripped.
 - **Not carried:** the drawer's responsive `modal={{ below }}` mode and
   `dock-above` (lynx compiles no media queries), swipe to dismiss and its
   `swiping` flag, `initialFocus` / `finalFocus` / `preventScroll` (lynx has
@@ -1519,9 +1525,14 @@ How they behave on lynx:
 
 - **The carousel viewport is a native paging scroller.** It is a
   `<scroll-view scroll-orientation="horizontal" paging-enabled>`, the
-  primitive `Swiper` in `@sigx/lynx-gestures` uses, so a swipe snaps slide by
-  slide with the platform's physics. A horizontal scroll-view does not
-  resolve `%` widths, so each slide takes the viewport's measured width.
+  primitive `Swiper` in `@sigx/lynx-gestures` uses. On Android a swipe snaps
+  slide by slide with the platform's physics. The iOS scroll-view has no
+  paging attribute, so there the viewport snaps itself when the scroll comes
+  to rest: to the next slide in the drag's direction once the drag has moved
+  a fifth of a slide, otherwise back, gliding there
+  with `scrollTo`. A fling that coasts past several slides snaps to the one
+  it rests on. A horizontal scroll-view does not resolve `%` widths, so each
+  slide takes the viewport's measured width.
 - **The model follows real scroll.** The viewport rounds its scroll offset to
   a slide. Setting the model (a trigger, a dot or the app) glides the
   viewport there through its `scrollTo` UI method. The slides a glide passes
@@ -1750,6 +1761,10 @@ How they behave on lynx:
   out of flow and pinned to the row's bottom corner on the placement's
   side. The root measures it and reserves its width plus `avatarGap`
   beside the column, so an Avatar of any size sits clear of the bubble.
+  The reservation is in whole pixels, and a re-measure within a pixel is
+  ignored. On iOS, layout snaps the avatar's height by a third of a point
+  as the reservation moves it, and chasing that jitter looped until the
+  engine's event limit tripped.
 - **ChatLog follows its tail.** The root is the frame, and Content renders
   a native vertical `scroll-view` with the rows inside it. While following,
   every change in the content's height scrolls to the end through the

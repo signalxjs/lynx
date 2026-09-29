@@ -260,6 +260,32 @@ export function sameRect(a: ElementLayout, b: ElementLayout): boolean {
         && Math.abs(a.height - b.height) <= EPSILON;
 }
 
+/**
+ * A measured size with hysteresis: the last size handed out is kept until a
+ * measurement differs from it by MORE than a pixel (`EPSILON`) on either
+ * axis. Layout snaps to physical pixels, so on iOS a box whose position
+ * depends on its own size (a popup centred on its anchor: `left = centre -
+ * width / 2`) re-measures a third of a point wider or narrower at each new
+ * fractional `left` — and every jitter moved it again, one patch and one
+ * layout event per frame, until the engine's event limit tripped (#1300).
+ * Feeding the placement math through this breaks that loop. Returns the
+ * reader; pure bookkeeping, so it tests without a host. @internal
+ */
+export function stickySize(): (size: Size | null) => Size | null {
+    let held: Size | null = null;
+    return (size) => {
+        if (!size) {
+            held = null;
+            return null;
+        }
+        if (held && Math.abs(held.width - size.width) <= EPSILON && Math.abs(held.height - size.height) <= EPSILON) {
+            return held;
+        }
+        held = { width: size.width, height: size.height };
+        return held;
+    };
+}
+
 export interface SettleOptions {
     /** ms between re-measures while the rect is still moving. Default 100. */
     interval?: number;
@@ -860,13 +886,21 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
         return keyboardFrame(outlet, origin.frame(), overlap);
     };
 
+    // The floating size the math uses, held across sub-pixel re-measures
+    // (see `stickySize`, #1300).
+    const heldSize = stickySize();
+    const floatingSize = (): Size | null => {
+        const f = floating.rect.value;
+        return heldSize(f ? { width: f.width, height: f.height } : null);
+    };
+
     /** The resolved placement, in OUTLET coordinates. */
     const position = (): ResolvedPosition | null => {
         const a = anchor.rect.value;
-        const f = floating.rect.value;
+        const f = floatingSize();
         const v = screen.value;
         return a && f && v.width > 0
-            ? computeFramedPosition(a, { width: f.width, height: f.height }, origin.rect(), frame(), v, options)
+            ? computeFramedPosition(a, f, origin.rect(), frame(), v, options)
             : null;
     };
 
@@ -905,13 +939,15 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
             // drives the flip) is the real size.
             // Off-glass until measured: painting at 0,0 for one frame reads
             // as a flash in the corner; off-glass reads as "not open yet".
-            const at = p ? { top: `${p.top}px`, left: `${p.left}px` } : { top: '-10000px', left: '-10000px' };
+            // Whole pixels: a fractional offset is what makes layout snap the
+            // box's size by a third of a point on iOS (#1300).
+            const at = p ? { top: `${Math.round(p.top)}px`, left: `${Math.round(p.left)}px` } : { top: '-10000px', left: '-10000px' };
             return { position: 'absolute', ...at, height: 'max-content' };
         },
         arrow: (padding) => {
             const p = position();
             const a = anchor.rect.value;
-            const f = floating.rect.value;
+            const f = floatingSize();
             if (!p || !a || !f) return null;
             // The anchor in outlet space, like `p` (identity without an origin).
             const o = origin.rect();
@@ -921,7 +957,9 @@ export function createAnchorPosition(options: CreateAnchorPositionOptions = {}):
                 top: a.top - dy, left: a.left - dx, right: a.right - dx, bottom: a.bottom - dy,
                 width: a.width, height: a.height,
             };
-            return computeArrowOffset(local, { width: f.width, height: f.height }, p, padding);
+            // Against the popup where it is painted: its whole-pixel offset.
+            const painted = { ...p, top: Math.round(p.top), left: Math.round(p.left) };
+            return computeArrowOffset(local, f, painted, padding);
         },
     };
 }

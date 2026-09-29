@@ -36,7 +36,11 @@
  *   (`avatarGap`, default 8) on that side, and its height as the row's
  *   minimum, so any avatar — zero's `Avatar` at any size, an `<image>`,
  *   initials — sits clear of the bubble. Those few inline values are the
- *   runtime's measurement, not paint.
+ *   runtime's measurement, not paint. The reservation is whole pixels and
+ *   ignores a re-measure within a pixel (`sameAvatarBox`): on iOS the
+ *   reserved min-height moves the avatar by a fraction, layout snaps its
+ *   height a third of a point the other way, and reserving each jitter
+ *   looped layout ↔ render until the engine's event limit tripped (#1295).
  * - **Header, Bubble and Footer are `view`s.** Pass a string and it is
  *   wrapped in a `<text>`; pass nodes and they render as-is. The skin's
  *   type and ink reach the text through CSS inheritance
@@ -83,6 +87,18 @@ function sizeOf(event: LayoutChangeEvent): AvatarBox | null {
     return { width: box.width, height: box.height };
 }
 
+/** Re-measures within this many px are the same avatar (sub-pixel layout snapping). */
+const AVATAR_SLACK = 1;
+
+/**
+ * Whether a re-measured avatar box is the one already reserved — equal
+ * within `AVATAR_SLACK` on both axes (or both absent). @internal
+ */
+export function sameAvatarBox(a: AvatarBox | null, b: AvatarBox | null): boolean {
+    if (!a || !b) return a === b;
+    return Math.abs(a.width - b.width) <= AVATAR_SLACK && Math.abs(a.height - b.height) <= AVATAR_SLACK;
+}
+
 /** A string child becomes a `<text>`; anything else renders as given. */
 function textual(content: unknown): unknown {
     return typeof content === 'string' || typeof content === 'number' ? <text>{String(content)}</text> : content;
@@ -108,8 +124,7 @@ const ChatRoot = component<ChatRootProps>(({ props, slots }) => {
     defineProvide(useChatContext, () => ({
         placement,
         setAvatar: (box) => {
-            const prev = avatar.box;
-            if (prev === box || (prev && box && prev.width === box.width && prev.height === box.height)) return;
+            if (sameAvatarBox(avatar.box, box)) return;
             avatar.box = box;
         },
     }));
@@ -118,7 +133,7 @@ const ChatRoot = component<ChatRootProps>(({ props, slots }) => {
         const box = avatar.box;
         const side = placement() === 'end' ? 'paddingRight' : 'paddingLeft';
         const room = box
-            ? { [side]: `${box.width + (props.avatarGap ?? 8)}px`, minHeight: `${box.height}px` }
+            ? { [side]: `${Math.ceil(box.width) + (props.avatarGap ?? 8)}px`, minHeight: `${Math.ceil(box.height)}px` }
             : undefined;
         return (
             <view
