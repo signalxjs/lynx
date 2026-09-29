@@ -70,6 +70,7 @@ import { createPressFeedback } from '../../behaviors/press.js';
 import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
 import type { OverlayInsets } from '../../behaviors/position.js';
 import { createAncestorMotion, useOutletFill, useOutletFullHeight, useOutletRect, useOverlayInsets } from '../../behaviors/position.js';
+import { createSettleTransform, rearmOnRestore } from '../../behaviors/settle-transform.js';
 import { acquireKeyboard, keyboardHeight, keyboardOverlap } from '../../behaviors/keyboard.js';
 import { VISUALLY_HIDDEN } from '../../shared/native-text.js';
 import { OVERLAY_ROOT_STYLE, PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
@@ -313,7 +314,11 @@ export function drawerLayout(
     return { backdrop, panel, content };
 }
 
-/** When the open-animation fallback bumps fire (ms after opening) — Dialog's. */
+/**
+ * When the open-animation fallback bumps fire (ms after opening). The last
+ * one also re-states the panel's resting transform (#1324, the shared
+ * settle behavior).
+ */
 const MOTION_FALLBACK_MS = [400, 1000] as const;
 
 /** Room for a focus ring inside the scroll body's clip (#1255) — Dialog's gutter. */
@@ -345,6 +350,11 @@ function contentStyle(content: Record<string, string>): Record<string, string> {
     };
 }
 
+/** The panel's inline style: its geometry, plus the pinned resting transform once the slide-in is over. */
+function panelStyle(panel: Record<string, string | number>, transform: string | undefined): Record<string, string | number> {
+    return transform ? { ...panel, transform } : panel;
+}
+
 export type DrawerPanelProps =
     /** The panel's width cap: px, or `full`. Unset, the skin's (daisy: 20rem, at most 85% of the window). */
     & Define.Prop<'measure', DrawerMeasure, false>
@@ -362,6 +372,15 @@ const DrawerPanel = component<DrawerPanelProps>(({ props, slots }) => {
     // The slide-in is a transform: anchored popups inside (a Select)
     // re-measure when it ends (#1233).
     const motion = createAncestorMotion();
+    // The panel's resting transform, pinned inline once the slide-in is
+    // over: on the animation's end and at the last fallback timer. On
+    // Android the slide could freeze part-way (#1324), and on iOS a
+    // restored panel sat 2pt short of its edge (#1325). A transition end
+    // only bumps: the pin itself may start one.
+    const settle = createSettleTransform({ fallbackMs: MOTION_FALLBACK_MS, onMotion: () => motion.bump() });
+    // A restored drawer (its screen uncovered, #1308) renders a new panel
+    // that replays the slide-in: settle it again, as on a fresh open.
+    const stopRestore = rearmOnRestore(settle, portal.active, () => drawer.open() && drawer.modal());
     const bridge = (): void => {
         defineProvide(useDrawerContext, () => drawer);
         provideVariantAxes(axes);
@@ -384,11 +403,6 @@ const DrawerPanel = component<DrawerPanelProps>(({ props, slots }) => {
         ...partAxes(axes()),
         class: props.class,
     });
-    let motionTimers: ReturnType<typeof setTimeout>[] = [];
-    const clearMotionTimers = (): void => {
-        for (const t of motionTimers) clearTimeout(t);
-        motionTimers = [];
-    };
     let releaseKeyboard: (() => void) | null = null;
     // STABLE identities for PortalScope (the Dialog lesson): a fresh render
     // function per closure run would re-render the portaled subtree on every
@@ -404,7 +418,7 @@ const DrawerPanel = component<DrawerPanelProps>(({ props, slots }) => {
         unregister = null;
         releaseKeyboard?.();
         releaseKeyboard = null;
-        clearMotionTimers();
+        settle.disarm();
     };
 
     effect(() => {
@@ -417,8 +431,7 @@ const DrawerPanel = component<DrawerPanelProps>(({ props, slots }) => {
             });
             if (!releaseKeyboard) {
                 releaseKeyboard = acquireKeyboard();
-                clearMotionTimers();
-                motionTimers = MOTION_FALLBACK_MS.map((ms) => setTimeout(() => motion.bump(), ms));
+                settle.arm();
             }
             portal.show(() => {
                 const l = layout();
@@ -442,12 +455,15 @@ const DrawerPanel = component<DrawerPanelProps>(({ props, slots }) => {
                     >
                         <view
                             {...panelBag('sheet')}
-                            style={l.panel}
+                            style={panelStyle(l.panel, settle.transform())}
                             // The platform's only stopPropagation: an inner
                             // tap must not reach the backdrop's dismiss.
                             catchtap={() => {}}
-                            bindanimationend={() => motion.bump()}
-                            bindtransitionend={() => motion.bump()}
+                            // The slide-in ended: pin the resting transform
+                            // (#1324), and anchored popups inside re-measure
+                            // (#1233).
+                            bindanimationend={settle.onAnimationEnd}
+                            bindtransitionend={settle.onTransitionEnd}
                         >
                             {/* ALWAYS a scroll body: swapping it in when the
                                 keyboard rises would remount the slot. */}
@@ -465,7 +481,10 @@ const DrawerPanel = component<DrawerPanelProps>(({ props, slots }) => {
             portal.hide();
         }
     });
-    onUnmounted(release);
+    onUnmounted(() => {
+        release();
+        stopRestore();
+    });
 
     // The inline regime renders in place, while open.
     return () => (drawer.open() && !drawer.modal()

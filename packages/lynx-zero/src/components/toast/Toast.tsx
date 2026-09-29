@@ -23,6 +23,7 @@ import { partAxes, provideForcedFlags, provideVariantAxes, useVariantAxes } from
 import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { useOutletRect, useOverlayInsets } from '../../behaviors/position.js';
+import { createSettleTransform } from '../../behaviors/settle-transform.js';
 import { OVERLAY_ROOT_STYLE, PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.toast;
@@ -109,6 +110,12 @@ export interface ToasterOptions {
 
 /** The delay before a new toast flips `open` — one frame, so its entry transitions. */
 const ENTER_DELAY = 16;
+
+/**
+ * When a store toast's entry settles if no transition event arrives (ms
+ * after it opens): past the skin's closed→open transition (daisy: 200ms).
+ */
+const ENTER_SETTLE_MS = [600] as const;
 
 /** A toast's auto-dismiss when its options name none, in ms. */
 const DEFAULT_DURATION = 4000;
@@ -287,6 +294,23 @@ const ToastRoot = component<ToastRootProps>(({ props, slots, emit }) => {
             };
         },
     }));
+    // A store toast enters by a transition from the skin's closed transform
+    // to its resting `transform: none`. Pin that rest inline once the entry
+    // is over, as Dialog and Drawer do (#1320, #1324): on the first
+    // transition end, or at the fallback timer. A close drops the pin, so
+    // the exit transition plays from the skin's rules.
+    const settle = createSettleTransform({ fallbackMs: ENTER_SETTLE_MS, pinOnTransition: true });
+    let entered = false;
+    const presence = effect(() => {
+        const open = props.toast?.open === true;
+        if (open && !entered) settle.arm();
+        else if (!open && entered) settle.disarm();
+        entered = open;
+    });
+    onUnmounted(() => {
+        presence.stop();
+        settle.disarm();
+    });
     return () => (
         <view
             {...partBag(anatomy, 'root', {
@@ -295,6 +319,8 @@ const ToastRoot = component<ToastRootProps>(({ props, slots, emit }) => {
                 ...partAxes(axes()),
                 class: props.class,
             })}
+            style={settle.transform() ? { transform: settle.transform()! } : undefined}
+            bindtransitionend={settle.onTransitionEnd}
         >
             {slots.default?.()}
         </view>
