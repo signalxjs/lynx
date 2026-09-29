@@ -170,6 +170,34 @@ export function containedFrame(origin: ElementLayout | null, frame: ElementLayou
 }
 
 /**
+ * The safe frame to hand out, with the last CONTAINED measurement held
+ * while the current one is not usable (#1318). A covered screen's host is
+ * measured while its screen slides away (the push's parallax) and then sits
+ * `display: none`, so the last measurement it keeps pokes out of the outlet.
+ * When the screen is uncovered, its overlays render again at once (#1308),
+ * against that stale rect, and `containedFrame` dropped it: the insets fell
+ * to 0, so a restored drawer's title sat under the status bar and a dialog
+ * centred in the whole window, not the safe frame. The frame the screen had
+ * before it was covered is the one it gets back, so that is what an
+ * unusable measurement reads as, until a contained one lands. A held frame
+ * is still checked against the CURRENT outlet (a rotation while covered
+ * drops it). With no contained frame yet (a screen still sliding in), the
+ * raw measurement passes through and callers fall back as before. Returns
+ * the reader; pure bookkeeping, so it tests without a host. @internal
+ */
+export function holdContainedFrame(): (outlet: ElementLayout | null, frame: ElementLayout | null) => ElementLayout | null {
+    let held: ElementLayout | null = null;
+    return (outlet, frame) => {
+        const contained = containedFrame(outlet, frame);
+        if (contained) {
+            held = contained;
+            return contained;
+        }
+        return containedFrame(outlet, held) ?? frame;
+    };
+}
+
+/**
  * The safe frame with the soft keyboard's overlap cut off its bottom — the
  * box an anchored popup over a text field may use (#1278). `overlap` is how
  * far the keyboard covers the OUTLET from its bottom edge (`keyboardOverlap`).

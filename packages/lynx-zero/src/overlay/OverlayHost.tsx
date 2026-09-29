@@ -31,10 +31,10 @@
  * failure is loud and names the fix (wrap the app in `<ZeroRoot>`), rather
  * than an overlay silently z-fighting in place.
  */
-import type { Define, LayoutChangeEvent } from '@sigx/lynx';
+import type { Define, ElementLayout, LayoutChangeEvent } from '@sigx/lynx';
 import { component, createLogger, defineInjectable, defineProvide, dispatchBackInterceptors, effect, onUnmounted, signal, useScreen, useScreenActive, useViewportRect } from '@sigx/lynx';
 import { hasActiveDismissLayer } from '../behaviors/dismiss.js';
-import { containedFrame, fixedOutletRect, provideOverlayOrigin, settleRect, tallestAtWidth } from '../behaviors/position.js';
+import { containedFrame, fixedOutletRect, holdContainedFrame, provideOverlayOrigin, settleRect, tallestAtWidth } from '../behaviors/position.js';
 import type { ThemeProviderProps } from '../theme/ThemeProvider.js';
 import { ThemeProvider } from '../theme/ThemeProvider.js';
 import { EDGE_BACK_WIDTH, createEdgeSwipe, edgeBackEnabled } from './edge-back.js';
@@ -321,16 +321,46 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
         tallest(outletRect());
     });
     onUnmounted(() => feedTallest.stop());
-    provideOverlayOrigin(outletRect, measureFrame, () => frame.rect.value, () => tallest(outletRect()));
+    // The frame that content reads holds the last contained measurement while the
+    // current one pokes out of the outlet (#1318): a restored overlay renders
+    // the moment its screen is uncovered, against a rect measured while the
+    // screen slid away, and would otherwise lose every inset until a fresh
+    // measurement landed.
+    const hold = holdContainedFrame();
+    const safeFrame = (): ElementLayout | null => hold(outletRect(), frame.rect.value);
+    provideOverlayOrigin(outletRect, measureFrame, safeFrame, () => tallest(outletRect()));
     // The frame is measured on LAYOUT, and a push transition is a transform:
     // the host inside a screen sliding in measures a screen width to the
     // right, pokes out of the outlet, and `containedFrame` drops it — every
     // toast lost its insets, and anchored popups their clamp box, because
     // nothing measured again once the slide settled (#1181, #1182). Keep
     // measuring until the frame holds still inside the outlet.
-    settleRect(() => frame.rect.value, measureFrame, {
+    const settle = settleRect(() => frame.rect.value, measureFrame, {
         unsettled: () => !containedFrame(outletRect(), frame.rect.value),
     });
+    // A covered screen's frame was last measured slid away (the push's
+    // parallax), and the loop stops once the screen is `display: none`.
+    // Uncovering it re-measures, but an interactive pop starts its drag from
+    // that same parallax offset: the rect comes back identical, publishes
+    // nothing, and no loop starts, so the frame stayed the slid-away one
+    // after the pop settled (#1318, iOS sim: every slow edge swipe).
+    // So measure again whenever this host's screen comes back on top, and
+    // whenever the outlet goes from empty to showing (a restored overlay of
+    // another screen under an app-level host, or a fresh open). A kick
+    // measures a handful of times, and a measurement that agrees publishes
+    // nothing (#1200).
+    const hostActive = useScreenActive();
+    let wasActive = hostActive();
+    let wasShowing = false;
+    const rearm = effect(() => {
+        const nowActive = hostActive();
+        const showing = registry.entries().some((entry) => entry.active());
+        // Nothing measured yet: the first layout event starts the loop.
+        if (frame.rect.value && ((nowActive && !wasActive) || (showing && !wasShowing))) settle.kick();
+        wasActive = nowActive;
+        wasShowing = showing;
+    });
+    onUnmounted(() => rearm.stop());
     const onOutletLayout = (e: LayoutChangeEvent): void => {
         const d = e?.detail ?? e?.params;
         if (d && d.width > 0 && d.height > 0) {
