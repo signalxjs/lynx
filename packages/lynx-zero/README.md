@@ -180,9 +180,11 @@ The platform spellings to know:
   by `@sigx/lynx-navigation`) (#1308). While its screen is covered, an open
   overlay leaves the outlet and its layer stops counting: back (and the iOS
   edge swipe) on the screen on top never reaches it. When the screen is
-  uncovered the overlay renders again, as on a fresh open. It is still
-  open, but transient state inside it (an uncontrolled field's text, a
-  scroll offset) starts over. This works the same with one app-level
+  uncovered the overlay renders again, as on a fresh open, in the same
+  safe frame it had before (#1318): the host keeps the last safe frame it
+  measured inside the window, and measures again once its screen is back
+  on top. It is still open, but transient state inside it (an
+  uncontrolled field's text, a scroll offset) starts over. This works the same with one app-level
   `ZeroRoot` or one per screen. `LynxDismissLayer.active` carries the
   activity for custom layers, and `useOverlayPortal()` returns it as
   `portal.active`.
