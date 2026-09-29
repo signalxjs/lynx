@@ -28,7 +28,7 @@
     "devDependencies": {
         "@sigx/zero": "catalog:",
         "@sigx/zero-daisyui": "catalog:",
-        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "@typescript/native-preview": "7.0.0-dev.20260707.2",
         "culori": "^4.0.1",
         "typescript": "^6.0.3"
     },
