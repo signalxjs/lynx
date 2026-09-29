@@ -1946,7 +1946,7 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
             'live-select': () => (
                 <Col gap={16}>
                     {(['primary', 'secondary'] as const).map((color) => (
-                        <Col gap={6}>
+                        <Col key={color} gap={6}>
                             <text class="zg-note">{`${color} · nothing selected at mount — tap rows`}</text>
                             <TreeView.Root color={color} defaultExpandedValues={['src']}>
                                 <TreeView.Tree>
