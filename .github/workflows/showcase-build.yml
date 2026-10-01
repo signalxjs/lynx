@@ -1,0 +1,191 @@
+name: Showcase build
+
+# Builds the examples/showcase app into store-shaped release artifacts the way
+# an external pipeline would (Azure DevOps, Bitrise, fastlane, ...): JS bundle →
+# `sigx prebuild --embed-bundle` → native release build. It doubles as the
+# copyable reference for "how do I build an .ipa / .apk in CI" — see
+# packages/lynx-cli/README.md "Building store artifacts in CI".
+#
+# No secrets needed: the iOS archive is unsigned (signing needs your own Apple
+# certificate + profile), and the Android release build falls back to the
+# debug keystore when SIGX_UPLOAD_KEYSTORE is unset.
+#
+# Not a required check, and deliberately not on `merge_group`: a cold iOS
+# release build compiles the Lynx C++ engine from source and is slow.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/showcase-build.yml'
+      - 'examples/showcase/**'
+      - 'packages/lynx-cli/src/prebuild.ts'
+      - 'packages/lynx-cli/src/autolink/**'
+      - 'packages/lynx-cli/src/util/embed-bundle.ts'
+      - 'packages/lynx-cli/templates/**'
+      - 'packages/*/ios/**'
+      - 'packages/*/android/**'
+      - 'packages/*/signalx-module.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/showcase-build.yml'
+      - 'examples/showcase/**'
+      - 'packages/lynx-cli/src/prebuild.ts'
+      - 'packages/lynx-cli/src/autolink/**'
+      - 'packages/lynx-cli/src/util/embed-bundle.ts'
+      - 'packages/lynx-cli/templates/**'
+      - 'packages/*/ios/**'
+      - 'packages/*/android/**'
+      - 'packages/*/signalx-module.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: showcase-build-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      APP: showcase
+      APP_DIR: examples/showcase
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The showcase and every workspace package it depends on. The showcase's
+      # own `build` script is `sigx build`, so this also emits
+      # dist/main.lynx.bundle.
+      - name: Build packages + JS bundle
+        run: pnpm --filter "showcase..." run build
+
+      # Bakes dist/main.lynx.bundle into ios/<App>/ — without it the archive
+      # ships the empty dev placeholder.
+      - name: Prebuild iOS project (embed bundle)
+        working-directory: ${{ env.APP_DIR }}
+        run: pnpm exec sigx prebuild --ios --embed-bundle
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/CocoaPods
+            ${{ env.APP_DIR }}/ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('examples/showcase/ios/Podfile') }}
+
+      - name: pod install
+        working-directory: ${{ env.APP_DIR }}/ios
+        run: pod install
+
+      # Generic device destination — never a simulator id. Signing is switched
+      # off here; a signed archive would instead pass CODE_SIGN_STYLE /
+      # DEVELOPMENT_TEAM / PROVISIONING_PROFILE_SPECIFIER with a certificate
+      # imported into a temporary, unlocked keychain (a login-keychain
+      # certificate makes codesign wait on a GUI prompt forever).
+      - name: xcodebuild archive (Release, unsigned)
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild archive \
+            -workspace "ios/$APP.xcworkspace" \
+            -scheme "$APP" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "build/$APP.xcarchive" \
+            -derivedDataPath build/DerivedData \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            2>&1 | tee build/xcodebuild.log
+
+      # What `xcodebuild -exportArchive` produces for a signed archive is the
+      # same layout: Payload/<App>.app, zipped.
+      - name: Package unsigned .ipa
+        working-directory: ${{ env.APP_DIR }}/build
+        run: |
+          mkdir -p Payload
+          cp -R "$APP.xcarchive/Products/Applications/$APP.app" Payload/
+          zip -qry "$APP-unsigned.ipa" Payload
+          echo "### iOS" >> "$GITHUB_STEP_SUMMARY"
+          echo "Unsigned \`$APP-unsigned.ipa\`: $(du -h "$APP-unsigned.ipa" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: showcase-ios-unsigned-ipa
+          path: ${{ env.APP_DIR }}/build/showcase-unsigned.ipa
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: showcase-ios-xcodebuild-log
+          path: ${{ env.APP_DIR }}/build/xcodebuild.log
+          retention-days: 14
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      APP_DIR: examples/showcase
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages + JS bundle
+        run: pnpm --filter "showcase..." run build
+
+      - name: Prebuild Android project (embed bundle)
+        working-directory: ${{ env.APP_DIR }}
+        run: pnpm exec sigx prebuild --android --embed-bundle
+
+      # Release signing comes from SIGX_UPLOAD_KEYSTORE & co. when set; unset,
+      # the template signs with the debug keystore.
+      - name: gradle assembleRelease
+        working-directory: ${{ env.APP_DIR }}/android
+        run: |
+          ./gradlew assembleRelease
+          apk=$(ls app/build/outputs/apk/release/*.apk | head -n1)
+          echo "### Android" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$(basename "$apk")\` (debug-keystore signed): $(du -h "$apk" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: showcase-android-apk
+          path: ${{ env.APP_DIR }}/android/app/build/outputs/apk/release/*.apk
+          retention-days: 14
