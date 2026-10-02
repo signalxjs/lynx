@@ -335,6 +335,54 @@ report up-to-date, and the app launches and runs the *older* code with no error.
 if you drive Gradle or Xcode yourself, compare hashes rather than trusting a
 green build — minification defeats grepping the archive for a new symbol.
 
+### Building store artifacts in CI
+
+[`.github/workflows/showcase-build.yml`](../../.github/workflows/showcase-build.yml)
+builds the showcase app this way on every relevant change: an unsigned `.ipa`
+and a release `.apk`, both downloadable from the run. Copy it as a starting point
+for GitHub Actions, Azure DevOps, Bitrise and similar. An iOS pipeline that ships
+a signed `.ipa` looks like this:
+
+```bash
+sigx build && sigx prebuild --ios --embed-bundle
+(cd ios && pod install)                 # cache ios/Pods keyed on ios/Podfile
+
+xcodebuild archive \
+  -workspace ios/<App>.xcworkspace -scheme <App> -configuration Release \
+  -destination 'generic/platform=iOS' \
+  -archivePath build/<App>.xcarchive -derivedDataPath build/DerivedData \
+  COMPILER_INDEX_STORE_ENABLE=NO \
+  CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=<TEAM_ID> \
+  CODE_SIGN_IDENTITY="Apple Distribution" PROVISIONING_PROFILE_SPECIFIER="<profile name>"
+
+xcodebuild -exportArchive -archivePath build/<App>.xcarchive \
+  -exportOptionsPlist ExportOptions.plist -exportPath build/ipa
+```
+
+`ExportOptions.plist` names the distribution `method` (`app-store-connect`,
+`ad-hoc`, `enterprise`), the `teamID`, `signingStyle` `manual`, and a
+`provisioningProfiles` map from bundle id to profile name.
+
+When an iOS CI build "takes forever", it is usually one of these:
+
+- **It is waiting on a keychain prompt.** With the signing certificate in the
+  login keychain, `codesign` waits for an "Allow access" dialog nobody can click
+  and the log just stops. Import the `.p12` into a temporary, unlocked keychain
+  instead (Azure's `InstallAppleCertificate@2` does this; by hand, `security
+  set-key-partition-list -S apple-tool:,apple: …`).
+- **Automatic signing without an Apple account.** A build agent has no Apple ID
+  signed into Xcode. Sign manually as above, or pass an App Store Connect API key
+  with `-allowProvisioningUpdates -authenticationKeyPath … -authenticationKeyID …
+  -authenticationKeyIssuerID …`.
+- **It is genuinely compiling.** The `Lynx` and `PrimJS` pods build the engine's
+  C++ from source, so a cold Release build is long, and on a small hosted macOS
+  agent it can hit the job timeout. Cache `ios/Pods` and the derived-data dir,
+  keep `COMPILER_INDEX_STORE_ENABLE=NO`, and use a bigger or self-hosted Mac for
+  frequent builds.
+
+If the log stopped at a `CodeSign` step, it is one of the first two; if it is
+still printing compile lines, it is the third.
+
 ### R8 keep rules from linked modules
 
 Release builds run R8 in full mode. A linked module whose native dependency
