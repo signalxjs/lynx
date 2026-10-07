@@ -1,5 +1,8 @@
+import { createRequire } from 'node:module';
 import { describe, it, expect } from 'vitest';
 import adapter from '../src/index.js';
+
+const require = createRequire(import.meta.url);
 
 describe('@sigx/lynx-icons-mdi adapter', () => {
     it('reports exactly one (empty) style', () => {
@@ -51,6 +54,23 @@ describe('@sigx/lynx-icons-mdi adapter', () => {
                 expect(name).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
             }
         });
+
+        it('reports exactly MDI\'s canonical names (@mdi/svg meta.json)', () => {
+            // The kebab inverse is ambiguous (`LanguageHtml5` could be
+            // `language-html5` or `language-html-5`), and a round-trip through
+            // getGlyph can't tell — both spellings resolve. Check against
+            // the published names, which `include: ['*']` registers under.
+            const meta = require('@mdi/svg/meta.json') as Array<{ name: string }>;
+            expect([...adapter.listGlyphs('')].sort()).toEqual(meta.map((m) => m.name).sort());
+        });
+
+        it.each(['language-html5', 'molecule-co2', 'keyboard-f12', 'dice-d20', 'surround-sound-5-1'])(
+            'keeps the irregular name %s as MDI spells it',
+            (name) => {
+                expect(adapter.listGlyphs('')).toContain(name);
+                expect(adapter.getGlyph('', name)).not.toBeNull();
+            },
+        );
 
         it('round-trips with getGlyph (every listed name resolves)', () => {
             // The kebab inverse has to agree with the forward mapping for

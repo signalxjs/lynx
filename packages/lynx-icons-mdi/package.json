@@ -31,12 +31,13 @@
         "test": "vitest run"
     },
     "peerDependencies": {
+        "@mdi/js": "^7.0.0",
         "@sigx/lynx": "workspace:^",
-        "@sigx/lynx-icons": "workspace:^",
-        "@mdi/js": "^7.0.0"
+        "@sigx/lynx-icons": "workspace:^"
     },
     "devDependencies": {
         "@mdi/js": "^7.4.47",
+        "@mdi/svg": "^7.4.47",
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-icons": "workspace:^",
         "@types/node": "^25.9.1",
