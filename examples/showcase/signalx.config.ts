@@ -82,6 +82,8 @@ export default defineLynxConfig({
                 'car', 'volleyball', 'lightbulb', 'hash', 'flag',
             ],
         },
+        // Material Design Icons — scanner picks names up from `<MdiIcon name="…">`.
+        { id: 'mdi', source: '@sigx/lynx-icons-mdi' },
     ],
 
     android: {

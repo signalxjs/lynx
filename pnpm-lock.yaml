@@ -162,6 +162,9 @@ importers:
       '@fortawesome/free-solid-svg-icons':
         specifier: ^6.7.2
         version: 6.7.2
+      '@mdi/js':
+        specifier: ^7.4.47
+        version: 7.4.47
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../../packages/lynx
@@ -222,6 +225,9 @@ importers:
       '@sigx/lynx-icons-lucide':
         specifier: workspace:^
         version: link:../../packages/lynx-icons-lucide
+      '@sigx/lynx-icons-mdi':
+        specifier: workspace:^
+        version: link:../../packages/lynx-icons-mdi
       '@sigx/lynx-image-picker':
         specifier: workspace:^
         version: link:../../packages/lynx-image-picker
@@ -851,6 +857,27 @@ importers:
       lucide:
         specifier: ^1.16.0
         version: 1.16.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-icons-mdi:
+    devDependencies:
+      '@mdi/js':
+        specifier: ^7.4.47
+        version: 7.4.47
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
+      '@sigx/lynx-icons':
+        specifier: workspace:^
+        version: link:../lynx-icons
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.3
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2141,6 +2168,9 @@ packages:
   '@lynx-js/websocket@0.0.4':
     resolution: {integrity: sha512-yXuMiTALLNvkDz8hG+0KdkBodnyJDvyfr8bdIq6zMP9X8JAoBC/czc1HIhUgYEJ3Zee5F/vGKjNxcoSx2t1E6w==}
     engines: {node: '>=18'}
+
+  '@mdi/js@7.4.47':
+    resolution: {integrity: sha512-KPnNOtm5i2pMabqZxpUz7iQf+mfrYZyKCZ8QNz85czgEt7cuHcGorWfdzUMWYA0SD+a6Hn4FmJ+YhzzzjkTZrQ==}
 
   '@napi-rs/wasm-runtime@1.1.6':
     resolution: {integrity: sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==}
@@ -5090,6 +5120,8 @@ snapshots:
   '@lynx-js/websocket@0.0.4':
     dependencies:
       eventemitter3: 5.0.4
+
+  '@mdi/js@7.4.47': {}
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:

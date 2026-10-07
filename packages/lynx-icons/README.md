@@ -1,6 +1,6 @@
 # @sigx/lynx-icons
 
-`<Icon set name />` for sigx-lynx, with build-time tree-shaking so only the glyphs you actually render ship in the bundle. Pairs with adapter packages — [`@sigx/lynx-icons-fa-free`](https://sigx.dev/lynx/modules/icons-fa/overview/) for Font Awesome Free, [`@sigx/lynx-icons-lucide`](https://sigx.dev/lynx/modules/icons-lucide/overview/) for Lucide — and is wired by [`@sigx/lynx-plugin`](https://sigx.dev/lynx/modules/plugin/overview/)'s icons slice.
+`<Icon set name />` for sigx-lynx, with build-time tree-shaking so only the glyphs you actually render ship in the bundle. Pairs with adapter packages — [`@sigx/lynx-icons-fa-free`](https://sigx.dev/lynx/modules/icons-fa/overview/) for Font Awesome Free, [`@sigx/lynx-icons-lucide`](https://sigx.dev/lynx/modules/icons-lucide/overview/) for Lucide, [`@sigx/lynx-icons-mdi`](https://sigx.dev/lynx/modules/icons-mdi/overview/) for Material Design Icons — and is wired by [`@sigx/lynx-plugin`](https://sigx.dev/lynx/modules/plugin/overview/)'s icons slice.
 
 ## 📚 Documentation
 

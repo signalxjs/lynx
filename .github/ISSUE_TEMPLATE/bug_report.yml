@@ -37,6 +37,7 @@ body:
         - "@sigx/lynx-icons"
         - "@sigx/lynx-icons-fa-free"
         - "@sigx/lynx-icons-lucide"
+        - "@sigx/lynx-icons-mdi"
         - "@sigx/lynx-image-picker"
         - "@sigx/lynx-keyboard"
         - "@sigx/lynx-linking"

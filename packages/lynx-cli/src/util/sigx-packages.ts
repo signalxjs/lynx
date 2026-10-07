@@ -87,6 +87,7 @@ export const KNOWN_SIGX_LYNX_PACKAGES: ReadonlySet<string> = new Set([
     '@sigx/lynx-icons',
     '@sigx/lynx-icons-fa-free',
     '@sigx/lynx-icons-lucide',
+    '@sigx/lynx-icons-mdi',
     '@sigx/lynx-image-picker',
     '@sigx/lynx-linking',
     '@sigx/lynx-location',
@@ -227,6 +228,7 @@ const PURE_JS_LYNX_PACKAGES = new Set([
     '@sigx/lynx-icons',
     '@sigx/lynx-icons-fa-free',
     '@sigx/lynx-icons-lucide',
+    '@sigx/lynx-icons-mdi',
 ]);
 
 /**
