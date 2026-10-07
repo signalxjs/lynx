@@ -2,6 +2,7 @@ package com.sigx.core
 
 import android.content.Context
 import android.os.Build
+import android.util.Base64
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import com.lynx.jsbridge.LynxMethod
@@ -9,6 +10,7 @@ import com.lynx.jsbridge.LynxModule
 import com.lynx.react.bridge.Callback
 import com.lynx.react.bridge.JavaOnlyMap
 import com.lynx.react.bridge.ReadableMap
+import java.security.SecureRandom
 import kotlin.math.roundToInt
 
 /**
@@ -80,6 +82,23 @@ class DeviceInfoModule(context: Context) : LynxModule(context) {
         callback?.invoke(resultMap(SigxOrientation.unlock()))
     }
 
+    /**
+     * Cryptographically secure random bytes (#1337), base64-encoded — the
+     * CSPRNG the BG thread lacks (no `crypto.getRandomValues`). Sync, so JS
+     * helpers like `generateState()` stay synchronous. Returns `""` for a
+     * length outside 1..1024; JS treats an empty or short result as "no random
+     * source" — never a weak fallback.
+     * JS usage: NativeModules.SigxCore.getRandomBytes(32)  // base64 string
+     */
+    @LynxMethod
+    fun getRandomBytes(length: Double): String {
+        val n = length.toInt()
+        if (length != n.toDouble() || n < 1 || n > 1024) return ""
+        val bytes = ByteArray(n)
+        secureRandom.nextBytes(bytes)
+        return Base64.encodeToString(bytes, Base64.NO_WRAP)
+    }
+
     /** Empty map on success; `{ error }` on failure (CONVENTIONS.md C4). */
     private fun resultMap(error: String?): JavaOnlyMap =
         JavaOnlyMap().apply { error?.let { putString("error", it) } }
@@ -92,5 +111,10 @@ class DeviceInfoModule(context: Context) : LynxModule(context) {
         } catch (_: Exception) {
             "unknown"
         }
+    }
+
+    private companion object {
+        /** One shared instance — `SecureRandom` is thread-safe and seeding is costly. */
+        val secureRandom: SecureRandom by lazy { SecureRandom() }
     }
 }

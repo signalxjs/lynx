@@ -17,6 +17,10 @@ export type { SubscribeNativeOptions } from './events.js';
 export { SigxError, isSigxError, unwrapNative, unwrapNativeVoid } from './errors.js';
 export { webHostCall, isWebHostAvailable } from './web-host.js';
 export { base64ToArrayBuffer, arrayBufferToBase64 } from './base64.js';
+
+// Secure random bytes (#1337) — Web Crypto where present, else core's native
+// CSPRNG, since the BG thread has no `crypto.getRandomValues` on iOS.
+export { getRandomBytes } from './crypto.js';
 export type { PermissionStatus, PermissionResponse } from './permissions.js';
 
 // Platform checks + select(), sourced from the Lynx SystemInfo global.

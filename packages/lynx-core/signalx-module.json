@@ -23,7 +23,8 @@
             "getDeviceInfo",
             "getAppState",
             "lockOrientation",
-            "unlockOrientation"
+            "unlockOrientation",
+            "getRandomBytes"
         ],
         "sourceDir": "ios"
     }

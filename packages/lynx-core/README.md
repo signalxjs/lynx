@@ -160,6 +160,31 @@ if (__BACKGROUND__) { /* absent from the main-thread bundle */ }
   web↔native swaps** — iOS and Android share one native bundle, so use
   `Platform.OS` / `Platform.select` at runtime to split those.
 
+## Secure random bytes
+
+`getRandomBytes(length)` returns `length` (1–1024) cryptographically secure
+random bytes as a `Uint8Array`, synchronously. Use it for nonces, PKCE
+verifiers, OAuth `state`, or IDs. `@sigx/lynx-webauth`'s OAuth helpers use it.
+
+```ts
+import { getRandomBytes } from '@sigx/lynx-core';
+
+const nonce = getRandomBytes(16);
+```
+
+It uses `crypto.getRandomValues` where the runtime has it (web builds, engines
+with Web Crypto). Otherwise it uses the platform CSPRNG through core's own
+`SigxCore` module: `SecRandomCopyBytes` on iOS, `SecureRandom` on Android. That
+covers the Lynx background thread on iOS, which has no Web Crypto. `SigxCore` is
+linked in every build, so there is nothing to register.
+
+There is no insecure fallback. It throws a `SigxError` with:
+
+| `code` | Means |
+| --- | --- |
+| `'invalid_argument'` | `length` isn't an integer from 1 to 1024. |
+| `'no_random_source'` | Neither Web Crypto nor the native CSPRNG is available, or the native call failed. |
+
 ## Device info
 
 `DeviceInfo` is an async, native-backed snapshot (manufacturer, model, brand,
@@ -389,7 +414,7 @@ Native modules are wired by `@sigx/lynx-cli`'s autolinker. Install the package (
 
 Mixed by surface, since core is half host-agnostic JS and half native bridge:
 
-- **Unchanged on web.** `Platform` / `select()` (`Platform.OS === 'web'`), the logger and its transports, `SigxError` / `unwrapNative`, `base64ToArrayBuffer` / `arrayBufferToBase64`, and `subscribeNative` — upstream web-core does inject a `GlobalEventEmitter` into the worker, so native-event subscriptions genuinely deliver on web (that is how the appearance and screen channels below arrive). Its silent-no-op path is for hosts where no emitter is reachable at all (SSR, tests), which is why packages can subscribe unconditionally.
+- **Unchanged on web.** `Platform` / `select()` (`Platform.OS === 'web'`), the logger and its transports, `SigxError` / `unwrapNative`, `base64ToArrayBuffer` / `arrayBufferToBase64`, `getRandomBytes` (the browser's `crypto.getRandomValues`), and `subscribeNative` — upstream web-core does inject a `GlobalEventEmitter` into the worker, so native-event subscriptions genuinely deliver on web (that is how the appearance and screen channels below arrive). Its silent-no-op path is for hosts where no emitter is reachable at all (SSR, tests), which is why packages can subscribe unconditionally.
 - **Served by the page bridge.** `useScreen()` / `useOrientation()` / `readGlobalScreen()` work — `@sigx/lynx-web-host` publishes the same `__globalProps.screen` + `screenChanged` channels from `resize` and `screen.orientation`. The size-class reads (`useWidthClass()`, `useWidthAtLeast()`, …) are pure derivations of that signal, so they work on web too. `webHostCall()` / `isWebHostAvailable()` are the worker→page RPC used by the `.web.ts` shims that need an API only the page has: clipboard, linking, share, file picker, image picker, haptics, location, notifications. Shims for APIs the worker already owns don't go through it — storage uses IndexedDB, network reads `navigator.onLine`, websocket uses the worker's own `WebSocket`, and observability's memory read is local.
 - **Degraded.** `Orientation.lock()` resolves to `orientation.web.ts`, backed by the Screen Orientation API: locking only works on a fullscreen document and several browsers (all of iOS, desktop Safari) don't implement it at all, so it rejects with an explanatory message there. Feature-detect with `Orientation.isAvailable()`.
 - **Unsupported.** The `SigxCore` native module isn't registered on web, so `DeviceInfo` and `AppState` have no source — `DeviceInfo.isAvailable()` / `AppState.available` are `false`, `AppState.current` stays `'active'` and its subscriptions never fire (the Page Visibility API is what a future shim would use). Nothing publishes `__globalProps.fontScale` either, so `readGlobalFontScale()` returns `null` and `useFontScale()` stays at `1`.

@@ -59,6 +59,8 @@ describe('public runtime exports', () => {
                 'base64ToArrayBuffer',
                 'isWebHostAvailable',
                 'webHostCall',
+                // secure random bytes (#1337)
+                'getRandomBytes',
                 // platform + device
                 'DeviceInfo',
                 'OS',
