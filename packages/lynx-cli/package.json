@@ -36,18 +36,18 @@
     },
     "dependencies": {
         "@lynx-js/web-core": "catalog:",
-        "@sigx/cli": "^0.12.0",
+        "@sigx/cli": "^0.14.0",
         "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-updates-publisher": "workspace:^",
         "@sigx/lynx-web-host": "workspace:^",
         "@sigx/terminal": "^0.13.0",
-        "esbuild": "^0.28.0",
-        "sharp": "^0.34.0",
-        "ws": "^8.20.1"
+        "esbuild": "^0.28.2",
+        "sharp": "^0.35.5",
+        "ws": "^8.22.0"
     },
     "devDependencies": {
         "@types/node": "^25.9.1",
-        "@types/ws": "^8.18.1",
+        "@types/ws": "^8.18.2",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"
     },
