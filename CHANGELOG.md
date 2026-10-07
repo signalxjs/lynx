@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-10-07
+
 ### Added
 
 - **`@sigx/lynx-core`: `getRandomBytes(length)`** ([#1337](https://github.com/signalxjs/lynx/issues/1337)). It returns cryptographically secure random bytes synchronously. It uses `crypto.getRandomValues` where the runtime has it, and otherwise the platform CSPRNG through core's `SigxCore` module: `SecRandomCopyBytes` on iOS, `SecureRandom` on Android. `SigxCore` is linked in every build, so apps no longer need their own native random-bytes bridge. There is no weak fallback. Errors are a `SigxError` with `invalid_argument` (a length outside 1–1024) or `no_random_source`.
