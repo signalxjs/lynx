@@ -104,9 +104,14 @@ if (result.url) {
 }
 ```
 
-`generatePKCE` / `generateState` need a CSPRNG. Where `crypto.getRandomValues`
-is missing they throw a `SigxError` with `code: 'no_random_source'` rather than
-falling back to a weak source — pass `{ randomBytes }` to supply your own.
+`generatePKCE` / `generateState` need a CSPRNG. They work on iOS and Android
+devices with no app code: they use `getRandomBytes` from `@sigx/lynx-core`.
+That function uses `crypto.getRandomValues` where the runtime has it, and
+otherwise the platform CSPRNG through core's native module
+(`SecRandomCopyBytes` / `SecureRandom`). The Lynx background thread on iOS has
+no Web Crypto. If neither source is available, they throw a `SigxError` with
+`code: 'no_random_source'`. They never fall back to a weak source. Pass
+`{ randomBytes }` to supply your own.
 
 ## Web
 

@@ -1,5 +1,6 @@
 import UIKit
 import Lynx
+import Security
 
 /// Device information module, hosted by core's own native module.
 /// JS usage: NativeModules.SigxCore.getDeviceInfo(callback)
@@ -13,6 +14,7 @@ class DeviceInfoModule: NSObject, LynxModule {
             "getAppState": NSStringFromSelector(#selector(getAppState(_:))),
             "lockOrientation": NSStringFromSelector(#selector(lockOrientation(_:callback:))),
             "unlockOrientation": NSStringFromSelector(#selector(unlockOrientation(_:))),
+            "getRandomBytes": NSStringFromSelector(#selector(getRandomBytes(_:))),
         ]
     }
 
@@ -71,6 +73,20 @@ class DeviceInfoModule: NSObject, LynxModule {
     /// Release the runtime lock, restoring the configured set.
     @objc func unlockOrientation(_ callback: LynxCallbackBlock?) {
         callback?(result(SigxOrientation.unlock()))
+    }
+
+    /// Cryptographically secure random bytes (#1337), base64-encoded — the
+    /// CSPRNG the BG thread lacks (no `crypto.getRandomValues`). Sync, so JS
+    /// helpers like `generateState()` stay synchronous. Returns `""` for a
+    /// length outside 1…1024 or a `SecRandomCopyBytes` failure; JS treats an
+    /// empty or short result as "no random source" — never a weak fallback.
+    /// JS usage: NativeModules.SigxCore.getRandomBytes(32)  // base64 string
+    @objc func getRandomBytes(_ length: NSNumber) -> String {
+        let n = length.intValue
+        guard length.doubleValue == Double(n), n >= 1, n <= 1024 else { return "" }
+        var bytes = [UInt8](repeating: 0, count: n)
+        guard SecRandomCopyBytes(kSecRandomDefault, n, &bytes) == errSecSuccess else { return "" }
+        return Data(bytes).base64EncodedString()
     }
 
     /// Empty map on success; `{ error }` on failure (CONVENTIONS.md C4).
