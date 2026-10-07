@@ -30,7 +30,7 @@
         "@sigx/zero-daisyui": "catalog:",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "culori": "^4.0.1",
-        "typescript": "^6.0.3"
+        "typescript": "^7.0.2"
     },
     "publishConfig": {
         "access": "public"
