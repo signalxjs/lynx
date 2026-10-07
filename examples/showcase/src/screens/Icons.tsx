@@ -3,9 +3,10 @@ import { Screen } from '@sigx/lynx-navigation';
 import { Card, Col, Heading, Row, ScrollView, Text } from '@sigx/lynx-daisyui';
 import { FaBrandIcon, FaSolidIcon } from '@sigx/lynx-icons-fa-free/components';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
+import { MdiIcon } from '@sigx/lynx-icons-mdi/components';
 
 /**
- * Icons — @sigx/lynx-icons adapters (Font Awesome free + Lucide) with
+ * Icons — @sigx/lynx-icons adapters (Font Awesome free, Lucide, MDI) with
  * daisy-variant theming, plus the runtime-resolved dynamic-name path that
  * relies on `include: ['*']` in signalx.config.ts.
  */
@@ -34,6 +35,26 @@ export const Icons = component(() => {
                                 <FaBrandIcon name="github" size={24} variant="neutral" />
                                 <LucideIcon name="search" size={24} variant="info" />
                                 <LucideIcon name="bell" size={24} variant="warning" />
+                            </Row>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
+                            <Text weight="semibold">Material Design Icons</Text>
+                            <Text class="opacity-60 text-sm">
+                                `MdiIcon` from @sigx/lynx-icons-mdi — kebab-case
+                                names map to `@mdi/js` exports
+                                (`signal-cellular-outline` → `mdiSignalCellularOutline`).
+                            </Text>
+                            <Row gap={16} align="center">
+                                <MdiIcon name="menu" size={24} variant="primary" />
+                                <MdiIcon name="signal-cellular-outline" size={24} variant="secondary" />
+                                <MdiIcon name="wifi" size={24} variant="accent" />
+                                <MdiIcon name="battery-50" size={24} variant="success" />
+                                <MdiIcon name="bluetooth" size={24} variant="info" />
                             </Row>
                         </Col>
                     </Card.Body>

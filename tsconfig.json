@@ -70,6 +70,9 @@
       "@sigx/lynx-icons-lucide": [
         "./packages/lynx-icons-lucide/src/index.ts"
       ],
+      "@sigx/lynx-icons-mdi": [
+        "./packages/lynx-icons-mdi/src/index.ts"
+      ],
       "@sigx/lynx-image-picker": [
         "./packages/lynx-image-picker/src/index.ts"
       ],

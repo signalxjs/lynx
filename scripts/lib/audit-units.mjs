@@ -22,6 +22,7 @@
 export const FOLD = {
     'lynx-icons-fa-free': 'lynx-icons',
     'lynx-icons-lucide': 'lynx-icons',
+    'lynx-icons-mdi': 'lynx-icons',
     'lynx-runtime-internal': 'lynx-runtime',
     'lynx-updates-publisher': 'lynx-updates',
 };
@@ -376,7 +377,7 @@ export const META = {
     'lynx-icons': {
         group: 'ui',
         demo: 'yes',
-        seeds: ['Folds in `@sigx/lynx-icons-fa-free` and `@sigx/lynx-icons-lucide` — two-file adapters over `defineIconSet`.', 'The interesting surface is build-time subsetting, which spans `lynx-icons` and `lynx-plugin/src/icons.ts` (D5.4).'],
+        seeds: ['Folds in `@sigx/lynx-icons-fa-free`, `@sigx/lynx-icons-lucide` and `@sigx/lynx-icons-mdi` — two-file `IconAdapter` packages.', 'The interesting surface is build-time subsetting, which spans `lynx-icons` and `lynx-plugin/src/icons.ts` (D5.4).'],
     },
     'lynx-emoji': {
         group: 'ui',

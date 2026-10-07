@@ -1,7 +1,7 @@
 {
     "name": "@sigx/lynx-icons",
     "version": "0.34.0",
-    "description": "Icon component and registry for sigx-lynx — works with adapter packages like @sigx/lynx-icons-fa-free and @sigx/lynx-icons-lucide.",
+    "description": "Icon component and registry for sigx-lynx — works with adapter packages like @sigx/lynx-icons-fa-free, @sigx/lynx-icons-lucide and @sigx/lynx-icons-mdi.",
     "type": "module",
     "sideEffects": [
         "./dist/Icon.js",
@@ -79,6 +79,7 @@
         "icon",
         "icons",
         "font-awesome",
-        "lucide"
+        "lucide",
+        "mdi"
     ]
 }

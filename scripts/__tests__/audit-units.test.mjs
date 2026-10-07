@@ -151,6 +151,7 @@ describe('renderBody', () => {
         const icons = renderBody(unit('lynx-icons'), 857);
         expect(icons).toContain('@sigx/lynx-icons-fa-free');
         expect(icons).toContain('@sigx/lynx-icons-lucide');
+        expect(icons).toContain('@sigx/lynx-icons-mdi');
     });
 
     it('states the showcase requirement according to the unit state', () => {

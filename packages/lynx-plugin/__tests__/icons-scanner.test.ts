@@ -93,6 +93,12 @@ describe('scanContent', () => {
             ]);
         });
 
+        it('matches MdiIcon → set "mdi" (digit segments included)', () => {
+            expect(scanContent('<MdiIcon name="battery-10" />')).toEqual([
+                { set: 'mdi', name: 'battery-10' },
+            ]);
+        });
+
         it('handles other attributes before name', () => {
             const src = '<FaSolidIcon size={24} variant="primary" name="user" />';
             expect(scanContent(src)).toEqual([{ set: 'fas', name: 'user' }]);

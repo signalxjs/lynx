@@ -24,8 +24,8 @@
  * **Patterns the scanner picks up (regex-based; not exhaustive):**
  * - `<Icon set="X" name="Y" />` — both attribute orders
  * - `<FaSolidIcon name="Y" />` / `<FaRegularIcon name="Y" />`
- *   / `<FaBrandIcon name="Y" />` / `<LucideIcon name="Y" />` — pinned
- *   components whose set id is hardcoded in their implementations. The
+ *   / `<FaBrandIcon name="Y" />` / `<LucideIcon name="Y" />`
+ *   / `<MdiIcon name="Y" />` — pinned components whose set id is hardcoded in their implementations. The
  *   set id mapping is in `PINNED_COMPONENTS` below.
  * - `{ set: 'X', name: 'Y' }` — `IconSpec` object literals anywhere
  *   (prop value, const declaration, function argument). Both key orders.
@@ -35,7 +35,7 @@
  *   `<FaSolidIcon name={someVar} />` — the scanner only matches literal
  *   string attributes. JSON-driven UIs and runtime-computed icon names
  *   need explicit force-includes (or `include: ['*']` for the whole catalog).
- * - User-defined pinned components — only the four built-in adapter
+ * - User-defined pinned components — only the built-in adapter
  *   pinned components are known to the scanner. A consumer who writes
  *   their own `<MyIcon name="…">` wrapper needs `include`.
  * - Spread props: `<Icon {...spec} />`. Niche; use `include` if needed.
@@ -56,8 +56,8 @@ const SCAN_REGEX_NAME_FIRST =
 
 /**
  * Known pinned per-set components exported by the workspace's adapter
- * packages — `@sigx/lynx-icons-fa-free/components` and
- * `@sigx/lynx-icons-lucide/components`. Each hardcodes its `set` id to
+ * packages — `@sigx/lynx-icons-fa-free/components`,
+ * `@sigx/lynx-icons-lucide/components` and `@sigx/lynx-icons-mdi/components`. Each hardcodes its `set` id to
  * the conventional value documented in the adapter's README; the
  * scanner mirrors that mapping so `<FaSolidIcon name="user" />` is
  * recognized as `set="fas", name="user"`.
@@ -73,6 +73,7 @@ const PINNED_COMPONENTS: Readonly<Record<string, string>> = {
     FaRegularIcon: 'far',
     FaBrandIcon: 'fab',
     LucideIcon: 'lucide',
+    MdiIcon: 'mdi',
 };
 
 const PINNED_COMPONENT_NAMES = Object.keys(PINNED_COMPONENTS).join('|');
@@ -149,6 +150,7 @@ export function scanContent(content: string): Array<{ set: string; name: string 
         && !content.includes('<FaRegularIcon')
         && !content.includes('<FaBrandIcon')
         && !content.includes('<LucideIcon')
+        && !content.includes('<MdiIcon')
         && !content.includes('set:')
     ) {
         return [];
