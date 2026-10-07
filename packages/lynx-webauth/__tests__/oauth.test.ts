@@ -1,7 +1,7 @@
 /**
- * Unit tests for the opt-in OAuth helpers. These are pure JS (no native
- * bridge), so they verify the frozen-standard behavior directly against
- * published test vectors.
+ * Unit tests for the opt-in OAuth helpers. Pure JS apart from the random
+ * bytes (mocked `SigxCore` where a test needs the native path), so they
+ * verify the frozen-standard behavior directly against published test vectors.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -110,6 +110,36 @@ describe('no CSPRNG in the runtime', () => {
         await expect(generatePKCE()).rejects.toThrow(
             /^\[@sigx\/lynx-webauth] generatePKCE failed:/,
         );
+    });
+});
+
+describe('native CSPRNG fallback (#1337)', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        delete (globalThis as Record<string, unknown>).NativeModules;
+    });
+
+    function mockSigxCore(): ReturnType<typeof vi.fn> {
+        // Stands in for DeviceInfoModule.getRandomBytes: base64 of `n` bytes.
+        const fn = vi.fn((n: number) => btoa(String.fromCharCode(...Array.from({ length: n }, () => 7))));
+        (globalThis as Record<string, unknown>).NativeModules = { SigxCore: { getRandomBytes: fn } };
+        return fn;
+    }
+
+    it('generatePKCE works without Web Crypto via SigxCore.getRandomBytes', async () => {
+        vi.stubGlobal('crypto', undefined);
+        const native = mockSigxCore();
+        const { verifier, challenge } = await generatePKCE();
+        expect(native).toHaveBeenCalledWith(32);
+        expect(verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
+        expect(challenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    });
+
+    it('generateState stays synchronous on the native path', () => {
+        vi.stubGlobal('crypto', undefined);
+        const native = mockSigxCore();
+        expect(generateState()).toMatch(/^[A-Za-z0-9_-]{22}$/);
+        expect(native).toHaveBeenCalledWith(16);
     });
 });
 

@@ -2,7 +2,8 @@
  * Opt-in OAuth helpers for `@sigx/lynx-webauth`.
  *
  * Deliberately scoped to the *frozen* parts of the spec — PKCE (RFC 7636),
- * `state` generation, and callback parsing — all pure JS with no native code.
+ * `state` generation, and callback parsing — pure JS apart from the random
+ * bytes, which come from `@sigx/lynx-core`'s `getRandomBytes`.
  * Token exchange, refresh, and OIDC discovery are intentionally **out of
  * scope**: they're provider-specific and churn-prone, so they belong in your
  * app (or a future opinionated package), not in this primitive.
@@ -15,7 +16,7 @@
  * ```
  */
 
-import { SigxError } from '@sigx/lynx-core';
+import { SigxError, getRandomBytes, isSigxError } from '@sigx/lynx-core';
 import { parse } from '@sigx/lynx-linking';
 
 import { sha256 } from './sha256.js';
@@ -25,9 +26,11 @@ const PKG = 'lynx-webauth';
 export interface RandomOptions {
     /**
      * Supply `length` cryptographically-random bytes. Defaults to
-     * `globalThis.crypto.getRandomValues`. Override in environments without a
-     * Web Crypto RNG (or in tests). There is **no** insecure fallback — a
-     * missing RNG throws rather than silently weakening the flow.
+     * `getRandomBytes` from `@sigx/lynx-core`: `crypto.getRandomValues` where
+     * the runtime has it, else the platform CSPRNG via core's native module
+     * (the Lynx BG thread has no Web Crypto on iOS). Override to use your own
+     * source (or in tests). There is **no** insecure fallback — a missing RNG
+     * throws rather than silently weakening the flow.
      */
     randomBytes?: (length: number) => Uint8Array;
 }
@@ -137,16 +140,19 @@ function base64url(bytes: Uint8Array): string {
 /** @param action the public helper that asked, so the message names it (C10). */
 function randomBytes(length: number, action: string, options: RandomOptions): Uint8Array {
     if (options.randomBytes) return options.randomBytes(length);
-    const c = (globalThis as { crypto?: Crypto }).crypto;
-    if (c && typeof c.getRandomValues === 'function') {
-        return c.getRandomValues(new Uint8Array(length));
+    try {
+        return getRandomBytes(length);
+    } catch (err) {
+        if (!isSigxError(err) || err.code !== 'no_random_source') throw err;
+        throw new SigxError(
+            PKG,
+            'no_random_source',
+            `[@sigx/${PKG}] ${action} failed: no secure random source is available in this ` +
+                'runtime (no crypto.getRandomValues, and the @sigx/lynx-core native CSPRNG is ' +
+                'missing or failed). Pass options.randomBytes with a CSPRNG.',
+            { cause: err },
+        );
     }
-    throw new SigxError(
-        PKG,
-        'no_random_source',
-        `[@sigx/${PKG}] ${action} failed: no secure random source (crypto.getRandomValues) is ` +
-            'available in this runtime. Pass options.randomBytes with a CSPRNG.',
-    );
 }
 
 function utf8Bytes(s: string): Uint8Array {
