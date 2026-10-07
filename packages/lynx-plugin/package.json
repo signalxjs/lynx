@@ -45,7 +45,7 @@
     "dependencies": {
         "@lynx-js/react": "catalog:",
         "@sigx/lynx-runtime-internal": "workspace:*",
-        "ws": "^8.20.1"
+        "ws": "^8.22.0"
     },
     "peerDependencies": {
         "@rspack/core": ">=1.0.0",
@@ -85,7 +85,7 @@
         "@sigx/lynx-cli": "workspace:*",
         "@sigx/lynx-icons": "workspace:*",
         "@types/node": "^25.9.1",
-        "@types/ws": "^8.5.13",
+        "@types/ws": "^8.18.2",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"
     },
