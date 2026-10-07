@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-permissions",
-    "version": "0.34.0",
+    "version": "0.35.0",
     "description": "Shared Android permission helper for sigx-lynx native modules",
     "type": "module",
     "sideEffects": false,

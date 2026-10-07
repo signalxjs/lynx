@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-icons-mdi",
-    "version": "0.34.0",
+    "version": "0.35.0",
     "description": "Material Design Icons (@mdi/js) adapter for @sigx/lynx-icons. SVG-mode only.",
     "type": "module",
     "sideEffects": false,
