@@ -58,7 +58,7 @@ export function normalizeWorkletScopes(scopes: readonly string[]): string[] {
   return scopes.map((raw) => {
     const scope = `@${raw.trim().replace(/^@/, '').replace(/\/$/, '')}`;
     if (!SCOPE_RE.test(scope)) {
-      throw new Error(`[sigx] invalid workletScopes entry ${JSON.stringify(raw)} — expected an npm scope like '@acme'`);
+      throw new Error(`[@sigx/lynx-plugin] invalid workletScopes entry ${JSON.stringify(raw)} — expected an npm scope like '@acme'`);
     }
     return scope;
   });
