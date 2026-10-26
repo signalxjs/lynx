@@ -17,6 +17,7 @@ import { createRequire } from 'node:module';
 import type { RsbuildPluginAPI } from '@rsbuild/core';
 
 import { LAYERS } from './layers.js';
+import { normalizeWorkletScopes } from './loaders/worklet-utils.js';
 
 /**
  * Directory of `@rspack/core/hot` for the rspack copy rspeedy runs:
@@ -544,6 +545,8 @@ export interface ApplyEntryOptions {
   debugInfoOutside?: boolean;
   /** Enable the snapshot-template transform in both worklet loaders (#620). */
   snapshots?: boolean;
+  /** Extra package scopes the MT loader follows imports into (#1343). */
+  workletScopes?: string[];
 }
 
 /**
@@ -1273,7 +1276,10 @@ export async function applyEntry(
       .enforce('pre')
       .use('sigx-worklet-mt-loader')
         .loader(path.resolve(_dirname, './loaders/worklet-loader-mt'))
-        .options({ snapshots: opts.snapshots === true })
+        .options({
+          snapshots: opts.snapshots === true,
+          workletScopes: normalizeWorkletScopes(opts.workletScopes ?? []),
+        })
         .end();
 
     // Every main-thread module has side effects, whatever its package says.

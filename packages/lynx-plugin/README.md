@@ -202,6 +202,21 @@ patches. Measured ~25–30x cheaper cell construction on release builds.
 - **App/workspace-src only.** Published dists ship pre-lowered `_jsx()` calls
   and keep the per-element path.
 
+## Workspace packages under your own scope
+
+The main-thread bundle drops every module body and follows only relative and
+`@sigx/*` imports to find `'main thread'` worklets. If your app imports a
+workspace package under another scope that contains worklets (its own, or
+`@sigx/*` components such as `@sigx/lynx-zero`), list that scope:
+
+```ts
+pluginSigxLynx({ workletScopes: ['@acme'] })
+```
+
+Otherwise those worklets are compiled into the background bundle but never
+registered on the main thread, and the build fails with
+`[sigx] N worklet(s) were compiled into the background bundle but never registered on the main thread`.
+
 ## Limitations
 
 - **Custom worklet bodies require `'main thread'` directives.** Worklets aren't auto-detected from JSX shape; the directive is the marker.
