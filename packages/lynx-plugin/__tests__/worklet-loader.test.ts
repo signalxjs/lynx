@@ -13,10 +13,12 @@
 import { describe, it, expect } from 'vitest';
 import workletLoader from '../src/loaders/worklet-loader';
 import workletLoaderMT from '../src/loaders/worklet-loader-mt';
+import { normalizeWorkletScopes } from '../src/loaders/worklet-utils';
 
-function createCtx(resourcePath: string) {
+function createCtx(resourcePath: string, options?: Record<string, unknown>) {
   return {
     resourcePath,
+    ...(options ? { getOptions: () => options } : {}),
     cacheable: () => {},
     emitError: (e: Error) => { throw e; },
   } as any;
@@ -156,6 +158,31 @@ describe('worklet-loader-mt (MT)', () => {
     expect(out).toContain(`import '@sigx/gestures';`);
     // Non-@sigx packages stay dropped.
     expect(out).not.toContain(`import 'react';`);
+  });
+
+  it('preserves imports under extra workletScopes (#1343)', () => {
+    const source = `
+      import { JsDatePickerHost } from '@pnails/mobile';
+      import '@pnails/ui/button';
+      import { x } from '@pnailsx/other';
+      import { y } from '@acme/lib';
+      export const x = 1;
+    `;
+    const out = workletLoaderMT.call(
+      createCtx('/app/src/component.tsx', { workletScopes: ['@pnails'] }),
+      source,
+    );
+    expect(out).toContain(`import '@pnails/mobile';`);
+    expect(out).toContain(`import '@pnails/ui/button';`);
+    // Exact scope match only, and unlisted scopes stay dropped.
+    expect(out).not.toContain('@pnailsx/other');
+    expect(out).not.toContain('@acme/lib');
+  });
+
+  it('normalizes workletScopes and rejects invalid entries', () => {
+    expect(normalizeWorkletScopes(['@pnails', 'acme', '@my.org/'])).toEqual(['@pnails', '@acme', '@my.org']);
+    expect(() => normalizeWorkletScopes(['@a/b'])).toThrow(/invalid workletScopes/);
+    expect(() => normalizeWorkletScopes([''])).toThrow(/invalid workletScopes/);
   });
 
   it('emits a registerWorkletInternal call for each worklet', () => {

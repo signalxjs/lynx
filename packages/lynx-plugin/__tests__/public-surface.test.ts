@@ -90,6 +90,7 @@ describe('public types', () => {
             debugInfoOutside?: boolean;
             snapshots?: boolean;
             web?: boolean;
+            workletScopes?: string[];
         }>();
     });
 

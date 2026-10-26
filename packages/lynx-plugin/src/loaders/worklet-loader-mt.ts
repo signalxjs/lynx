@@ -146,7 +146,10 @@ export default function workletLoaderMT(
 ): string {
   this.cacheable(true);
 
-  const { snapshots = false } = (this.getOptions?.() ?? {}) as { snapshots?: boolean };
+  const { snapshots = false, workletScopes = [] } = (this.getOptions?.() ?? {}) as {
+    snapshots?: boolean;
+    workletScopes?: string[];
+  };
   const isLibrary = LIBRARY_PATH_RE.test(this.resourcePath);
   // Snapshot lowering: app/workspace-src JSX files only, minus constructs the
   // pass can't lower (see the BG loader — the gates MUST match or the two
@@ -155,7 +158,7 @@ export default function workletLoaderMT(
     && JSXISH_EXT_RE.test(this.resourcePath)
     && !SNAPSHOT_UNSUPPORTED_RE.test(source);
 
-  const localImports = extractLocalImports(source);
+  const localImports = extractLocalImports(source, workletScopes);
 
   if (!DIRECTIVE_RE.test(source) && !wantSnapshot) {
     if (isLibrary) {

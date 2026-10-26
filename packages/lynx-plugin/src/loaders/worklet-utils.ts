@@ -47,6 +47,31 @@ export const MT_DEFINES = {
   __BACKGROUND__: 'false',
 } as const;
 
+const SCOPE_RE = /^@[a-z0-9][a-z0-9._~-]*$/;
+
+/**
+ * Normalize user-supplied scopes (`'@pnails'`, `'pnails'`, `'@pnails/'`) to
+ * bare `@scope` form. Throws on anything that isn't a valid npm scope so a
+ * typo fails the build loudly instead of silently dropping worklets.
+ */
+export function normalizeWorkletScopes(scopes: readonly string[]): string[] {
+  return scopes.map((raw) => {
+    const scope = `@${raw.trim().replace(/^@/, '').replace(/\/$/, '')}`;
+    if (!SCOPE_RE.test(scope)) {
+      throw new Error(`[@sigx/lynx-plugin] invalid workletScopes entry ${JSON.stringify(raw)} — expected an npm scope like '@acme'`);
+    }
+    return scope;
+  });
+}
+
+function scopedImportRe(extraScopes: readonly string[]): RegExp {
+  const scopes = ['@sigx', ...extraScopes].map((s) => s.replace(/[.]/g, '\\.'));
+  return new RegExp(
+    `(?:from|import)\\s+['"]((?:\\.[^'"]+)|(?:(?:${scopes.join('|')})\\/[^'"]+))['"]`,
+    'g',
+  );
+}
+
 /**
  * Extract import statements whose target may contain `'main thread'` worklets
  * the MT bundle needs to register.
@@ -57,6 +82,8 @@ export const MT_DEFINES = {
  *     `@sigx/gestures` that ship `<Pressable>`/`<Draggable>` etc. These resolve
  *     to workspace `src/` (not node_modules) so the MT loader's rule still
  *     processes them; we just need to preserve the edge so rspack walks there.
+ *     Apps add their own workspace scopes via the plugin's `workletScopes`
+ *     option (#1343), passed here as `extraScopes`.
  *
  * Converts named/default/namespace imports to side-effect-only imports
  * (`import '@sigx/gestures';`) so webpack still follows the dependency graph
@@ -69,7 +96,10 @@ export const MT_DEFINES = {
  * would throw "cannot read property bind of undefined" when the unregistered
  * _wkltId is looked up in `lynxWorkletImpl._workletMap`.
  */
-export function extractLocalImports(source: string): string {
+export function extractLocalImports(
+  source: string,
+  extraScopes: readonly string[] = [],
+): string {
   // Strip line and block comments so docstring examples like
   // `* import X from './foo'` don't get parsed as real imports.
   // String contents are left intact (we still catch `import './foo'` inside
@@ -82,8 +112,8 @@ export function extractLocalImports(source: string): string {
 
   const specifiers = new Set<string>();
 
-  // Relative paths (./foo, ../bar) and @sigx/* package paths.
-  const re = /(?:from|import)\s+['"]((?:\.[^'"]+)|(?:@sigx\/[^'"]+))['"]/g;
+  // Relative paths (./foo, ../bar) and @sigx/* (+ extra scope) package paths.
+  const re = scopedImportRe(extraScopes);
   let match: RegExpExecArray | null;
   while ((match = re.exec(stripped)) !== null) {
     specifiers.add(match[1]!);

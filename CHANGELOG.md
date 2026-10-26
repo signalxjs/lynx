@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **`@sigx/lynx-plugin`: `workletScopes` option** ([#1343](https://github.com/signalxjs/lynx/issues/1343)). The main-thread loader followed only relative and `@sigx/*` imports, so worklets in a workspace package under another scope (for example `@acme/mobile` wrapping `@sigx/lynx-zero` components) were never registered on the main thread, and the build failed the worklet guard. `pluginSigxLynx({ workletScopes: ['@acme'] })` makes the main-thread bundle follow imports under those scopes too. An entry that isn't a valid npm scope fails the build.
+
 ## [0.35.0] - 2026-10-07
 
 ### Added

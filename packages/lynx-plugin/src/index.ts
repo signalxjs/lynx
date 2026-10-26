@@ -239,6 +239,18 @@ export interface PluginSigxLynxOptions {
    * @defaultValue true
    */
   web?: boolean;
+
+  /**
+   * Extra package scopes whose imports the main-thread bundle follows, on
+   * top of `@sigx` (#1343). The MT layer drops every module body and keeps
+   * only relative and `@sigx/*` import edges, so a workspace package under
+   * another scope (say `@acme/ui`) that contains `'main thread'` worklets —
+   * its own, or ones it pulls in from `@sigx/*` — never gets its worklets
+   * registered, and the build fails the worklet guard. List those scopes
+   * here: `workletScopes: ['@acme']`.
+   * @defaultValue []
+   */
+  workletScopes?: string[];
 }
 
 /**
@@ -260,6 +272,7 @@ export function pluginSigxLynx(
     debugInfoOutside: _debugInfoOutside = true,
     snapshots: _snapshots = true,
     web: _web = true,
+    workletScopes: _workletScopes = [],
   } = options;
 
   return {
@@ -705,6 +718,7 @@ export function pluginSigxLynx(
         enableElementApiNewRegistration: _enableElementApiNewRegistration,
         enableCSSRule: _enableCSSRule,
         snapshots: _snapshots,
+        workletScopes: _workletScopes,
       });
 
       // Wire @sigx/lynx-icons — reads iconSets from signalx.config.ts,
